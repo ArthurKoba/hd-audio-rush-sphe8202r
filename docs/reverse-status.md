@@ -33,6 +33,9 @@ Do not stack broad auto-analysis or hardware-control conclusions on this inconsi
 - S/PDIF output selection is now instruction-level confirmed through the control-descriptor layer. `ResolveControlIdToGroupSlot(0x71)` resolves group 2 / slot 1; its 13-byte descriptor at `0x80707FA3` is `03 71 12 75 77 00 00 00 00 00 00 0B 00`, where option IDs `0x12/0x75/0x77` map through the corrected translation table to `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`. `DispatchControlOption(controlId, optionId, sideEffects)` dispatches control `0x71` to `ApplySpdifOutputOption(optionId)`.
 - `ApplySpdifOutputOption` at `0x807759E0` has explicit branches for OFF/RAW/PCM. RAW (`0x75`) selects internal mode 2; PCM (`0x77`) selects internal mode 1; OFF (`0x12`) clears/reconfigures the path. `IsSpdifPcmSelected` at `0x8077C21C` tests the selected descriptor option against `0x77`.
 - Control `0x71` descriptor state slot is `0x0B`, so its selection index is mirrored through `DAT_80006810[0x0B] = 0x8000681B`. `LoadControlSelectionsFromStateSlots` and `SaveControlSelectionsToStateSlots` synchronize these state slots with the generic selection table at `0x800066B0 + group*9 + slot`. Ghidra type `ControlOptionDescriptor` (13 bytes) is applied to `0x80707FA3` with only evidence-backed fields named.
+- S/PDIF input selection is now statically recovered. AP1 external-input subsource selector `0x800032FA` maps `1 -> AUXIN`, `2 -> SPDIF IN`, and the non-AUX/non-SPDIF branch to `TUNER`; the mapping is instruction-backed by the source-status renderer at `0x8071E428..0x8071E4EC` using strings `AUXIN` (`0x8070B4D4`), `SPDIF IN` (`0x8070B4A0`), and `TUNER` (`0x8070B4AC`).
+- `ToggleTunerSpdifInput` at `0x806FB920` toggles selector `0x800032FA` strictly `0 <-> 2`, giving a concrete TUNER/SPDIF setter. `FUN_806FED18` also writes selector `1` or `2` in a broader external-input transition path; its broader semantics remain unnamed.
+- Source dispatcher state `gp+0x7A5 = 0x800032A5` indexes a 9-entry handler table at `0x8070B4E0`; handler table analysis is in progress. Index 1 is confirmed USB because its handler path reaches the `USB` string at `0x8070B504`.
 - AP1 contains S/PDIF/audio-status strings. Stable file offsets include `SPDIF/OFF` at `0x5EDC8`, `SPDIF/RAW` at `0x5F0AC`, `SPDIF/PCM` at `0x5F0B8`, and `SPDIF IN` at `0x8FCA0`. Their old Ghidra listing addresses are not confirmed runtime addresses.
 - CDROM `0x8074C800` maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`, with encoded calls to `0x80701A44` and conditionally `0x807017A8`. Its shared state access is `gp+0x774 = 0x80003274`; stored call references at `0x8074C838/0x8074C850` are wrong.
 - CDROM classifier `0x8074C868` has an AC3-syncword branch returning `0xAC3`. Its caller at `0x8074CB2C`, now named `InitializeCdromPackedStream`, stores internal mode `3` for that result, mode `0` for `-1`, and modes `1/2` for the other two classifier results. The initializer returns the original classifier result, not the stored byte mode.
@@ -56,7 +59,7 @@ Earlier notes identified shared audio-mode writes through `gp+0x774` and `gp+0x7
 ## Unknown / remaining validation
 
 - Corrected AP1 analysis, clean direct-flow references, remaining indirect/data references and module import/export tables.
-- Board init, S/PDIF input selection, volume/mute, USB and the SPHE <-> secondary transport. S/PDIF OFF/RAW/PCM selection is statically recovered; hardware behavior remains unvalidated.
+- Board init, volume/mute, USB and the SPHE <-> secondary transport. S/PDIF input selection and S/PDIF OFF/RAW/PCM output selection are statically recovered; hardware behavior remains unvalidated.
 - Exact SDRAM part/vendor/density and STK `32M` unit; public SKU behind `AK24BP24230`.
 - Secondary flash ID/size, physical USB download route and safe recovery path.
 - Exact TOSLINK/coax -> decode -> six-channel analog signal path; HCF4052/74HC04D routing and USB pad pinout.
@@ -83,6 +86,13 @@ Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 
 - `tools/ghidra/RepairMipsDirectFlow.java` is a guarded metadata-repair source, audit-only by default. Source commit `3688a523` is recoverable; execution/application validation is absent. The audit snapshot is not a promise that parallel analysis cannot change counts.
 - Decompile calls used a five-second timeout. Inline read-only audit loops had a four-second execution budget; most MCP methods expose no caller-controlled transport timeout. No full auto-analysis was launched in this pass.
 - No firmware bytes patched, no flash writes, no PR, no secondary-controller reverse expansion.
+
+## Coverage snapshot — 2026-09-21
+
+- Ghidra function inventory across `ap1/wma/cdrom/drv_other`: **4004 functions**.
+- Functions still carrying default `FUN_*` names: **3975**; semantic/non-`FUN_*` naming coverage is therefore **29/4004 = 0.72%**. This measures naming coverage only, not understanding of every analyzed function.
+- Issue #9 checklist coverage after static S/PDIF input + RAW/PCM recovery: **7/22 = 31.8%** overall. By scope: address model **3/7 = 42.9%**, control surfaces **3/8 = 37.5%**, firmware construction **1/7 = 14.3%**.
+- Validation level remains static/source analysis. No hardware acceptance is implied by these percentages.
 
 ## Active work
 
