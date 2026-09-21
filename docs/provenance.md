@@ -53,8 +53,8 @@ The rev-8203R executable is the build confirmed to recognize and unpack this tar
 
 ### UART evidence
 
-- capture: `evidence/uart/ac695n-boot.log`
-- contains AC695N/BR23 build-path and runtime audio/volume/SPDIF messages
+- capture: `evidence/uart/ac695n-boot-excerpt.log`
+- curated excerpt contains AC695N/BR23 build-path and runtime audio/volume/SPDIF messages; a raw byte-for-byte UART capture has not yet been archived
 
 ## Derived state
 

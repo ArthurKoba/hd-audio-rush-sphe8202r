@@ -5,9 +5,9 @@ Physical package marking recorded from the board:
 
 No exact public part number has yet been proven from that marking alone.
 
-## Captured firmware log
+## Captured firmware log excerpt
 
-A UART capture from the device contains source/build strings from a JieLi AC69xx soundbox codebase, including:
+A user-supplied UART capture excerpt from the device contains source/build strings from a JieLi AC69xx soundbox codebase, including:
 
 `E:\Project\AC69XX\Software\AC695N_soundbox_sdk_release_3.1.0_LineIn_IIS\SDK\apps\soundbox\board\br23\board_ac695x_demo\board_ac695x_demo.c`
 
