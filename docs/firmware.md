@@ -97,6 +97,11 @@ The earlier SCORE7 experiment was useful for rejecting a flat-image interpretati
 - PCM
 - USB / SD status
 
+Confirmed addresses in `ap1.bin`:
+- `0x806DA0AC` — `SPDIF/RAW`;
+- `0x806DA0B8` — `SPDIF/PCM` (present in raw bytes even though Ghidra's string analyzer did not auto-define it);
+- runtime audio-status pool at `0x8070AC00..0x8070AD07` includes `DTS %d K %d K`, `NO SIGNAL`, `PCM %d K`, `AC3 %d K %d K`, `DVD`, `SPDIF IN`, `TUNER`, `AUXIN`, `MIC` and `USB`.
+
 These are static firmware anchors, not PCB-routing proof.
 
 ## Secondary BR23 / AC695N side
