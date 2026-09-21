@@ -1,5 +1,5 @@
 module,size,isa,image_base,status
-ap1.bin,684192,MIPS32_LE,0x8067B800,static_candidate_ghidra_rebase_pending
+ap1.bin,684192,MIPS32_LE,0x8067B800,confirmed_base_ghidra_rebased_stale_flow_refs_pending
 drv_other.bin,301072,MIPS32_LE,0x80775800,confirmed
 rom12.bin,82528,nonlinear_or_data,,confirmed_not_linear_mips
 cdrom.bin,63264,MIPS32_LE,0x8074C800,confirmed
