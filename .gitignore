@@ -8,6 +8,9 @@ ghidra_projects/
 reverse/work/
 reverse/tmp/
 
+# Generated materialized firmware
+build/
+
 # Tool/vendor installations
 tools/vendor/
 tools/cache/
