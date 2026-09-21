@@ -47,6 +47,12 @@ Hashes are documented in the root `README.md`; do not add parallel checksum mani
 - Prioritize boot/update/control/audio/inter-chip contracts over unrelated library code.
 - Preserve known-good state; no modified flash writes until recovery, packing/integrity and rollback are proven.
 
+## Repository workflow
+
+For this repository, routine reverse-engineering, research notes, issue maintenance, and documentation changes may be committed directly to `main`.
+
+Do not create pull requests for ordinary work unless the user explicitly asks for one or the change is genuinely high-risk/destructive enough to justify an independent merge gate.
+
 ## Repository policy
 
 Keep the tree small. Prefer updating `README.md`, `docs/hardware.md`, `docs/firmware.md`, `docs/reverse-status.md`, or the issue tracker over creating another narrow README/status/plan file.
