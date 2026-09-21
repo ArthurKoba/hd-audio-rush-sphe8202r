@@ -1,0 +1,54 @@
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         setup_arch Feb 12 2023 14:40:24
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--P3 Reset Source : 0x2
+VDDIO LVD
+[Info]: [SDFILE]VM size: 0x2a000 @ 0x53000
+[Info]: [SDFILE]disk capacity 1024 KB
+last file_addr:51fc3 49d
+end_addr:53000
+
+22 80 FF FF FF FF FF FF 75 5C BC 8C 4B 36 26 00
+[Debug]: [SDFILE]sdfile mount succ
+[Info]: [BOARD]Power init : E:\Project\AC69XX\Software\AC695N_soundbox_sdk_release_3.1.0_LineIn_IIS\SDK\apps\soundbox\board\br23\board_ac695x_demo\board_ac695x_demo.c
+wvdd_lev: 5
+vbat_adc_value = 354
+vbg_adc_value = 359
+[Info]: [USER_CFG]read new cfg bt name config:jl_soundbox_lihui
+[Info]: [USER_CFG]bt name config:jl_soundbox_lihui
+[Info]: [USER_CFG]read new cfg ble name config:jl_soundbox_ble_lihui
+[Info]: [USER_CFG]ble name config:jl_soundbox_ble_lihui
+[Info]: [USER_CFG]rf config:7
+[Info]: [USER_CFG]ble rf config:10
+[Info]: [USER_CFG]aec_cfg mic_gain:3 dac_gain:22
+[Info]: [USER_CFG]app audio_config:
+01 1F 19 19
+[Info]: [USER_CFG]max vol:31 default vol:25 tone vol:25
+[Info]: [USER_CFG]usb_mic_gain: 7
+[Info]: [USER_CFG]max vol:31 default vol:25 tone vol:25 vol_sync:102
+[Info]: [USER_CFG]warning_tone_v:340 poweroff_tone_v:330
+[Info]: [USER_CFG]read new cfg auto time 3
+[Info]: [USER_CFG]auto_off_time:180
+UserUartInit success
+------------timer2_init :119
+PRD : 0x0 / 0
+audio_enc_init
+audio_dec_init
+[Info]: [AUDIO-DAC]audio_dac_init
+ALINK_SR = 44100
+pcm
+--func=spdif_dec_start
+[Info]: [APP-UPDATE]<--------update_result_deal=0x5a00 0--------->
+[Info]: [APP]app_main
+[Info]: [APP]APP_POWERON_TASK
+[Info]: [APP_IDLE]power_on_init
+[Info]: [APP_IDLE]APP_LINEIN_TASK
+cur --- 1
+new +++ 7
+[Info]: [APP]APP_LINEIN_TASK
+[Info]: [APP_LINEIN]linein_bt_back_flag == 0 linein_last_onoff = 255
+[Info]: [APP_LINEIN]key_event:276
+ladc_ch_num[2],[3]
+-------------linein->channel_num:2 ----------
+[Info]: [APP_AUDIO]VOL_SAVE
