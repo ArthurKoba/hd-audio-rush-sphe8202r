@@ -1,0 +1,10 @@
+module,size,isa,image_base,status
+ap1.bin,684192,MIPS32_LE,0x8067B000,confirmed
+drv_other.bin,301072,MIPS32_LE,0x80782000,provisional
+rom12.bin,82528,nonlinear_or_data,,confirmed_not_linear_mips
+cdrom.bin,63264,MIPS32_LE,0x80754000,provisional
+wma.bin,51308,MIPS32_LE,0x8073F000,provisional
+jpeg.bin,38816,data_tables,,confirmed_not_linear_mips
+iop.bin,1424,microcode_unknown,,provisional
+srvdsp.bin,1128,microcode_unknown,,provisional
+iop_rst.bin,712,microcode_unknown,,provisional

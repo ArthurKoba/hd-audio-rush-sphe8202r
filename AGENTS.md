@@ -1,59 +1,43 @@
 # AGENTS.md
 
-Mandatory local map for work in this repository.
+Mandatory local map for this reverse-engineering repository.
 
-## Authority
+## Read first
 
-This repository is the durable source of truth for the HD Audio Rush / SPHE8202R reverse-engineering effort. Chat history is not authoritative when repository evidence exists.
-
-Read, in order:
 1. `README.md`
 2. `docs/reverse-status.md`
-3. the task-specific document under `docs/`
+3. `docs/hardware.md` or `docs/firmware.md` for the active task
 4. the universal hardware-reverse skill from `ArthurKoba/ai-agent-workflow`
-
-## Repository roles
-
-- `main`: canonical reviewed documentation, reverse-engineering source, and preserved binary evidence.
-- normal working branches: implementation/reverse/documentation changes before review.
-- Binary evidence is stored in-tree at the paths documented below; do not maintain a parallel evidence branch.
-
-Artifact identity is defined by exact path, byte size and SHA-256.
 
 ## Evidence rules
 
-Use these states explicitly:
-- **CONFIRMED** — directly supported by a dump, disassembly, continuity measurement, UART/runtime output, silkscreen/marking, or reproducible tool result.
-- **LIKELY** — supported by multiple clues but not yet directly proven on this board.
-- **UNKNOWN** — material question with insufficient evidence.
-- **CONTRADICTION** — two authoritative observations disagree; do not silently pick one.
+Use explicit evidence states:
+- **CONFIRMED** — target dump/disassembly, package marking, archived UART/runtime output, continuity/scope measurement, or another reproducible target result.
+- **LIKELY** — multiple clues support it but target proof is incomplete.
+- **UNKNOWN** — insufficient evidence.
+- **CONTRADICTION** — authoritative observations disagree.
 
-Do not promote SoC capability into board implementation. A datasheet saying a block exists is not proof that this PCB routes or uses it.
+Datasheet capability is not PCB routing proof.
 
-## Reverse workflow
+## Canonical artifacts
 
-- Preserve stock artifacts byte-for-byte. Record SHA-256 before analysis.
-- Prefer one canonical Ghidra project per binary/module set.
+- raw SPI dump: `firmware/P25D80SH@SOP8.BIN`
+- STK-extracted modules: `firmware/modules/`
+- STK archive: `tools/STK_0.2.3.zip`
+- UART excerpt: `evidence/ac695n-boot-excerpt.log`
+- module/load map: `reverse/modules.csv`
+
+Hashes are documented in the root `README.md`; do not add parallel checksum manifests unless a real automation need appears.
+
+## Reverse rules
+
+- Never modify the raw dump or extracted module files in place.
+- Do not analyze the 1 MiB dump as one flat executable; unpacked CPU modules are the correct static-analysis inputs.
+- Main CPU modules are currently MIPS32 little-endian; SCORE7 is not the active assumption for `ap1/cdrom/drv_other/wma`.
+- Keep load-address assumptions explicit before analysis.
 - Critical conclusions require instruction-level or runtime/physical evidence, not decompiler output alone.
-- Keep module load addresses and ISA assumptions documented before auto-analysis.
-- Never auto-analyze the packed 1 MiB stock image as one flat executable.
-- Preserve known-good firmware and keep write/erase experiments separate from read-only analysis.
-- Hardware experiments follow: baseline -> action -> observation -> rollback -> postcondition.
+- Preserve known-good state; no modified flash writes until recovery, packing/integrity and rollback are proven.
 
 ## Repository policy
 
-- Changes go through a working branch and review for substantial updates.
-- Do not commit credentials, machine-specific paths, or private infrastructure details.
-- Target firmware artifacts belong under `firmware/stock/` and `firmware/extracted/`.
-- Preserved third-party reverse-engineering tools belong under `tools/vendor/` with provenance and hashes.
-- Ghidra project databases are not source files; commit scripts, maps, notes and reproducible import parameters instead.
-- Record unresolved contradictions in `docs/reverse-status.md`.
-
-## Current canonical targets
-
-- Board: `SPHE8202RD_SPDIF_V02`
-- Primary stock dump: `firmware/stock/P25D80SH@SOP8.BIN`
-- STK extraction archive: `firmware/extracted/modules.tar`
-- Extracted modules: `firmware/extracted/modules/`
-- Main application module: `firmware/extracted/modules/ap1.bin`
-- Sunplus STK archive: `tools/vendor/sunplus-stk/STK Sunplus Tool Kits 0.2.3.zip`
+Keep the tree small. Prefer updating `README.md`, `docs/hardware.md`, `docs/firmware.md`, `docs/reverse-status.md`, or the issue tracker over creating another narrow README/status/plan file.

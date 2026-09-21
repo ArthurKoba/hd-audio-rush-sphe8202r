@@ -1,83 +1,103 @@
-# Firmware architecture
+# Firmware
 
-## Stock SPI dump
+## Raw SPI dump
 
-Canonical binary:
-`firmware/stock/P25D80SH@SOP8.BIN`
+`firmware/P25D80SH@SOP8.BIN` is a **raw byte-for-byte dump** of the Puya P25D80SH SPI NOR from the target board.
 
-Size: 1,048,576 bytes  
-SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
+- size: 1,048,576 bytes
+- SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
 
-The image is a Sunplus firmware container. It should not be treated as one raw executable.
+It is a Sunplus firmware container, not one flat CPU executable.
 
-## STK observations
+## Sunplus STK
 
-Canonical tool archive:
-`tools/vendor/sunplus-stk/STK Sunplus Tool Kits 0.2.3.zip`
+Tool archive: `tools/STK_0.2.3.zip`
 
-The rev-8203R STK executable successfully recognizes and unpacks the image.
+The rev-8203R build successfully opens the dump and extracts the firmware modules.
 
-Observed GUI metadata:
+Observed metadata:
 - version: `02R-D-02`
 - ROM required: `1M`
 - customer ID: `SUNPLUS`
-- SoC profile displayed: `SPHE8203R`
+- displayed SoC profile: `SPHE8203R`
 - SDRAM: `32M`
 - SDRAM bus: 16-bit, non-shared
 - Host USB 2.0: supported
 - module slots: 18
-- password shown by STK: `5168`
+- password: `5168`
 
-The displayed SPHE8203R profile conflicts with the physical SPHE8202R marking and remains unresolved.
+The displayed `SPHE8203R` conflicts with the physical `SPHE8202R` package marking. Keep this contradiction open.
 
 ## Extracted modules
 
-Canonical extraction archive:
-`firmware/extracted/modules.tar`
+The already-extracted files are stored directly in `firmware/modules/`; there is intentionally no duplicate tar archive.
 
-Materialized modules:
-`firmware/extracted/modules/`
+CPU/code classification:
+- `ap1.bin` — main MIPS32 LE application
+- `drv_other.bin` — MIPS32 LE driver/auxiliary code
+- `cdrom.bin` — MIPS32 LE module
+- `wma.bin` — MIPS32 LE WMA-related module
+- `rom12.bin` — container/config/resource-like, not a linear MIPS image
+- `jpeg.bin` — data/tables
+- `iop.bin`, `iop_rst.bin`, `srvdsp.bin` — auxiliary microcode/specialized image candidates
 
-Archive SHA-256:
-`542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
+Zero-length module slots are retained because STK produced an 18-slot set.
 
-| Module | Bytes | SHA-256 | Current classification |
-|---|---:|---|---|
-| ap1.bin | 684192 | 3ccee96ffeb5a8668f055ce97b59fe65084d4f28d47286ee63dd21c4bd96047b | main MIPS32 LE application |
-| drv_other.bin | 301072 | e9463f81093a43990c39ca39555d2742f29ebb2fe7fc7ca7e8eac0b694de6451 | MIPS32 LE driver/auxiliary code |
-| rom12.bin | 82528 | 6747dadb731d13fdd17ba29121e9267ccc221fdfd7f7337df19d6f6c89c4e52f | container/config/resource-like; not linear MIPS |
-| cdrom.bin | 63264 | 476368446103ddeb3e067ec556472e7d2e18d68e6da2ce7911a539661f6f3b61 | MIPS32 LE module |
-| wma.bin | 51308 | 8fd9d673b847b6764e8bd52888a86f42f040c0c07a141b9c3384f503eae8f26f | MIPS32 LE WMA-related module |
-| jpeg.bin | 38816 | 466487578636c97949f1abf6a752279df98a80c51f3a8c38645db6181bc0a9ee | JPEG tables/resources |
-| iop.bin | 1424 | f2bc8ee705fb723710998a452617facc12a7d044626cdce45a0e18c7f8afffca | IOP/special microcode candidate |
-| srvdsp.bin | 1128 | f1c1cd85a647e3669f8bd39ccb75e53ec84a7d6951d17565207155d3e0457d12 | servo/DSP microcode candidate |
-| iop_rst.bin | 712 | b1e9ecc0240a767f12b1f8cb544f1747d5fe85a8d0e11a5caf7bec1990a0e373 | IOP reset microcode candidate |
+Exact sizes and SHA-256 values are kept once, in the root `README.md`.
 
-Zero-length module slots:
-`dvd.bin`, `dvd_ipod.bin`, `free.bin`, `mp4.bin`, `mpeg.bin`, `rom3.bin`, `ap2.bin`, `ap3.bin`, `dvb.bin`.
+## Ghidra
 
-## Load-address work
+Canonical MCP-side project used during initial analysis: `sphe8202r_decoder_p25d80`.
+
+Correct workflow:
+1. preserve the raw dump;
+2. use the extracted module files;
+3. import CPU modules separately as `MIPS:LE:32:default`;
+4. establish image base / GP assumptions;
+5. then run analysis.
+
+Current module map is in `reverse/modules.csv`.
 
 Confirmed:
-- `ap1.bin` -> `0x8067B000`
+- `ap1.bin` base `0x8067B000`
+- coherent MIPS function/call flow after rebase
 
-Provisional, to be validated by multiple internal references:
-- `wma.bin` -> `0x8073F000`
-- `cdrom.bin` -> `0x80754000`
-- `drv_other.bin` -> `0x80782000`
+Provisional:
+- `wma.bin` ~`0x8073F000`
+- `cdrom.bin` ~`0x80754000`
+- `drv_other.bin` ~`0x80782000`
 
-## Feature strings found in ap1
+The earlier SCORE7 experiment was useful for rejecting a flat-image interpretation; it is not the active ISA for the primary application modules.
 
-Examples include:
+## Firmware anchors
+
+`ap1.bin` contains strings for:
 - `SPDIF/OFF`
 - `SPDIF/RAW`
 - `SPDIF/PCM`
 - `SPDIF IN`
 - `AUDIO OUT`
 - `AUDIO SETUP`
-- `DTS`
-- `PCM`
-- `AC3`
-- USB/SD status strings
+- AC3
+- DTS
+- PCM
+- USB / SD status
 
-These are useful reverse anchors, not proof of board routing.
+These are static firmware anchors, not PCB-routing proof.
+
+## Secondary controller evidence
+
+`evidence/ac695n-boot-excerpt.log` is a curated excerpt from the UART output of the secondary-controller side.
+
+It contains:
+- `AC695N_soundbox_sdk_release_3.1.0_LineIn_IIS`
+- BR23 / `board_ac695x_demo`
+- `jl_soundbox_lihui`
+- `audio_enc_init`
+- `audio_dec_init`
+- `audio_dac_init`
+- `ALINK_SR = 44100`
+- `spdif_dec_start`
+- max/default volume configuration and `VOL_SAVE`
+
+This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exact public SKU behind `AK24BP24230`, its internal-flash dump path and the inter-chip protocol remain open.
