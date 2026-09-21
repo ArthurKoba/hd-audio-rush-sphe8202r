@@ -72,6 +72,11 @@ The 684,192 original AP1 bytes in Ghidra were hashed again and match the canonic
 
 The cross-module entry offset is **`0x86244`**, correcting `0x85A44` in an earlier issue comment. Individual literal-pointer matches alone are not proof. Independent code evidence supports the candidate, but a corrected Ghidra model, remaining layout/loader checks and recovered function boundaries are still required.
 
+Further raw-pointer checks:
+- file `+0x615D0` stores `0x806DA5C8`; with base `0x8067B800` this points exactly to `SPDIF/OFF` at file `+0x5EDC8`, while `0x8067B000` points into unrelated bytes;
+- `SPDIF/RAW`/`SPDIF/PCM` candidate addresses `0x806DA8AC/0x806DA8B8` are referenced repeatedly from localized pointer blocks at file offsets `+0x6175C/+0x61764`, `+0x61F64/+0x61F6C`, `+0x62368/+0x62370`, `+0x6276C/+0x62774`, and `+0x62B70/+0x62B78`;
+- the old Ghidra interpretation using file `+0x61180` (`0x806DA0AC/0x806DA0B8`) and outer file `+0x62964` is invalid under the candidate placement: those targets resolve into unrelated language-text data. Any prior RAW/PCM menu-setter conclusions based on that old address chain are withdrawn pending corrected placement/relocation analysis.
+
 AP1 has not been rebased in this pass. Its `AddressModel` bookmark and the EOL warning at the current listing address `0x8067B078` preserve the finding. Current AP1 function counts, fragments and apparent callers must not be promoted to validation.
 
 ### Stale direct-flow reference audit
