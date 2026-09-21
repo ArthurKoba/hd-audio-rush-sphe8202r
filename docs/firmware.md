@@ -7,24 +7,21 @@
 - size: 1,048,576 bytes
 - SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
 
-It is a Sunplus firmware container, not one flat CPU executable.
+It is a Sunplus firmware container, not one flat CPU executable. Do not modify the canonical dump or extracted modules in place.
 
 ## Sunplus STK
 
-Tool archive: `tools/STK_0.2.3.zip`
+Tool archive: `tools/STK_0.2.3.zip`.
 
-The rev-8203R build successfully opens the dump and extracts the firmware modules.
-
-Observed metadata:
-- version: `02R-D-02`
-- ROM required: `1M`
-- customer ID: `SUNPLUS`
-- displayed SoC profile: `SPHE8203R`
-- SDRAM: `32M`
-- SDRAM bus: 16-bit, non-shared
-- Host USB 2.0: supported
-- module slots: 18
-- password: `5168`
+The rev-8203R build successfully opens the dump and extracts the firmware modules. Observed metadata:
+- version: `02R-D-02`;
+- ROM required: `1M`;
+- customer ID: `SUNPLUS`;
+- displayed SoC profile: `SPHE8203R`;
+- SDRAM: `32M`, 16-bit, non-shared;
+- Host USB 2.0: supported;
+- module slots: 18;
+- password: `5168`.
 
 The displayed `SPHE8203R` conflicts with the physical `SPHE8202R` package marking. Keep this contradiction open.
 
@@ -33,87 +30,149 @@ The displayed `SPHE8203R` conflicts with the physical `SPHE8202R` package markin
 The already-extracted files are stored directly in `firmware/modules/`; there is intentionally no duplicate tar archive.
 
 CPU/code classification:
-- `ap1.bin` — main MIPS32 LE application
-- `drv_other.bin` — MIPS32 LE driver/auxiliary code
-- `cdrom.bin` — MIPS32 LE module
-- `wma.bin` — MIPS32 LE WMA-related module
-- `rom12.bin` — container/config/resource-like, not a linear MIPS image
-- `jpeg.bin` — data/tables
-- `iop.bin`, `iop_rst.bin`, `srvdsp.bin` — auxiliary microcode/specialized image candidates
+- `ap1.bin` — main MIPS32 LE application;
+- `drv_other.bin` — MIPS32 LE driver/auxiliary code;
+- `cdrom.bin` — MIPS32 LE module;
+- `wma.bin` — MIPS32 LE WMA-related module;
+- `rom12.bin` — container/config/resource-like, not a linear MIPS image;
+- `jpeg.bin` — data/tables;
+- `iop.bin`, `iop_rst.bin`, `srvdsp.bin` — auxiliary microcode/specialized image candidates.
 
-Zero-length module slots are retained because STK produced an 18-slot set.
+Zero-length module slots are retained because STK produced an 18-slot set. Exact sizes and SHA-256 values are kept in the root `README.md`.
 
-Exact sizes and SHA-256 values are kept once, in the root `README.md`.
+## Ghidra and address model
 
-## Ghidra
+Canonical project: `sphe8202r_decoder_p25d80`. CPU programs live under `/modules_mipsle/`; the existing STK tool analysis lives at `/tools/stk.exe`. Earlier flat executable imports of the 1 MiB container have been removed.
 
-Canonical MCP-side project used during initial analysis: `sphe8202r_decoder_p25d80`.
+Correct workflow: preserve the container, use extracted CPU modules as `MIPS:LE:32:default`, establish placement and shared GP, and validate instruction flow before relying on decompilation.
 
-Correct workflow:
-1. preserve the raw dump as container evidence; do not import it as one executable;
-2. use the extracted module files;
-3. import CPU modules separately as `MIPS:LE:32:default`;
-4. establish the image base and shared GP;
-5. then run analysis.
+### Current map and reopened gate
 
-The canonical project no longer contains the earlier flat imports of the 1 MiB container.
+`reverse/modules.csv` now distinguishes the AP1 static candidate from completed analysis:
 
-Current module map is in `reverse/modules.csv`.
+| Module | Working base | Validation state |
+|---|---|---|
+| ap1 | `0x8067B800` | Static candidate; current Ghidra base remains `0x8067B000`, rebase and function-boundary recovery pending |
+| wma | `0x8073F000` | Established base; stale direct-flow refs remain |
+| cdrom | `0x8074C800` | Established base; stale direct-flow refs remain |
+| drv_other | `0x80775800` | Established base; stale direct-flow refs remain |
 
-Confirmed:
-- `ap1.bin` base `0x8067B000`
-- `wma.bin` base `0x8073F000`
-- `cdrom.bin` base `0x8074C800`
-- `drv_other.bin` base `0x80775800`
-- coherent MIPS function/call flow after rebase
-- shared `$gp = 0x80002B00`
+The former claim that AP1 `0x8067B000` was confirmed is withdrawn. The old provisional `cdrom=0x80754000` and `drv_other=0x80782000` candidates remain rejected. SCORE7 is not the active ISA or a project dependency.
 
-The GP value has instruction-level support from two independent WMA pairs:
-- absolute `0x800035D8` matches `gp + 0xAD8`;
-- absolute `0x80003684` matches `gp + 0xB84`.
+### AP1 +0x800 contradiction: reproducible target evidence
 
-Both equations give `0x80002B00`. Setting this value as the MIPS GP context resolves concrete `0x8000xxxx` globals in all four modules.
+The 684,192 original AP1 bytes in Ghidra were hashed again and match the canonical module checksum in README. The following observations concern the unchanged bytes, not a patched firmware:
 
-Cross-module utility code already identified in `drv_other.bin`:
+| Evidence | File offset / instruction | Observation |
+|---|---|---|
+| Initial delay call | `ap1+0x78`, word `0x0C19EE00` | Encodes `jal 0x8067B800`, after loading `a0=10`; file offset zero is an `a0` countdown/delay leaf. Candidate base resolves the call to that leaf. |
+| Cross-module entry | `cdrom+0x38`, word `0x0C1C0691` | Encodes `jal 0x80701A44`. With candidate AP1 base, this maps to `ap1+0x86244`, a routine starting with `lhu a1,0x744(gp)`, stack allocation and saved registers. At the old base the same target lands inside unrelated-looking partial state/epilogue code. |
+| Absolute/relative join | `ap1+0x8632C` and `ap1+0x86350` | The absolute jump targets `0x80701AFC`; a nearby relative branch targets file offset `0x862FC`. Base `0x8067B800` makes both enter the same MMIO-update/return block. |
+| String pointer | pointer at `ap1+0x615D0`, string at `ap1+0x5EDC8` | The stored pointer agrees with `0x8067B800 + 0x5EDC8` for `SPDIF/OFF`, not the old base. RAW/PCM pointer tables provide additional supporting matches. |
+
+The cross-module entry offset is **`0x86244`**, correcting `0x85A44` in an earlier issue comment. Individual literal-pointer matches alone are not proof. Independent code evidence supports the candidate, but a corrected Ghidra model, remaining layout/loader checks and recovered function boundaries are still required.
+
+AP1 has not been rebased in this pass. Its `AddressModel` bookmark and the EOL warning at the current listing address `0x8067B078` preserve the finding. Current AP1 function counts, fragments and apparent callers must not be promoted to validation.
+
+### Stale direct-flow reference audit
+
+The read-only audit derives each currently defined MIPS J/JAL destination from its raw word:
+
+`target = ((PC + 4) & 0xF0000000) | ((word & 0x03FFFFFF) << 2)`.
+
+Snapshot from 2026-09-21:
+
+| Program | Instructions scanned | Defined J/JAL | Wrong stored flow refs | Error delta |
+|---|---:|---:|---:|---|
+| ap1 | 95,906 | 8,910 | 0 | none in this audit scope |
+| wma | 10,225 | 742 | 2 | `+0x0073F000` |
+| cdrom | 6,944 | 660 | 17 | `+0x0074C800` |
+| drv_other | 12,184 | 962 | 24 | `+0x00775800` |
+
+No missing flow references were found in that scope. All 43 wrong references had source `DEFAULT`; their deltas match the low parts of their module bases, consistent with stale references after rebasing. This audit excludes indirect calls, data references and undisassembled bytes. In particular, AP1 having zero mismatches does not establish its load base.
+
+Examples:
+- CDROM `0x8074C838`: encoded target `0x80701A44`, stored target `0x80E4E244`.
+- CDROM `0x8074C850`: encoded target `0x807017A8`, stored target `0x80E4DFA8`.
+- CDROM `0x8074CB7C`: encoded target `0x8074C868`, stored target `0x80E99068`. This hides the initializer's call to `DetectCdromStreamType` from normal caller queries.
+- WMA `0x8073F090` and `0x8073F0A4`: encoded `memset` target `0x80783F64`, stored `0x80EC2F64`.
+
+`tools/ghidra/RepairMipsDirectFlow.java` preserves a guarded repair implementation at commit `3688a523`. It defaults to audit, checks exact module hashes/bases and expected mismatch counts, and proposes only reference/comment changes inside a transaction. It does not patch bytes, rebase or run broad analysis. Its application was blocked by the tool safety layer: **no compile/application validation or repaired-reference count is claimed**. Do not bypass the block or treat source presence as completion. A later authorized execution must repeat the audit because shared project state can change.
+
+### Shared GP and helper contracts
+
+The shared GP remains `$gp = 0x80002B00`, independently supported by WMA absolute/gp-relative pairs:
+- `0x800035D8 = gp + 0xAD8`;
+- `0x80003684 = gp + 0xB84`.
+
+Earlier AP1 exception-path analysis identified the runtime GP restore word at `0x88012200`; its absolute slot is distinct from AP1 code placement. Do not mistake an uninitialized analysis block at that address for a captured runtime value.
+
+Cross-module helpers identified in `drv_other.bin`:
 - `0x80783F08` — byte-wise `memcmp`;
 - `0x80783F3C` — byte-wise `memcpy`;
 - `0x80783F64` — byte-wise `memset`.
 
-The old provisional `cdrom=0x80754000` and `drv_other=0x80782000` candidates are rejected.
+## Firmware anchors and audio state
 
-The earlier SCORE7 experiment was useful for rejecting a flat-image interpretation; it is not the active ISA for the primary application modules and is not a dependency of this board project.
+AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/output, AC3, DTS, PCM and USB/SD strings. Prefer stable file offsets until the address model is repaired:
 
-## Firmware anchors
+| Anchor | AP1 file offset | Old Ghidra listing address, NOT validated runtime address |
+|---|---|---|
+| SPDIF/OFF | `0x5EDC8` | `0x806D9DC8` |
+| SPDIF/RAW | `0x5F0AC` | `0x806DA0AC` |
+| SPDIF/PCM | `0x5F0B8` | `0x806DA0B8` |
+| SPDIF IN | `0x8FCA0` | `0x8070ACA0` |
 
-`ap1.bin` contains strings for:
-- `SPDIF/OFF`
-- `SPDIF/RAW`
-- `SPDIF/PCM`
-- `SPDIF IN`
-- `AUDIO OUT`
-- `AUDIO SETUP`
-- AC3
-- DTS
-- PCM
-- USB / SD status
+Earlier work also recorded a status pool at old listing `0x8070AC00..0x8070AD07` containing DTS/PCM/AC3/no-signal and DVD/SPDIF/TUNER/AUXIN/MIC/USB labels. These are static firmware anchors, not PCB-routing evidence.
 
-Confirmed addresses in `ap1.bin`:
-- `0x806DA0AC` — `SPDIF/RAW`;
-- `0x806DA0B8` — `SPDIF/PCM` (present in raw bytes even though Ghidra's string analyzer did not auto-define it);
-- runtime audio-status pool at `0x8070AC00..0x8070AD07` includes `DTS %d K %d K`, `NO SIGNAL`, `PCM %d K`, `AC3 %d K %d K`, `DVD`, `SPDIF IN`, `TUNER`, `AUXIN`, `MIC` and `USB`.
+### Audio-core findings retained with address caveats
 
-These are static firmware anchors, not PCB-routing proof.
+CDROM `0x8074C800`, previously named `ApplyCdromAudioModeFromSubtype`, maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`. Its encoded calls are `0x80701A44` and conditionally `0x807017A8`. It reads `gp+0x774 = 0x80003274`, first as a byte and later as a halfword; the exact storage contract should be retained rather than simplified silently.
 
-### Audio-format state chain
+Earlier AP1 notes at old listing `0x807012C8` record writes to `gp+0x76C` and `gp+0x774`, modes `1/2/4/0x1000/0x2000/0x4000`, and MMIO-field values `0x600/0x700/0x800/0x300/0x400/0x500`. Old listing `0x806FFD9C` records a classifier/update path with values `1/2/4/0x40`. Preserve these as code anchors, not confirmed function entries: the AP1 base issue splits at least one routine incorrectly. The full status-string-to-mode chain and exact AC3/DTS/PCM numeric mapping remain unproven.
 
-Instruction-level findings now tie the status anchors to a shared internal audio-mode state:
-- `cdrom.bin:0x8074C800` (`ApplyCdromAudioModeFromSubtype`) maps a CDROM subtype to internal mode codes: `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`;
-- it executes `jal 0x80701A44` in `ap1` and conditionally `jal 0x807017A8` when `gp+0x774` changes;
-- shared mode state lives at `0x80003274` (`gp+0x774`), with a companion write at `0x8000326C` (`gp+0x76C`);
-- `ap1:0x807012C8` commits mode values and maps `1/2/4/0x1000/0x2000/0x4000` to internal field values `0x600/0x700/0x800/0x300/0x400/0x500`;
-- `ap1:0x806FFD9C` classifies/updates observed mode codes `1`, `2`, `4` and `0x40`.
+### CDROM classifier and packed-stream initializer
 
-The exact association of these internal mode numbers with AC3, DTS and PCM is still **unknown**. The nearby status strings prove those formats are represented by the firmware, but they do not yet prove the numeric enum mapping.
+`DetectCdromStreamType` at `0x8074C868` contains the repeated `0x0B77` syncword/equal-spacing branch returning `0xAC3`; the other two signatures return `1` or `2`, and failure returns `-1`.
+
+`InitializeCdromPackedStream` at `0x8074CB2C` is now named and commented in Ghidra. It clears the packing state, then normally invokes the classifier through the raw JAL at `0x8074CB7C`. A context word `*( *(uint32_t*)0x8000343C + 0x284 ) == 0x01050B44` bypasses the scan and selects result `1`; that context-field meaning is unknown.
+
+| Classifier result | Stored byte at `0x80003718` | Action |
+|---|---:|---|
+| `1` | 1 | Set flag `0x80003719`; signature table `0x80002D64`; call `0x8074CEB8`, then converter `0x8074D538` |
+| `2` | 2 | Set flag `0x8000371A`; signature table `0x80002D60`; call `0x8074CEB8`, then converter `0x8074D030` |
+| `-1` | 0 | Call `0x8074CD90` |
+| `0xAC3` | 3 | Call `0x8074CD90` |
+
+The initializer returns the original classifier result, not the byte mode. Instruction proof includes the comparison at `0x8074CBBC..0x8074CBC4`, store at `0x8074CBE4`, failure store at `0x8074CBF8`, and dispatch calls at `0x8074CC28/CC30/CC50/CC58`.
+
+The two converters show different word/bit packing behavior. Do not assign them DTS format names without signature-table or equivalent target proof. This CDROM classifier state is not automatically the audio-core enum, S/PDIF receiver state, or the inter-chip protocol.
+
+The created Ghidra type `CdromPackedStreamState` is a 24-byte working layout for the state beginning at `0x80003704`: four-byte shift/count fields at offsets 0/4, four carry bytes at 8..11, four-byte cursor/count fields at 12/16, and mode/signature-A/signature-B/sync-loss bytes at 20..23. It has 12 fields; read-back confirmed size and offsets. Six labels identify the state, mode, flags and signature tables. The type is not an original source declaration and has not been applied over fabricated RAM bytes.
+
+## STK container and checksum investigation
+
+This section describes **static evidence from the existing Ghidra `/tools/stk.exe` program** (`x86:LE:32:default`, base `0x00400000`). Its exact original-file hash/revision has not been re-established against the three ZIP members; this identity check is a remaining gate before treating its implementation as the exact rev-8203R tool.
+
+The module-name initializer at `0x0040BDD8` populates an array at `0x00502420` with names including ap1, cdrom, drv_other, wma and rom12. It has 19 named entries including romL/rom; this is a tool-side table, not yet a proven mapping for the target's 18 extracted slots. Function `0x00408238` selects names through module identifiers. The container object constructor chain includes `0x00408416 -> 0x00402E0E -> 0x00402CC2`.
+
+### Additive word sum
+
+`CalculateContainerWordSum` at `0x00401B56` is named, prototyped and commented in Ghidra:
+
+`uint __cdecl CalculateContainerWordSum(void *context, byte *data, int byteLength)`.
+
+For nonnegative length, it sums `floor(byteLength / 2)` unsigned little-endian 16-bit words into a wrapping 32-bit accumulator. X86 proof: `MOVZX EAX,word ptr [ESI+ECX*2]` at `0x00401B6B`, `ADD EBX,EAX` at `0x00401B70`, and return through EAX at `0x00401B76`. The first argument is unused. An odd final byte is ignored. This helper has no CRC polynomial, complement or final XOR; that does not exclude other integrity stages elsewhere.
+
+### Two parser stages, not yet a reproduced checksum
+
+- `0x00402CC2` reads the expected 32-bit value from input `+0x20`, computes the word sum starting at `+0x50`, and searches the effective end by subtracting trailing words. Its initial extent is derived from trailing `0xFF` trimming and 0x400-byte rounding. A match changes the length passed onward; absence of a match is not by itself an explicit rejection in this function.
+- `0x00402C62` makes a copy and invokes `0x00401ED2`. That intermediate routine is unresolved; its decompile request was blocked, so no encryption/decryption/transform semantics are assigned to it.
+- After that routine succeeds, `0x00402BCE` reads an expected value at buffer `+0x40`, sums from `+0x50`, and searches up to a 0x400-byte suffix before passing an extent to `0x00402950`.
+
+Do not assume both expected values can be verified by summing the original raw dump in the same way: the second stage uses the intermediate buffer. Full target checksum reproduction was not completed. The source dump was retained separately as an immutable artifact with its canonical hash, not imported into Ghidra as executable code.
+
+Remaining construction gates: identify the exact STK revision, resolve container/module records and load fields, understand the intermediate stage through an authorized evidence path, reproduce checksums on the preserved target, find the save/repack writer, perform a byte-exact no-change round trip, and only then prepare an intentional modified candidate. No modified firmware image or flash-ready candidate is claimed.
 
 ## Secondary BR23 / AC695N side
 
@@ -182,7 +241,6 @@ After the dump exists:
 
 ### Current runtime anchors
 
-
 `evidence/ac695n-boot-excerpt.log` is a curated excerpt from the UART output of the secondary-controller side.
 
 It contains:
@@ -198,17 +256,10 @@ It contains:
 
 This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exact public SKU behind `AK24BP24230`, its internal-flash dump path and the inter-chip protocol remain open.
 
-
 ## Firmware-control acceptance
 
-Firmware work is not complete merely because both dumps decompile.
+Firmware work is not complete merely because dumps decompile or a checksum helper has been named.
 
-We need to prove:
-- repeatable extraction/dump;
-- repeatable packing or image construction;
-- integrity/checksum rules;
-- a safe flash/update method;
-- rollback/recovery;
-- one intentional modification that survives reboot and produces the expected hardware behavior.
+We need to prove repeatable extraction/dump, coherent address and call models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
 
 Only after that should the project implement new product behavior.

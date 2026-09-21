@@ -4,49 +4,60 @@
 
 Target state: **control-complete reverse engineering of the entire board**.
 
-Current work is incomplete because only the Sunplus external flash is preserved. The highest-value missing artifact is the secondary BR23/AC695N-side firmware dump.
+Both firmware domains are required for the overall objective, but the active issue #9 work is Sunplus-only. The missing secondary dump does not block independent Sunplus static analysis.
 
+## Active decision boundary — 2026-09-21
+
+**The address-model gate is reopened.** The former claim that `ap1.bin` base `0x8067B000` was confirmed is contradicted by canonical instruction bytes. `0x8067B800` is the new static candidate; the existing Ghidra program still uses `0x8067B000`. `reverse/modules.csv` records the candidate with an explicit pending status, not a completed rebase.
+
+Separately, a read-only audit found 43 stale direct-flow references across `wma`, `cdrom` and `drv_other`. These make decompiler call targets and caller lists unreliable even where module placement is correct. The repair source is preserved, but its execution was blocked by the tool safety layer. No repair is claimed applied. See `docs/firmware.md` for reproducible examples, scope and remaining gates.
+
+Do not stack broad auto-analysis or hardware-control conclusions on this inconsistent state.
 
 ## Confirmed
 
-- Product family: HD Audio Rush 5.1.
-- PCB: `SPHE8202RD_SPDIF_V02`.
-- Main package: Sunplus `SPHE8202R`.
+- Product family: HD Audio Rush 5.1; PCB: `SPHE8202RD_SPDIF_V02`; main package: Sunplus `SPHE8202R`.
 - Raw external flash: Puya `P25D80SH`, 1 MiB dump preserved at `firmware/P25D80SH@SOP8.BIN`.
 - STK rev-8203R opens the dump and extracts 18 module slots.
 - Main application modules `ap1`, `cdrom`, `drv_other`, `wma` are coherent MIPS32 little-endian.
-- `ap1.bin` base `0x8067B000` is confirmed by internal absolute references.
-- `wma.bin` base `0x8073F000` is confirmed; `ap1` directly calls the exact entry at `0x8073F000`.
-- `cdrom.bin` base `0x8074C800` is confirmed by direct `ap1` call targets mapping to coherent code/function starts throughout the module.
-- `drv_other.bin` base `0x80775800` is confirmed by direct `ap1`/`wma` call targets mapping to coherent shared helper code throughout the module.
-- Shared MIPS GP is `0x80002B00`. Two independent `wma` instruction pairs give `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84`, both exactly `0x80002B00`; applying this GP resolves concrete globals across all four MIPS modules.
-- Cross-module utility code in `drv_other.bin` includes confirmed byte-wise `memcmp` at `0x80783F08`, `memcpy` at `0x80783F3C` and `memset` at `0x80783F64`.
-- `ap1.bin` contains confirmed S/PDIF/audio-status anchors: `SPDIF/RAW` at `0x806DA0AC`, `SPDIF/PCM` at `0x806DA0B8`, and a runtime status string pool at `0x8070AC00..0x8070AD07` covering DTS, PCM, AC3, no-signal and source labels including `SPDIF IN`, AUX, MIC and USB.
-- `cdrom.bin:0x8074C800` is now named `ApplyCdromAudioModeFromSubtype`. Instruction flow maps subtype `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`, calls the Sunplus audio core at `ap1:0x80701A44`, then calls `ap1:0x807017A8` when shared mode state changes.
-- Shared audio-format/mode state is stored at GP-relative `0x80003274` (`gp+0x774`), with a second write at `0x8000326C` (`gp+0x76C`). `ap1:0x807012C8` commits the mode and maps observed codes `1/2/4/0x1000/0x2000/0x4000` to internal field values `0x600/0x700/0x800/0x300/0x400/0x500` respectively.
-- `ap1:0x806FFD9C` is a confirmed audio-mode classifier/update path that selects observed shared mode codes `1`, `2`, `4` and `0x40`. The exact AC3/DTS/PCM mapping of those internal codes is still unresolved and must not be guessed.
+- `wma.bin` base `0x8073F000`, `cdrom.bin` base `0x8074C800`, and `drv_other.bin` base `0x80775800` retain their established module-map status. Correct bases do not imply correct stored Ghidra references.
+- Shared MIPS GP is `0x80002B00`. Independent WMA pairs give `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84`, both exactly `0x80002B00`. The AP1 base contradiction does not change these equations.
+- Shared helpers identified in `drv_other.bin`: byte-wise `memcmp` at `0x80783F08`, `memcpy` at `0x80783F3C`, and `memset` at `0x80783F64`.
+- AP1 canonical module bytes were rechecked against the README SHA-256 during the address-model investigation; they were unchanged.
+- AP1 contains S/PDIF/audio-status strings. Stable file offsets include `SPDIF/OFF` at `0x5EDC8`, `SPDIF/RAW` at `0x5F0AC`, `SPDIF/PCM` at `0x5F0B8`, and `SPDIF IN` at `0x8FCA0`. Their old Ghidra listing addresses are not confirmed runtime addresses.
+- CDROM `0x8074C800` maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`, with encoded calls to `0x80701A44` and conditionally `0x807017A8`. Its shared state access is `gp+0x774 = 0x80003274`; stored call references at `0x8074C838/0x8074C850` are wrong.
+- CDROM classifier `0x8074C868` has an AC3-syncword branch returning `0xAC3`. Its caller at `0x8074CB2C`, now named `InitializeCdromPackedStream`, stores internal mode `3` for that result, mode `0` for `-1`, and modes `1/2` for the other two classifier results. The initializer returns the original classifier result, not the stored byte mode.
+- STK program `/tools/stk.exe` contains a word-sum helper at `0x00401B56`, now named `CalculateContainerWordSum`. X86 instructions prove a wrapping 32-bit sum of unsigned little-endian 16-bit words. Parser call sites use expected fields at `+0x20` and, after an unresolved intermediate routine, `+0x40`. This is static tool-code evidence, not a reproduced target checksum or repack path.
 - Secondary-side UART excerpt contains AC695N/BR23 build/runtime strings.
 - HCF4052-family device function is analog multiplexing; 74HC04D is a hex inverter; 4558-family devices are dual op-amps.
 
 ## Likely / provisional
 
+- AP1 corrected base `0x8067B800`: independent initial-delay call, absolute/relative branch convergence, cross-module entry and pointer-table evidence support it. Corrected Ghidra placement and recovered function boundaries are pending.
+- `CdromPackedStreamState` is a 24-byte analytical structure for the state beginning at `0x80003704`; its type and six state/signature labels are saved in Ghidra. The type has not been applied over invented RAM contents, and it is not claimed to be an original source declaration.
+- The two non-AC3 CDROM formats use different converters (`0x8074D538` and `0x8074D030`). Their codec identities are not established; do not label them DTS merely from packing patterns.
 - Secondary `AK24BP24230` is a JieLi/JL-family controller executing the observed AC695N/BR23 firmware.
-- 4558D devices near the six-channel outputs participate in analog buffering/filtering/preamplification.
-- External SDRAM marking is close to the reported `PMS3064 / 16BTR-60N`, but exact transcription is not yet reliable.
+- 4558D output-stage devices participate in analog buffering/filtering/preamplification.
+- External SDRAM marking is close to reported `PMS3064 / 16BTR-60N`, but exact transcription is not yet reliable.
 
-## Unknown
+## Retained findings requiring address-model revalidation
 
-- Exact SDRAM part, vendor and density; STK's `32M` unit is not resolved.
-- Exact public SKU behind `AK24BP24230`.
-- Exact secondary flash ID/size and physical USB boot/download route.
-- Exact SPHE <-> secondary-controller control/audio transport.
-- Exact TOSLINK/coax -> decode -> six-channel analog signal path.
-- Exact role of HCF4052 and 74HC04D on this PCB.
-- Exact USB pad pinout and whether device/UAC mode is feasible.
-- Safe recovery/flash path for the secondary controller.
-- Reproducible Sunplus repack/update path.
+Earlier notes identified shared audio-mode writes through `gp+0x774` and `gp+0x76C`, numeric modes `1/2/4/0x1000/0x2000/0x4000`, and field values `0x600/0x700/0x800/0x300/0x400/0x500`. These remain useful instruction anchors, but the AP1 listing locations `0x807012C8` and `0x806FFD9C` must not be described as validated function entries/runtime addresses. The old base split at least one real routine into false function fragments. Exact AC3/DTS/PCM mapping of these audio-core numbers remains unknown and is distinct from the CDROM classifier-to-mode mapping above.
+
+## Unknown / remaining validation
+
+- Corrected AP1 analysis, clean direct-flow references, remaining indirect/data references and module import/export tables.
+- Board init, complete S/PDIF RAW/PCM control chain, volume/mute, USB and the SPHE <-> secondary transport.
+- Exact SDRAM part/vendor/density and STK `32M` unit; public SKU behind `AK24BP24230`.
+- Secondary flash ID/size, physical USB download route and safe recovery path.
+- Exact TOSLINK/coax -> decode -> six-channel analog signal path; HCF4052/74HC04D routing and USB pad pinout.
+- Identity/hash of the already-imported `/tools/stk.exe` versus the three archived revisions, complete container module-table schema, intermediate transform, checksum reproduction, writer/repack and rollback validation.
 
 ## Contradictions
+
+### AP1 base and stored Ghidra references
+
+The old `0x8067B000` confirmation is withdrawn. Candidate `0x8067B800` and the current unrepaired analysis state are explicitly separated. A zero mismatch count between encoded J/JAL targets and stored references in AP1 does **not** prove its image base.
 
 ### Physical SPHE8202R vs STK SPHE8203R
 
@@ -54,20 +65,20 @@ Physical package marking is `SPHE8202R`; STK displays `SPHE8203R`. Do not resolv
 
 ### SCORE7 vs MIPS
 
-Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 is not the current assumption for `ap1/cdrom/drv_other/wma`.
+Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 is not the active assumption or a dependency for `ap1/cdrom/drv_other/wma`.
 
-## Tooling decision
+## Tooling and persistence
 
-- **Ghidra: required.**
-- **SCORE7 processor: not required for this board on current evidence.**
-- Sunplus application reverse uses Ghidra MIPS32 LE support.
-- The canonical Ghidra project contains extracted modules as programs; flat imports of the 1 MiB Sunplus container have been removed.
-- Secondary firmware reverse should use JieLi pi32v2 support after the dump is acquired.
-- SCORE7 support should be treated as separate/general Ghidra work and not as a dependency or acceptance gate for this repository.
+- Canonical Ghidra project: `sphe8202r_decoder_p25d80`; extracted MIPS modules plus the existing STK analysis program. Earlier flat imports of the 1 MiB container remain removed.
+- Saved this pass: AP1 address-model warning/bookmark; CDROM initializer name/comment, state type and labels; STK sum-helper name/prototype/comment.
+- `tools/ghidra/RepairMipsDirectFlow.java` is a guarded metadata-repair source, audit-only by default. Source commit `3688a523` is recoverable; execution/application validation is absent. The audit snapshot is not a promise that parallel analysis cannot change counts.
+- Decompile calls used a five-second timeout. Inline read-only audit loops had a four-second execution budget; most MCP methods expose no caller-controlled transport timeout. No full auto-analysis was launched in this pass.
+- No firmware bytes patched, no flash writes, no PR, no secondary-controller reverse expansion.
 
 ## Active work
 
-The issue tracker is the task backlog:
-- #9 — Sunplus application reverse: module map, S/PDIF, USB, AC3/DTS, volume
-- #10 — physical board map: audio path, SDRAM, USB/service pads
-- #11 — identify/dump secondary `AK24BP24230` / AC695N side
+The issue tracker remains the task backlog:
+- #9 — Sunplus application and container reverse;
+- #10 — physical board map;
+- #11 — identify/dump secondary controller;
+- #15 — end-to-end reverse/reflash/recovery/control acceptance.
