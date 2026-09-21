@@ -2,7 +2,9 @@
 
 ## Stock SPI dump
 
-File: `P25D80SH@SOP8.BIN`  
+Canonical binary:
+`files:P25D80SH@SOP8.BIN`
+
 Size: 1,048,576 bytes  
 SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
 
@@ -10,7 +12,10 @@ The image is a Sunplus firmware container. It should not be treated as one raw e
 
 ## STK observations
 
-Sunplus STK successfully recognizes and unpacks the image.
+Canonical tool archive:
+`files:STK Sunplus Tool Kits 0.2.3 .zip`
+
+The rev-8203R STK executable successfully recognizes and unpacks the image.
 
 Observed GUI metadata:
 - version: `02R-D-02`
@@ -27,7 +32,10 @@ The displayed SPHE8203R profile conflicts with the physical SPHE8202R marking an
 
 ## Extracted modules
 
-The supplied STK module corpus archive SHA-256 is:
+Canonical extraction archive:
+`files:modules.tar`
+
+Archive SHA-256:
 `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
 
 | Module | Bytes | SHA-256 | Current classification |

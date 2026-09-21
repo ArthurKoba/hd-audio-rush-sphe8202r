@@ -1,10 +1,12 @@
 # Extracted Sunplus modules
 
-These files are produced by Sunplus STK from the canonical 1 MiB stock dump.
+The canonical STK extraction archive is stored on branch `files`:
 
-Corpus archive SHA-256:
+`modules.tar`
+
+Archive SHA-256:
 `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
 
-See `docs/firmware.md` for exact per-module sizes/hashes and current classification.
+It contains all 18 STK module slots, including zero-length slots.
 
-Do not alter extracted binaries. Derived annotations/scripts belong under `reverse/`.
+See `firmware/MANIFEST.md` for per-module sizes/hashes and `docs/firmware.md` for classification/load-address work.
