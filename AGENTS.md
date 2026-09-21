@@ -12,13 +12,13 @@ Read, in order:
 3. the task-specific document under `docs/`
 4. the universal hardware-reverse skill from `ArthurKoba/ai-agent-workflow`
 
-## Branch roles
+## Repository roles
 
-- `main` and normal working branches: documentation, reverse-engineering maps, scripts, source and reviewed findings.
-- `files`: canonical immutable binary evidence. Do not use it for ordinary source/documentation development.
-- Do not duplicate large binary evidence into normal working branches when the exact artifact already exists on `files`.
+- `main`: canonical reviewed documentation, reverse-engineering source, and preserved binary evidence.
+- normal working branches: implementation/reverse/documentation changes before review.
+- Binary evidence is stored in-tree at the paths documented below; do not maintain a parallel evidence branch.
 
-Cross-branch evidence must be referenced by exact filename, byte size and SHA-256.
+Artifact identity is defined by exact path, byte size and SHA-256.
 
 ## Evidence rules
 
@@ -44,13 +44,16 @@ Do not promote SoC capability into board implementation. A datasheet saying a bl
 
 - Changes go through a working branch and review for substantial updates.
 - Do not commit credentials, machine-specific paths, or private infrastructure details.
-- Raw vendor/target artifacts belong on `files` unless repository policy is deliberately changed.
+- Target firmware artifacts belong under `firmware/stock/` and `firmware/extracted/`.
+- Preserved third-party reverse-engineering tools belong under `tools/vendor/` with provenance and hashes.
 - Ghidra project databases are not source files; commit scripts, maps, notes and reproducible import parameters instead.
 - Record unresolved contradictions in `docs/reverse-status.md`.
 
 ## Current canonical targets
 
 - Board: `SPHE8202RD_SPDIF_V02`
-- Primary stock dump: `files:P25D80SH@SOP8.BIN`
-- STK-extracted corpus: `files:modules.tar`
-- Main extracted application module: `ap1.bin`
+- Primary stock dump: `firmware/stock/P25D80SH@SOP8.BIN`
+- STK extraction archive: `firmware/extracted/modules.tar`
+- Extracted modules: `firmware/extracted/modules/`
+- Main application module: `firmware/extracted/modules/ap1.bin`
+- Sunplus STK archive: `tools/vendor/sunplus-stk/STK Sunplus Tool Kits 0.2.3.zip`

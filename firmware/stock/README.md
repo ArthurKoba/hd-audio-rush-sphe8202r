@@ -1,6 +1,6 @@
 # Stock firmware
 
-Canonical stock binary is stored on branch `files`:
+Canonical stock binary:
 
 `P25D80SH@SOP8.BIN`
 
@@ -10,4 +10,4 @@ Expected properties:
 
 Treat it as immutable evidence. Analysis must happen on extracted/derived copies.
 
-See `firmware/MANIFEST.md` and `docs/provenance.md`.
+See `SHA256SUMS`, `firmware/MANIFEST.md` and `docs/provenance.md`.
