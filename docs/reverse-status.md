@@ -22,6 +22,9 @@ Current work is incomplete because only the Sunplus external flash is preserved.
 - Shared MIPS GP is `0x80002B00`. Two independent `wma` instruction pairs give `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84`, both exactly `0x80002B00`; applying this GP resolves concrete globals across all four MIPS modules.
 - Cross-module utility code in `drv_other.bin` includes confirmed byte-wise `memcmp` at `0x80783F08`, `memcpy` at `0x80783F3C` and `memset` at `0x80783F64`.
 - `ap1.bin` contains confirmed S/PDIF/audio-status anchors: `SPDIF/RAW` at `0x806DA0AC`, `SPDIF/PCM` at `0x806DA0B8`, and a runtime status string pool at `0x8070AC00..0x8070AD07` covering DTS, PCM, AC3, no-signal and source labels including `SPDIF IN`, AUX, MIC and USB.
+- `cdrom.bin:0x8074C800` is now named `ApplyCdromAudioModeFromSubtype`. Instruction flow maps subtype `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`, calls the Sunplus audio core at `ap1:0x80701A44`, then calls `ap1:0x807017A8` when shared mode state changes.
+- Shared audio-format/mode state is stored at GP-relative `0x80003274` (`gp+0x774`), with a second write at `0x8000326C` (`gp+0x76C`). `ap1:0x807012C8` commits the mode and maps observed codes `1/2/4/0x1000/0x2000/0x4000` to internal field values `0x600/0x700/0x800/0x300/0x400/0x500` respectively.
+- `ap1:0x806FFD9C` is a confirmed audio-mode classifier/update path that selects observed shared mode codes `1`, `2`, `4` and `0x40`. The exact AC3/DTS/PCM mapping of those internal codes is still unresolved and must not be guessed.
 - Secondary-side UART excerpt contains AC695N/BR23 build/runtime strings.
 - HCF4052-family device function is analog multiplexing; 74HC04D is a hex inverter; 4558-family devices are dual op-amps.
 
