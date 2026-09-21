@@ -1,25 +1,29 @@
 # Firmware artifact manifest
 
-This repository bootstrap intentionally contains **no binary payloads**. Binary artifacts are expected to be added separately.
+Canonical binary payloads are stored on repository branch `files`. This working branch keeps hashes, classification and reverse metadata.
 
 ## Canonical stock dump
 
-Expected path:
+Branch/path:
 
-`firmware/stock/P25D80SH@SOP8.BIN`
+`files:P25D80SH@SOP8.BIN`
 
-Expected properties:
-
+Properties:
 - size: `1048576` bytes
 - SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
 - source device: Puya P25D80SH SPI NOR from the target board
 - status: immutable stock evidence
 
-## Extracted Sunplus modules
+## Extracted Sunplus module corpus
 
-Expected directory:
+Canonical extraction archive:
 
-`firmware/extracted/modules/`
+`files:modules.tar`
+
+Archive:
+- size: `1237504` bytes
+- SHA-256: `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
+- contains all 18 STK module slots
 
 | File | Size | SHA-256 |
 |---|---:|---|
@@ -33,8 +37,7 @@ Expected directory:
 | srvdsp.bin | 1128 | f1c1cd85a647e3669f8bd39ccb75e53ec84a7d6951d17565207155d3e0457d12 |
 | iop_rst.bin | 712 | b1e9ecc0240a767f12b1f8cb544f1747d5fe85a8d0e11a5caf7bec1990a0e373 |
 
-Zero-length STK module slots may also be preserved for exact extraction provenance:
-
+Zero-length STK module slots:
 - `dvd.bin`
 - `dvd_ipod.bin`
 - `free.bin`
@@ -45,15 +48,6 @@ Zero-length STK module slots may also be preserved for exact extraction provenan
 - `ap3.bin`
 - `dvb.bin`
 
-## Original extraction archive
-
-The user-supplied tar archive containing all 18 STK module slots had:
-
-- SHA-256: `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
-- uncompressed contained bytes: `1224444`
-
-The archive itself does not need to be committed if the individual extracted files are committed and hashes match.
-
 ## Policy
 
-Do not modify these files in place. Derived/patched images belong under a separate future path and must carry explicit provenance back to the stock hash.
+Do not modify stock or extracted evidence in place. Derived/patched images belong under a separate future path and must carry explicit provenance back to the stock hash.

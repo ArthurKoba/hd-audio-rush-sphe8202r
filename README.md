@@ -14,6 +14,16 @@ The immediate goal is to recover the hardware/firmware architecture accurately e
 
 See `docs/hardware.md` for evidence level and unresolved routing questions.
 
+## Binary evidence
+
+Canonical binary evidence is kept on the dedicated **`files` branch**:
+
+- `P25D80SH@SOP8.BIN` — exact 1 MiB target SPI dump
+- `modules.tar` — all 18 STK module slots extracted from that dump
+- `STK Sunplus Tool Kits 0.2.3 .zip` — three historical STK executables, including the working rev-8203R build
+
+Exact sizes and SHA-256 hashes are recorded in `docs/provenance.md` and in the `files` branch README.
+
 ## Stock firmware
 
 The 1 MiB SPI dump is a Sunplus firmware container, not one flat executable. Sunplus STK successfully recognizes and unpacks it.
@@ -69,11 +79,10 @@ These prove those concepts exist in the software image; they do not by themselve
 
 - `docs/` — hardware, firmware and evidence ledger
 - `evidence/` — captured runtime/tool evidence
-- `firmware/stock/` — immutable stock artifacts and provenance
-- `firmware/extracted/` — STK-extracted modules and manifests
+- `firmware/` — manifests and extraction metadata; binary payloads live on `files`
 - `reverse/` — Ghidra/import notes and reverse scripts
 - `hardware/` — board/photo/pinout evidence
-- `tools/` — project-owned helper scripts
+- `tools/` — project-owned helper notes/scripts; vendor tools live on `files`
 
 ## Working discipline
 
