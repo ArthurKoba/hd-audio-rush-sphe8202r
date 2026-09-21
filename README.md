@@ -41,7 +41,7 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-reverse f
 
 1. **Acquire the missing secondary-controller dump.** Until both firmware domains are preserved, the system model is incomplete.
 2. **Finish the physical board map.** Determine SDRAM identity, USB/UART pin ownership, TOSLINK path, six-channel analog path and the SPHE <-> secondary-controller buses.
-3. **Reverse the Sunplus control surfaces, not random functions.** Finish module bases/GP, then target S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls.
+3. **Reverse the Sunplus control surfaces, not random functions.** With the module bases and shared GP established, target S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls.
 4. **Reverse the secondary firmware.** Match the dump to BR23/AC695N SDK code, identify its audio/control responsibilities and inter-chip protocol.
 5. **Recover packing, flashing and rollback for both sides.**
 6. **Implement a minimal control plane and a controlled firmware modification.**
@@ -117,9 +117,13 @@ STK displays `SPHE8203R` while the physical package is marked `SPHE8202R`; this 
 
 The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Current load map:
 - `ap1.bin` -> `0x8067B000` confirmed
-- `wma.bin` -> ~`0x8073F000` provisional
-- `cdrom.bin` -> ~`0x80754000` provisional
-- `drv_other.bin` -> ~`0x80782000` provisional
+- `wma.bin` -> `0x8073F000` confirmed
+- `cdrom.bin` -> `0x8074C800` confirmed
+- `drv_other.bin` -> `0x80775800` confirmed
+
+The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In `wma.bin`, independent absolute/gp-relative pairs resolve both `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84` to the same GP; applying that value resolves concrete `0x8000xxxx` globals across `ap1`, `wma`, `cdrom` and `drv_other`.
+
+The canonical Ghidra project analyzes only the extracted CPU modules. Earlier flat imports of the 1 MiB Sunplus container were removed; the raw dump remains preserved in the repository as container evidence.
 
 The application contains anchors for `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, AC3, DTS, PCM, USB/SD and audio setup/output modes.
 

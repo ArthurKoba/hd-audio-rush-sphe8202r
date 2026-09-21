@@ -50,22 +50,36 @@ Exact sizes and SHA-256 values are kept once, in the root `README.md`.
 Canonical MCP-side project used during initial analysis: `sphe8202r_decoder_p25d80`.
 
 Correct workflow:
-1. preserve the raw dump;
+1. preserve the raw dump as container evidence; do not import it as one executable;
 2. use the extracted module files;
 3. import CPU modules separately as `MIPS:LE:32:default`;
-4. establish image base / GP assumptions;
+4. establish the image base and shared GP;
 5. then run analysis.
+
+The canonical project no longer contains the earlier flat imports of the 1 MiB container.
 
 Current module map is in `reverse/modules.csv`.
 
 Confirmed:
 - `ap1.bin` base `0x8067B000`
+- `wma.bin` base `0x8073F000`
+- `cdrom.bin` base `0x8074C800`
+- `drv_other.bin` base `0x80775800`
 - coherent MIPS function/call flow after rebase
+- shared `$gp = 0x80002B00`
 
-Provisional:
-- `wma.bin` ~`0x8073F000`
-- `cdrom.bin` ~`0x80754000`
-- `drv_other.bin` ~`0x80782000`
+The GP value has instruction-level support from two independent WMA pairs:
+- absolute `0x800035D8` matches `gp + 0xAD8`;
+- absolute `0x80003684` matches `gp + 0xB84`.
+
+Both equations give `0x80002B00`. Setting this value as the MIPS GP context resolves concrete `0x8000xxxx` globals in all four modules.
+
+Cross-module utility code already identified in `drv_other.bin`:
+- `0x80783F08` — byte-wise `memcmp`;
+- `0x80783F3C` — byte-wise `memcpy`;
+- `0x80783F64` — byte-wise `memset`.
+
+The old provisional `cdrom=0x80754000` and `drv_other=0x80782000` candidates are rejected.
 
 The earlier SCORE7 experiment was useful for rejecting a flat-image interpretation; it is not the active ISA for the primary application modules and is not a dependency of this board project.
 
