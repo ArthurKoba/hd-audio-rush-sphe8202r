@@ -21,6 +21,7 @@ Current work is incomplete because only the Sunplus external flash is preserved.
 - `drv_other.bin` base `0x80775800` is confirmed by direct `ap1`/`wma` call targets mapping to coherent shared helper code throughout the module.
 - Shared MIPS GP is `0x80002B00`. Two independent `wma` instruction pairs give `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84`, both exactly `0x80002B00`; applying this GP resolves concrete globals across all four MIPS modules.
 - Cross-module utility code in `drv_other.bin` includes confirmed byte-wise `memcmp` at `0x80783F08`, `memcpy` at `0x80783F3C` and `memset` at `0x80783F64`.
+- `ap1.bin` contains confirmed S/PDIF/audio-status anchors: `SPDIF/RAW` at `0x806DA0AC`, `SPDIF/PCM` at `0x806DA0B8`, and a runtime status string pool at `0x8070AC00..0x8070AD07` covering DTS, PCM, AC3, no-signal and source labels including `SPDIF IN`, AUX, MIC and USB.
 - Secondary-side UART excerpt contains AC695N/BR23 build/runtime strings.
 - HCF4052-family device function is analog multiplexing; 74HC04D is a hex inverter; 4558-family devices are dual op-amps.
 
