@@ -104,6 +104,17 @@ Confirmed addresses in `ap1.bin`:
 
 These are static firmware anchors, not PCB-routing proof.
 
+### Audio-format state chain
+
+Instruction-level findings now tie the status anchors to a shared internal audio-mode state:
+- `cdrom.bin:0x8074C800` (`ApplyCdromAudioModeFromSubtype`) maps a CDROM subtype to internal mode codes: `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`;
+- it executes `jal 0x80701A44` in `ap1` and conditionally `jal 0x807017A8` when `gp+0x774` changes;
+- shared mode state lives at `0x80003274` (`gp+0x774`), with a companion write at `0x8000326C` (`gp+0x76C`);
+- `ap1:0x807012C8` commits mode values and maps `1/2/4/0x1000/0x2000/0x4000` to internal field values `0x600/0x700/0x800/0x300/0x400/0x500`;
+- `ap1:0x806FFD9C` classifies/updates observed mode codes `1`, `2`, `4` and `0x40`.
+
+The exact association of these internal mode numbers with AC3, DTS and PCM is still **unknown**. The nearby status strings prove those formats are represented by the firmware, but they do not yet prove the numeric enum mapping.
+
 ## Secondary BR23 / AC695N side
 
 The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
