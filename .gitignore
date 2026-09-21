@@ -8,10 +8,9 @@ ghidra_projects/
 reverse/work/
 reverse/tmp/
 
-# Tool caches / unpacked scratch
+# Tool scratch/cache
 tools/cache/
-tools/vendor/**/work/
-tools/vendor/**/tmp/
+tools/tmp/
 
 # OS/editor noise
 .DS_Store
