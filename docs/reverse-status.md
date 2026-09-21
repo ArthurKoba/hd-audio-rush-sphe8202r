@@ -96,6 +96,35 @@ Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 
 - Issue #9 checklist coverage after static S/PDIF input + RAW/PCM recovery: **7/22 = 31.8%** overall. By scope: address model **3/7 = 42.9%**, control surfaces **3/8 = 37.5%**, firmware construction **1/7 = 14.3%**.
 - Validation level remains static/source analysis. No hardware acceptance is implied by these percentages.
 
+## Agent handoff — continue here
+
+Do **not** restart address/base discovery or S/PDIF OFF/RAW/PCM tracing. The current Sunplus state is already preserved in canonical Ghidra and in this document.
+
+Immediate continuation order:
+
+1. Continue the **AP1 source-dispatcher map** from `gp+0x7A5 = 0x800032A5` and the 9-entry handler table at `0x8070B4E0`. Entry 1 is already confirmed USB. Recover the remaining source indices and name only handlers proven by instruction/data evidence.
+2. Finish the broader external-input transition routine around `0x806FED18`. It writes external-input subsource selector `gp+0x7FA = 0x800032FA` to values `1=AUXIN` and `2=SPDIF IN`; `ToggleTunerSpdifInput` at `0x806FB920` already proves the `0<->2` TUNER/SPDIF toggle. Determine caller/event semantics rather than rediscovering the selector mapping.
+3. Then move to **volume/mute**. Start from confirmed control-descriptor/dispatcher infrastructure in `drv_other` instead of string hunting: `ResolveControlIdToGroupSlot`, `DispatchControlOption`, runtime selection table `0x800066B0`, persistent selection blob `DAT_80006810[0..0x40]`, and apply/save helpers already named in Ghidra.
+4. After volume/mute, map USB/service init and then SPHE<->secondary-controller calls. Board-init tracing can proceed in parallel only where it does not depend on unresolved hardware routing.
+5. STK/repack remains a separate lane: continue from `CalculateContainerWordSum @ 0x00401B56`, parser fields `+0x20/+0x40`, and unresolved intermediate routine `0x00401ED2`. Do not claim repack until a byte-exact no-change round trip is reproduced.
+
+Known analysis hazards / do not repeat:
+- AP1 base is **`0x8067B800` and already rebased in Ghidra**. The old `0x8067B000` model is invalid.
+- `wma/cdrom/drv_other` still have **43 stale DEFAULT direct-flow refs** from old rebases. Treat caller/decompiler output cautiously until repaired through an authorized path.
+- Runtime GP restore slot is instruction-proven **`0x88012200`**. The auxiliary Ghidra block currently at `0x88012A00` is stale metadata shifted by the AP1 rebase.
+- The tool safety layer intermittently blocks even read-only Ghidra calls on specific ranges. Do not loop/retry the same blocked action. Prefer narrow single-address queries; when blocked, use canonical module bytes for raw instruction evidence and return to Ghidra only for confirmed semantic markup.
+- Do not infer PCB routing from SoC/software capability. Current S/PDIF results are firmware-control evidence only.
+- Work directly in `main`; no PRs. Do not modify the canonical dump or extracted module bytes.
+
+Current coverage snapshot to carry forward:
+- semantic/non-`FUN_*` function naming: **36/4011 = 0.90%**;
+- issue #9 checklist: **7/22 = 31.8%** overall;
+- address-model scope: **3/7 = 42.9%**;
+- control-surface scope: **3/8 = 37.5%**;
+- firmware-construction scope: **1/7 = 14.3%**;
+- S/PDIF OFF/RAW/PCM static getter/setter/persistence contract: effectively closed for static analysis; hardware validation remains;
+- S/PDIF input static selector contract: recovered; remaining work is higher-level source-dispatcher/caller semantics and hardware validation.
+
 ## Active work
 
 The issue tracker remains the task backlog:
