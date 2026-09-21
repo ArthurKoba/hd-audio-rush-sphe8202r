@@ -4,6 +4,51 @@ Reverse engineering of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_
 
 The repository keeps only the artifacts needed for the work: the raw SPI dump, the already-extracted firmware modules, the STK tool archive, one UART excerpt, and reverse-engineering notes.
 
+## Project objective
+
+The goal is **control-complete reverse engineering** of the whole board, not merely disassembling one firmware image.
+
+The project is complete when we can preserve firmware from both processors, explain the important hardware and inter-chip contracts, rebuild or patch each firmware through a known path, recover after a bad firmware experiment, flash modified firmware safely, and programmatically control the useful system functions without treating either processor as an unexplained black box.
+
+For this project, "fully reversed" does **not** mean every internal function must be renamed. It means the boot/update paths, hardware contracts, audio routing, control state, inter-chip protocol and firmware modification path are understood well enough to make intentional changes and validate them on hardware.
+
+Before claiming reverse-complete, all of the following must be true:
+
+- Sunplus raw dump preserved and its container/module layout understood;
+- secondary-controller firmware dumped and preserved;
+- both CPU architectures have a usable static-analysis path;
+- SPHE <-> secondary-controller data/control links are mapped;
+- S/PDIF input, AC3/DTS handling, volume/mute and six-channel output ownership are identified;
+- USB/service interfaces and their boot/update roles are identified;
+- packing/checksum/integrity requirements are reproduced;
+- at least one safe recovery method is proven for each writable firmware domain;
+- at least one intentional firmware modification is flashed and hardware-validated;
+- a documented control path exists for source/mode, volume/mute, status and any later USB/Bluetooth extensions.
+
+USB Audio Class, new Bluetooth behavior and similar additions are post-reverse features, not prerequisites for understanding the original board.
+
+## Analysis toolchain decision
+
+**Ghidra stays. SCORE7 does not belong to this project's dependency set.**
+
+- The extracted Sunplus application modules are coherent **MIPS32 little-endian**, so normal Ghidra MIPS support is the correct path for `ap1.bin`, `drv_other.bin`, `cdrom.bin` and `wma.bin`.
+- The custom SCORE7 backend came from the early, incorrect assumption that the packed 1 MiB Sunplus container itself was SCORE7 code. Correct STK extraction disproved that assumption for the primary modules.
+- No current target binary on this board has been proven to require SCORE7. Auxiliary `iop` / DSP images remain unidentified and must not be labelled SCORE7 without evidence.
+- SCORE7 is useful general Ghidra work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
+- The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 Ghidra processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
+
+## Work order
+
+1. **Acquire the missing secondary-controller dump.** Until both firmware domains are preserved, the system model is incomplete.
+2. **Finish the physical board map.** Determine SDRAM identity, USB/UART pin ownership, TOSLINK path, six-channel analog path and the SPHE <-> secondary-controller buses.
+3. **Reverse the Sunplus control surfaces, not random functions.** Finish module bases/GP, then target S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls.
+4. **Reverse the secondary firmware.** Match the dump to BR23/AC695N SDK code, identify its audio/control responsibilities and inter-chip protocol.
+5. **Recover packing, flashing and rollback for both sides.**
+6. **Implement a minimal control plane and a controlled firmware modification.**
+7. Only then add new features such as USB audio, alternate Bluetooth behavior or a richer external control interface.
+
+The active work is tracked by GitHub issues; umbrella issue #15 defines the end-to-end reverse/reflash/recovery/control acceptance.
+
 ## Hardware platform
 
 | Part | Identification | Current understanding |

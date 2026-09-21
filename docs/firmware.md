@@ -67,7 +67,7 @@ Provisional:
 - `cdrom.bin` ~`0x80754000`
 - `drv_other.bin` ~`0x80782000`
 
-The earlier SCORE7 experiment was useful for rejecting a flat-image interpretation; it is not the active ISA for the primary application modules.
+The earlier SCORE7 experiment was useful for rejecting a flat-image interpretation; it is not the active ISA for the primary application modules and is not a dependency of this board project.
 
 ## Firmware anchors
 
@@ -85,7 +85,35 @@ The earlier SCORE7 experiment was useful for rejecting a flat-image interpretati
 
 These are static firmware anchors, not PCB-routing proof.
 
-## Secondary controller evidence
+## Secondary BR23 / AC695N side
+
+The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
+
+BR23 / AC695N uses JieLi's `pi32v2` architecture, not MIPS and not SCORE7.
+
+### Read-only dump plan
+
+The next major acquisition task is to preserve this firmware before doing deeper two-chip reverse work.
+
+1. Identify the secondary chip's own USB D+/D- route or accessible test pads. Do not reuse the four-pad SPHE USB footprint by assumption.
+2. Confirm the chip enters BR23/AC695N-family Boot ROM / UBOOT, or determine the exact hardware action needed to reach ROM download mode.
+3. Use a read-only BR23-capable dumper path. The open-source `jl-uboot-tool` explicitly lists BR23 / AC695N/AC635N as working and can read flash through its RAM loader.
+4. Query the online flash/device ID first and derive the real flash size. The runtime log's `disk capacity 1024 KB` is a strong clue, not the dump-size authority.
+5. Read the full flash at least twice, compare byte-for-byte and record SHA-256.
+6. Only after verified preservation should any write/erase/update experiment be attempted.
+7. Store the verified dump in this repository under `firmware/` using the proven chip family/part name.
+
+### Static-analysis path
+
+After the dump exists:
+
+- use a pi32v2 Ghidra processor implementation such as the open-source `ghidra-jieli` module;
+- cross-check instruction decoding against the JieLi toolchain/objdump;
+- use available AC695N/BR23 SDK source as a semantic oracle;
+- recover board configuration, UART/service behavior, ALINK/I2S/SPDIF use, volume state and the SPHE inter-chip protocol.
+
+### Current runtime anchors
+
 
 `evidence/ac695n-boot-excerpt.log` is a curated excerpt from the UART output of the secondary-controller side.
 
@@ -101,3 +129,18 @@ It contains:
 - max/default volume configuration and `VOL_SAVE`
 
 This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exact public SKU behind `AK24BP24230`, its internal-flash dump path and the inter-chip protocol remain open.
+
+
+## Firmware-control acceptance
+
+Firmware work is not complete merely because both dumps decompile.
+
+We need to prove:
+- repeatable extraction/dump;
+- repeatable packing or image construction;
+- integrity/checksum rules;
+- a safe flash/update method;
+- rollback/recovery;
+- one intentional modification that survives reboot and produces the expected hardware behavior.
+
+Only after that should the project implement new product behavior.
