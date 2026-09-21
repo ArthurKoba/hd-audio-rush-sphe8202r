@@ -91,6 +91,29 @@ The board's secondary package is marked `AK24BP24230`. The UART log proves that 
 
 BR23 / AC695N uses JieLi's `pi32v2` architecture, not MIPS and not SCORE7.
 
+### Public references / pinout
+
+Working public pinout candidate for the secondary LQFP48 device:
+
+- AC6951C datasheet V1.3 mirror: https://opendevices.ru/wp-content/uploads/2021/08/AC6951C-Datasheet-V1.3.pdf
+- alternate rendered datasheet: https://manuals.plus/m/f01af517c489b4b9a7162705aa1868219f1b5cd871d130e08f0c0d601858c359
+
+For AC6951C LQFP48:
+- pin 23 = `USBDM`
+- pin 24 = `USBDP`
+- pin 25 = `PA10` (also has `SPDIF_IN_B`)
+- pin 26 = `PA9` (also has `SPDIF_IN_A`)
+
+The physical package marking on this board is `AK24BP24230`; the exact mapping of that marking to AC6951C is still unproven. Use pins 23/24 only after continuity/visual package orientation confirms that this board's secondary device matches the AC6951C LQFP48 pinout.
+
+Boot/dump references:
+
+- jl-uboot-tool: https://github.com/kagaimiq/jl-uboot-tool
+- enter UBOOT / USB_KEY: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/how-to-enter-uboot.md
+- UBOOT model: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/what-is-uboot.md
+- JieLi architecture/chip notes: https://github.com/kagaimiq/jielie
+- pi32v2 Ghidra processor: https://github.com/kagaimiq/ghidra-jieli
+
 ### Read-only dump plan
 
 The next major acquisition task is to preserve this firmware before doing deeper two-chip reverse work.
@@ -102,6 +125,21 @@ The next major acquisition task is to preserve this firmware before doing deeper
 5. Read the full flash at least twice, compare byte-for-byte and record SHA-256.
 6. Only after verified preservation should any write/erase/update experiment be attempted.
 7. Store the verified dump in this repository under `firmware/` using the proven chip family/part name.
+
+### Safe first-session sequence
+
+After identifying the secondary controller's own USB D+/D- pair:
+
+1. power the board in the safest known configuration and share ground with the USB host;
+2. do not feed an unknown USB VBUS rail into the board until its power topology is mapped;
+3. enter BR23 ROM `UBOOT1.00` using the documented `USB_KEY` method or another non-destructive ROM-entry path;
+4. start `jluboottool.py` and record the detected BR23/series and flash/device information;
+5. determine flash size from the actual flash ID before selecting a dump length;
+6. use only the `read <address> <length> <file>` command for the first session;
+7. read the whole flash twice and compare the two files byte-for-byte and by SHA-256;
+8. do not use `write`, `erase` or `erasechip` until a verified dump and recovery path exist.
+
+The tool's own documentation marks BR23 / AC695N/AC635N as working and documents `read <address> <length> <file>` as the flash-dump command.
 
 ### Static-analysis path
 
