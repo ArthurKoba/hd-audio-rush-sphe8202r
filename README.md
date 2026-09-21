@@ -2,7 +2,7 @@
 
 Reverse engineering of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SPDIF_V02`.
 
-The repository keeps only the artifacts needed for the work: the raw SPI dump, the already-extracted firmware modules, the STK tool archive, one UART excerpt, and reverse-engineering notes.
+The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and reverse-engineering notes.
 
 ## Project objective
 
@@ -39,15 +39,15 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-reverse f
 
 ## Work order
 
-1. **Acquire the missing secondary-controller dump.** Until both firmware domains are preserved, the system model is incomplete.
+1. **Acquire the missing secondary-controller dump.** Until both firmware domains are preserved, the whole-system model is incomplete. This does not block independent Sunplus work.
 2. **Finish the physical board map.** Determine SDRAM identity, USB/UART pin ownership, TOSLINK path, six-channel analog path and the SPHE <-> secondary-controller buses.
-3. **Reverse the Sunplus control surfaces, not random functions.** With the module bases and shared GP established, target S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls.
+3. **Reverse the Sunplus control surfaces, not random functions.** First resolve the reopened AP1 address-model gate and stale Ghidra call references, then trace S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls. Shared GP is established, but the current analysis is not yet a clean call model.
 4. **Reverse the secondary firmware.** Match the dump to BR23/AC695N SDK code, identify its audio/control responsibilities and inter-chip protocol.
 5. **Recover packing, flashing and rollback for both sides.**
 6. **Implement a minimal control plane and a controlled firmware modification.**
 7. Only then add new features such as USB audio, alternate Bluetooth behavior or a richer external control interface.
 
-The active work is tracked by GitHub issues; umbrella issue #15 defines the end-to-end reverse/reflash/recovery/control acceptance.
+The current issue #9 focus is Sunplus-only. The issue tracker is the task backlog; umbrella issue #15 defines the end-to-end reverse/reflash/recovery/control acceptance.
 
 ## Hardware platform
 
@@ -115,17 +115,19 @@ STK identifies the dump as:
 
 STK displays `SPHE8203R` while the physical package is marked `SPHE8202R`; this remains an explicit contradiction.
 
-The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Current load map:
-- `ap1.bin` -> `0x8067B000` confirmed
-- `wma.bin` -> `0x8073F000` confirmed
-- `cdrom.bin` -> `0x8074C800` confirmed
-- `drv_other.bin` -> `0x80775800` confirmed
+The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Working module map:
+- `ap1.bin` -> `0x8067B800` static candidate; **current Ghidra still uses `0x8067B000`**, and the old confirmation is withdrawn pending correction/validation;
+- `wma.bin` -> `0x8073F000` established;
+- `cdrom.bin` -> `0x8074C800` established;
+- `drv_other.bin` -> `0x80775800` established.
 
-The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In `wma.bin`, independent absolute/gp-relative pairs resolve both `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84` to the same GP; applying that value resolves concrete `0x8000xxxx` globals across `ap1`, `wma`, `cdrom` and `drv_other`.
+The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In `wma.bin`, independent absolute/gp-relative pairs resolve both `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84` to the same GP.
 
-The canonical Ghidra project analyzes only the extracted CPU modules. Earlier flat imports of the 1 MiB Sunplus container were removed; the raw dump remains preserved in the repository as container evidence.
+A 2026-09-21 raw-instruction audit found 43 stale Ghidra direct-flow references in the three non-AP1 modules. The encoded targets and stored xrefs disagree; a repair source is saved but its application was blocked and is not claimed complete. Separately, AP1 initial-delay calls, absolute/relative branch joins and string pointers contradict its old base. See `docs/firmware.md` before using existing function addresses or caller lists.
 
-The application contains anchors for `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, AC3, DTS, PCM, USB/SD and audio setup/output modes.
+The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in Ghidra. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open.
+
+The canonical Ghidra project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed.
 
 ## Layout
 
@@ -135,6 +137,7 @@ firmware/
   modules/
 tools/
   STK_0.2.3.zip
+  ghidra/RepairMipsDirectFlow.java
 evidence/
   ac695n-boot-excerpt.log
 reverse/
