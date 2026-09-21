@@ -143,6 +143,10 @@ The corrected translation table identifies descriptor options:
 
 The descriptor's state-slot field is `0x0B`, mapping its current option index to `DAT_80006810[0x0B] = 0x8000681B`. `LoadControlSelectionsFromStateSlots` (`0x80777C0C`) copies indexed state slots into the generic selection table at `0x800066B0 + group*9 + slot`; `SaveControlSelectionsToStateSlots` (`0x80777C94`) performs the inverse copy. This closes the static state/persistence path for OFF/RAW/PCM selection. It does **not** by itself prove physical PCB routing or hardware-observed output behavior.
 
+The interactive commit path is also recovered. `HandleControlMenuInputEvent` routes menu-state 2 to `HandleControlMenuBrowseInput` and state 3 to `HandleControlMenuEditInput`. Browse-state code at `0x8077AD20..0x8077AD44` reads the current selection position from `0x800066B0 + group*9 + slot`, places it in `DAT_80002B2B`, and switches the UI into edit state 3. The edit commit at `0x8077B244..0x8077B270` reads descriptor byte `+0x0B` as the state-slot index, writes the edited position to both `DAT_80006810[stateIndex]` and the runtime selection table, then calls `ApplyCurrentControlSelection` (`0x80777578`) followed by `SaveCurrentControlSelection` (`0x807774EC`).
+
+For descriptor type 3, `ApplyCurrentControlSelection` loads the control ID and selected option ID from the descriptor and calls `DispatchControlOption(controlId, optionId, 1)`. Therefore AUDIO OUT commits dispatch `0x71` with `0x12`, `0x75`, or `0x77` directly into `ApplySpdifOutputOption` with side effects enabled. `SaveCurrentControlSelection` persists the state byte through the generic NVRAM/config writer, while `SaveAllControlSelections` (`0x8077C0D0`) persists the full `0x41`-byte selection blob and its checksum path. This completes the static OFF/RAW/PCM getter/setter/persistence contract; hardware-observed S/PDIF behavior is still a separate acceptance level.
+
 
 AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/output, AC3, DTS, PCM and USB/SD strings. Prefer stable file offsets until the address model is repaired:
 
