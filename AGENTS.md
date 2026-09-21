@@ -9,6 +9,12 @@ Mandatory local map for this reverse-engineering repository.
 3. `docs/hardware.md` or `docs/firmware.md` for the active task
 4. the universal hardware-reverse skill from `ArthurKoba/ai-agent-workflow`
 
+## Project objective
+
+The target is control-complete reverse engineering: preserve both firmware domains, recover the hardware/inter-chip contracts, prove safe rebuild/flash/recovery, and reach intentional programmatic control of the board.
+
+Do not substitute exhaustive function naming for this acceptance contract.
+
 ## Evidence rules
 
 Use explicit evidence states:
@@ -33,9 +39,12 @@ Hashes are documented in the root `README.md`; do not add parallel checksum mani
 
 - Never modify the raw dump or extracted module files in place.
 - Do not analyze the 1 MiB dump as one flat executable; unpacked CPU modules are the correct static-analysis inputs.
-- Main CPU modules are currently MIPS32 little-endian; SCORE7 is not the active assumption for `ap1/cdrom/drv_other/wma`.
+- Main Sunplus CPU modules are MIPS32 little-endian.
+- SCORE7 is not a dependency of this board project unless a specific target binary is later proven to use it.
+- Secondary BR23/AC695N-family firmware should be treated as JieLi pi32v2.
 - Keep load-address assumptions explicit before analysis.
 - Critical conclusions require instruction-level or runtime/physical evidence, not decompiler output alone.
+- Prioritize boot/update/control/audio/inter-chip contracts over unrelated library code.
 - Preserve known-good state; no modified flash writes until recovery, packing/integrity and rollback are proven.
 
 ## Repository policy

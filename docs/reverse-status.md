@@ -1,5 +1,12 @@
 # Reverse status
 
+## Project direction
+
+Target state: **control-complete reverse engineering of the entire board**.
+
+Current work is incomplete because only the Sunplus external flash is preserved. The highest-value missing artifact is the secondary BR23/AC695N-side firmware dump.
+
+
 ## Confirmed
 
 - Product family: HD Audio Rush 5.1.
@@ -25,11 +32,13 @@
 
 - Exact SDRAM part, vendor and density; STK's `32M` unit is not resolved.
 - Exact public SKU behind `AK24BP24230`.
+- Exact secondary flash ID/size and physical USB boot/download route.
 - Exact SPHE <-> secondary-controller control/audio transport.
 - Exact TOSLINK/coax -> decode -> six-channel analog signal path.
 - Exact role of HCF4052 and 74HC04D on this PCB.
 - Exact USB pad pinout and whether device/UAC mode is feasible.
-- Safe read-only dump method for the secondary controller's internal firmware.
+- Safe recovery/flash path for the secondary controller.
+- Reproducible Sunplus repack/update path.
 
 ## Contradictions
 
@@ -40,6 +49,14 @@ Physical package marking is `SPHE8202R`; STK displays `SPHE8203R`. Do not resolv
 ### SCORE7 vs MIPS
 
 Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 is not the current assumption for `ap1/cdrom/drv_other/wma`.
+
+## Tooling decision
+
+- **Ghidra: required.**
+- **SCORE7 processor: not required for this board on current evidence.**
+- Sunplus application reverse uses Ghidra MIPS32 LE support.
+- Secondary firmware reverse should use JieLi pi32v2 support after the dump is acquired.
+- SCORE7 support should be treated as separate/general Ghidra work and not as a dependency or acceptance gate for this repository.
 
 ## Active work
 
