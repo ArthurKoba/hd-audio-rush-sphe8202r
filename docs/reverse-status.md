@@ -28,7 +28,7 @@ Last synchronized from the initial investigation and current Ghidra/STK results.
 The application image contains strings for S/PDIF OFF/RAW/PCM, S/PDIF input, AC3, DTS, PCM, USB, SD and audio setup/output modes.
 
 ### Secondary firmware evidence
-A captured UART boot log contains:
+A user-supplied UART boot log excerpt contains:
 - `AC695N_soundbox_sdk_release_3.1.0_LineIn_IIS`
 - platform path containing `board/br23/board_ac695x_demo`
 - `jl_soundbox_lihui`

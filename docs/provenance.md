@@ -24,7 +24,7 @@ Canonical large/binary artifacts are stored on repository branch `files`.
 - branch/path: `files:P25D80SH@SOP8.BIN`
 - size: 1,048,576 bytes
 - SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
-- source: Puya P25D80SH removed/read from the target board
+- source: user-supplied dump of the target board's Puya P25D80SH
 - status: immutable stock evidence
 
 ### STK-extracted corpus
