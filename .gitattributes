@@ -1,0 +1,12 @@
+# Captured firmware/tool archives are opaque binary evidence.
+*.BIN binary
+*.bin binary
+*.tar binary
+*.zip binary
+*.exe binary
+*.rar binary
+
+# Text evidence and reverse metadata.
+*.md text eol=lf
+*.csv text eol=lf
+*.log text eol=lf
