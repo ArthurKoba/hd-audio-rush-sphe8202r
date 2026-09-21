@@ -25,7 +25,7 @@ That requires one of:
 
 ## USB pads
 
-A four-pad unpopulated USB/service footprint is present. User visual/continuity observations indicate it routes toward the SPHE side of the board, not the secondary controller. Exact D+/D-/VBUS/GND assignment and host/device behavior are still to be electrically confirmed and documented.
+A four-pad unpopulated USB/service footprint is present. The user reports tracing those pads toward the SPHE side of the board rather than the secondary controller. No exact pin-level continuity measurement has yet been archived. D+/D-/VBUS/GND assignment and host/device behavior remain to be electrically confirmed and documented.
 
 ## Next physical evidence
 

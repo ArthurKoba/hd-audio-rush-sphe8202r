@@ -17,7 +17,7 @@ Datasheets, related Sunplus devices, JieLi SDK sources and other HD Audio Rush r
 
 ## Binary evidence branch
 
-Canonical large/binary artifacts are stored on repository branch `files`.
+Canonical large/binary artifacts are stored on repository branch `files`. The current reviewed evidence snapshot is `files@a0f0a05622d819720fa34481eb32d466b8a55ec1`; artifact identity remains defined by filename, byte size and SHA-256.
 
 ### Sunplus SPI dump
 
