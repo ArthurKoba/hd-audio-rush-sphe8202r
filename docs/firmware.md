@@ -128,7 +128,20 @@ Instruction-level AP1 analysis now identifies a paired command mailbox interface
 - raw initialization body beginning at `0x8069D4F8` programs `0x4627 -> 0x75` and `0x4628 -> 0x77`; identical pairs recur in four initialization clusters;
 - helper `0x8069E1A4(param1,param2)` writes mailbox key `0x4000 | param1`. One runtime control-flow branch at `0x80684AA0..0x80684940` therefore issues exact transaction `0x401A <- 0x75`.
 
-`0x75` is the confirmed translation-table item ID for `SPDIF/RAW`; `0x77` is the item ID for `SPDIF/PCM`. The runtime `0x77` transaction and the semantic ownership of mailbox key `0x401A` are still unresolved, so this is not yet a complete RAW/PCM setter contract or hardware-routing proof.
+`0x75` is the confirmed translation-table item ID for `SPDIF/RAW`; `0x77` is the item ID for `SPDIF/PCM`. The standalone mailbox key `0x401A` remains semantically unresolved, but the higher-level OFF/RAW/PCM setter contract is now recovered independently through the control-descriptor/dispatcher path.
+
+### S/PDIF OFF / RAW / PCM control contract
+
+`ResolveControlIdToGroupSlot(0x71)` resolves S/PDIF output control to group 2 / slot 1. The descriptor at `0x80707FA3` is 13 bytes: `03 71 12 75 77 00 00 00 00 00 00 0B 00`. A working analytical type `ControlOptionDescriptor` is applied there; proven fields are packed ID/meta, control-ID low byte, eight option-ID bytes, state-slot byte at `+0x0B`, and two still-unknown metadata bytes.
+
+The corrected translation table identifies descriptor options:
+- `0x12` -> `SPDIF/OFF`;
+- `0x75` -> `SPDIF/RAW`;
+- `0x77` -> `SPDIF/PCM`.
+
+`DispatchControlOption` at `0x80776210` masks the first argument as control ID and second as option ID. Its jump-table entry for control `0x71` calls `ApplySpdifOutputOption` at `0x807759E0` with that option ID. Instruction/decompiler behavior in `ApplySpdifOutputOption` is explicit: RAW `0x75` selects internal mode 2, PCM `0x77` selects internal mode 1, and OFF `0x12` follows the clear/reconfigure path. `IsSpdifPcmSelected` at `0x8077C21C` returns whether the currently selected descriptor option is `0x77`.
+
+The descriptor's state-slot field is `0x0B`, mapping its current option index to `DAT_80006810[0x0B] = 0x8000681B`. `LoadControlSelectionsFromStateSlots` (`0x80777C0C`) copies indexed state slots into the generic selection table at `0x800066B0 + group*9 + slot`; `SaveControlSelectionsToStateSlots` (`0x80777C94`) performs the inverse copy. This closes the static state/persistence path for OFF/RAW/PCM selection. It does **not** by itself prove physical PCB routing or hardware-observed output behavior.
 
 
 AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/output, AC3, DTS, PCM and USB/SD strings. Prefer stable file offsets until the address model is repaired:

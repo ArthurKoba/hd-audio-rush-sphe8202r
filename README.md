@@ -116,7 +116,7 @@ STK identifies the dump as:
 STK displays `SPHE8203R` while the physical package is marked `SPHE8202R`; this remains an explicit contradiction.
 
 The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Working module map:
-- `ap1.bin` -> `0x8067B800` static candidate; **current Ghidra still uses `0x8067B000`**, and the old confirmation is withdrawn pending correction/validation;
+- `ap1.bin` -> `0x8067B800`, corrected base applied in canonical Ghidra; remaining function-boundary/reference cleanup is tracked separately;
 - `wma.bin` -> `0x8073F000` established;
 - `cdrom.bin` -> `0x8074C800` established;
 - `drv_other.bin` -> `0x80775800` established.
