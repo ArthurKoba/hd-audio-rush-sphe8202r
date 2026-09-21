@@ -52,7 +52,7 @@ Correct workflow: preserve the container, use extracted CPU modules as `MIPS:LE:
 
 | Module | Working base | Validation state |
 |---|---|---|
-| ap1 | `0x8067B800` | Static candidate; current Ghidra base remains `0x8067B000`, rebase and function-boundary recovery pending |
+| ap1 | `0x8067B800` | Corrected base applied in canonical Ghidra; function-boundary and stale-reference cleanup still pending |
 | wma | `0x8073F000` | Established base; stale direct-flow refs remain |
 | cdrom | `0x8074C800` | Established base; stale direct-flow refs remain |
 | drv_other | `0x80775800` | Established base; stale direct-flow refs remain |
@@ -73,11 +73,12 @@ The 684,192 original AP1 bytes in Ghidra were hashed again and match the canonic
 The cross-module entry offset is **`0x86244`**, correcting `0x85A44` in an earlier issue comment. Individual literal-pointer matches alone are not proof. Independent code evidence supports the candidate, but a corrected Ghidra model, remaining layout/loader checks and recovered function boundaries are still required.
 
 Further raw-pointer checks:
+- corrected translation table base is `0x806DCD88` (file `+0x61588`) with language stride `0x404 = 257*4`; raw item `113` is `AUDIO OUT`, item `117` is `SPDIF/RAW`, item `119` is `SPDIF/PCM`;
 - file `+0x615D0` stores `0x806DA5C8`; with base `0x8067B800` this points exactly to `SPDIF/OFF` at file `+0x5EDC8`, while `0x8067B000` points into unrelated bytes;
 - `SPDIF/RAW`/`SPDIF/PCM` candidate addresses `0x806DA8AC/0x806DA8B8` are referenced repeatedly from localized pointer blocks at file offsets `+0x6175C/+0x61764`, `+0x61F64/+0x61F6C`, `+0x62368/+0x62370`, `+0x6276C/+0x62774`, and `+0x62B70/+0x62B78`;
 - the old Ghidra interpretation using file `+0x61180` (`0x806DA0AC/0x806DA0B8`) and outer file `+0x62964` is invalid under the candidate placement: those targets resolve into unrelated language-text data. Any prior RAW/PCM menu-setter conclusions based on that old address chain are withdrawn pending corrected placement/relocation analysis.
 
-AP1 has not been rebased in this pass. Its `AddressModel` bookmark and the EOL warning at the current listing address `0x8067B078` preserve the finding. Current AP1 function counts, fragments and apparent callers must not be promoted to validation.
+AP1 is now rebased to `0x8067B800` in the canonical Ghidra project. This corrects placement but does not automatically repair pre-existing function boundaries or stale references; current symbols/callers still require evidence-level validation.
 
 ### Stale direct-flow reference audit
 
@@ -110,7 +111,7 @@ The shared GP remains `$gp = 0x80002B00`, independently supported by WMA absolut
 - `0x800035D8 = gp + 0xAD8`;
 - `0x80003684 = gp + 0xB84`.
 
-Earlier AP1 exception-path analysis identified the runtime GP restore word at `0x88012200`; its absolute slot is distinct from AP1 code placement. Do not mistake an uninitialized analysis block at that address for a captured runtime value.
+AP1 instruction pair `0x806D96F8: lui gp,0x8801` / `0x806D96FC: lw gp,0x2200(gp)` proves the runtime GP restore word is at absolute `0x88012200`. The canonical Ghidra project currently also contains a stale auxiliary block `runtime_gp_slot` at `0x88012A00`, shifted by the AP1 rebase; an attempt to create a corrected replacement block was blocked by the tool safety layer. Treat `0x88012200` as the instruction-backed address and the shifted block as known-bad metadata.
 
 Cross-module helpers identified in `drv_other.bin`:
 - `0x80783F08` — byte-wise `memcmp`;
@@ -118,6 +119,17 @@ Cross-module helpers identified in `drv_other.bin`:
 - `0x80783F64` — byte-wise `memset`.
 
 ## Firmware anchors and audio state
+
+### Command mailbox path
+
+Instruction-level AP1 analysis now identifies a paired command mailbox interface:
+- `WriteCommandMailboxByte` at `0x8069B070`: writes a 16-bit key to `s6+0xE80`, byte value to `s6+0xE84`, polls handshake bit `0x8000`, then performs the `0x454B` completion transaction;
+- `ReadCommandMailboxByte` at `0x8069B268`: writes the key to `s6+0xE80`, polls `s6+0xE88` bit `0x8000`, and returns the low response byte;
+- raw initialization body beginning at `0x8069D4F8` programs `0x4627 -> 0x75` and `0x4628 -> 0x77`; identical pairs recur in four initialization clusters;
+- helper `0x8069E1A4(param1,param2)` writes mailbox key `0x4000 | param1`. One runtime control-flow branch at `0x80684AA0..0x80684940` therefore issues exact transaction `0x401A <- 0x75`.
+
+`0x75` is the confirmed translation-table item ID for `SPDIF/RAW`; `0x77` is the item ID for `SPDIF/PCM`. The runtime `0x77` transaction and the semantic ownership of mailbox key `0x401A` are still unresolved, so this is not yet a complete RAW/PCM setter contract or hardware-routing proof.
+
 
 AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/output, AC3, DTS, PCM and USB/SD strings. Prefer stable file offsets until the address model is repaired:
 
