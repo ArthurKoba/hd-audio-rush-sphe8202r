@@ -1,0 +1,22 @@
+# Local reverse-engineering state
+*.gpr
+*.rep/
+*.gzf
+*.gar
+.ghidra/
+ghidra_projects/
+reverse/work/
+reverse/tmp/
+
+# Generated materialized firmware
+build/
+
+# Tool/vendor installations
+tools/vendor/
+tools/cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp

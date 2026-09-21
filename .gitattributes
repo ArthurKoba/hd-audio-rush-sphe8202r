@@ -1,0 +1,12 @@
+# Treat captured firmware/tool archives as opaque binary evidence if branches are ever merged.
+*.BIN binary
+*.bin binary
+*.tar binary
+*.zip binary
+*.exe binary
+*.rar binary
+
+# Explicit text evidence and reverse metadata.
+*.md text eol=lf
+*.csv text eol=lf
+*.log text eol=lf
