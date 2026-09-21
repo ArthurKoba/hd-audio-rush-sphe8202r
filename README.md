@@ -47,7 +47,7 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-reverse f
 6. **Implement a minimal control plane and a controlled firmware modification.**
 7. Only then add new features such as USB audio, alternate Bluetooth behavior or a richer external control interface.
 
-The active work is tracked by GitHub issues; an umbrella acceptance issue ties the individual reverse streams together.
+The active work is tracked by GitHub issues; umbrella issue #15 defines the end-to-end reverse/reflash/recovery/control acceptance.
 
 ## Hardware platform
 
