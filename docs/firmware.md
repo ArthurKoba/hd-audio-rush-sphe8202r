@@ -155,6 +155,17 @@ AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/outp
 
 Earlier work also recorded a status pool at old listing `0x8070AC00..0x8070AD07` containing DTS/PCM/AC3/no-signal and DVD/SPDIF/TUNER/AUXIN/MIC/USB labels. These are static firmware anchors, not PCB-routing evidence.
 
+### S/PDIF input selection contract
+
+AP1 contains a separate external-input subsource selector at `0x800032FA` (`gp+0x7FA`). Corrected instruction flow in the status/source display path at `0x8071E428..0x8071E4EC` proves:
+- selector `1` enters the AUX branch and displays `AUXIN` (`0x8070B4D4`), with a related 2CH->2.1CH / 2CH->5.1CH status line;
+- selector `2` displays `SPDIF IN` (`0x8070B4A0`);
+- the other branch displays `TUNER` (`0x8070B4AC`).
+
+`ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `0x800032FA` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating source-state byte `0x800032A5`. This establishes a TUNER <-> S/PDIF input-selection path. `FUN_806FED18` additionally writes selector `1` or `2` from a broader external-input transition path; its complete higher-level contract is not yet named.
+
+The higher source dispatcher uses `gp+0x7A5 = 0x800032A5` as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
+
 ### Audio-core findings retained with address caveats
 
 CDROM `0x8074C800`, previously named `ApplyCdromAudioModeFromSubtype`, maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`. Its encoded calls are `0x80701A44` and conditionally `0x807017A8`. It reads `gp+0x774 = 0x80003274`, first as a byte and later as a halfword; the exact storage contract should be retained rather than simplified silently.
