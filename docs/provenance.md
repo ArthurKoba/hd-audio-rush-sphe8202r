@@ -15,13 +15,11 @@ Highest-priority evidence for this board:
 
 Datasheets, related Sunplus devices, JieLi SDK sources and other HD Audio Rush revisions are useful reference material, but do not override contradictory target evidence.
 
-## Binary evidence branch
-
-Canonical large/binary artifacts are stored on repository branch `files`. The current reviewed evidence snapshot is `files@a0f0a05622d819720fa34481eb32d466b8a55ec1`; artifact identity remains defined by filename, byte size and SHA-256.
+## Canonical binary evidence
 
 ### Sunplus SPI dump
 
-- branch/path: `files:P25D80SH@SOP8.BIN`
+- path: `firmware/stock/P25D80SH@SOP8.BIN`
 - size: 1,048,576 bytes
 - SHA-256: `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`
 - source: user-supplied dump of the target board's Puya P25D80SH
@@ -29,17 +27,19 @@ Canonical large/binary artifacts are stored on repository branch `files`. The cu
 
 ### STK-extracted corpus
 
-- branch/path: `files:modules.tar`
+- archive path: `firmware/extracted/modules.tar`
 - archive size: 1,237,504 bytes
 - SHA-256: `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
+- materialized files: `firmware/extracted/modules/`
 - contains: all 18 STK module slots from the exact stock image
-- contained module hashes: `firmware/MANIFEST.md`
+- per-module hashes: `firmware/MANIFEST.md` and `firmware/extracted/SHA256SUMS`
 
 ### Sunplus STK tool archive
 
-- branch/path: `files:STK Sunplus Tool Kits 0.2.3 .zip`
+- path: `tools/vendor/sunplus-stk/STK Sunplus Tool Kits 0.2.3.zip`
 - size: 1,420,979 bytes
 - SHA-256: `cba31e5d7d7345078d3178290a4578f0484b3eaa7bea4a7ea303b3db0da01c3a`
+- provenance: user-supplied historical Sunplus STK archive used during this investigation
 
 The archive contains exactly:
 

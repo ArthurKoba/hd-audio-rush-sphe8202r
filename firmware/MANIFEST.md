@@ -1,12 +1,9 @@
 # Firmware artifact manifest
 
-Canonical binary payloads are stored on repository branch `files`. This working branch keeps hashes, classification and reverse metadata.
-
 ## Canonical stock dump
 
-Branch/path:
-
-`files:P25D80SH@SOP8.BIN`
+Path:
+`firmware/stock/P25D80SH@SOP8.BIN`
 
 Properties:
 - size: `1048576` bytes
@@ -16,11 +13,13 @@ Properties:
 
 ## Extracted Sunplus module corpus
 
-Canonical extraction archive:
-
-`files:modules.tar`
-
 Archive:
+`firmware/extracted/modules.tar`
+
+Materialized modules:
+`firmware/extracted/modules/`
+
+Archive properties:
 - size: `1237504` bytes
 - SHA-256: `542012b5b31ba01ab260e6f75a3f2dcfd8362e89b2143e0eca15279ccd23d98a`
 - contains all 18 STK module slots

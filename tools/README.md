@@ -1,5 +1,5 @@
 # Tools
 
-Project-owned helper scripts may be committed here.
+Project-owned helper scripts and reverse automation may be committed directly under `tools/`.
 
-Vendor/recovered tools such as Sunplus STK should be documented by version/hash/source but are not mixed into project-owned source code without a deliberate provenance/licensing decision.
+Preserved third-party/vendor binaries live under `tools/vendor/`. Every vendor artifact must have provenance, exact version/filename and SHA-256 recorded beside it or in the repository evidence ledger.

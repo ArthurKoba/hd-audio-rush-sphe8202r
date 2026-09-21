@@ -16,13 +16,14 @@ See `docs/hardware.md` for evidence level and unresolved routing questions.
 
 ## Binary evidence
 
-Canonical binary evidence is kept on the dedicated **`files` branch**:
+Canonical target/tool artifacts live directly in the repository:
 
-- `P25D80SH@SOP8.BIN` — exact 1 MiB target SPI dump
-- `modules.tar` — all 18 STK module slots extracted from that dump
-- `STK Sunplus Tool Kits 0.2.3 .zip` — three historical STK executables, including the working rev-8203R build
+- `firmware/stock/P25D80SH@SOP8.BIN` — exact 1 MiB target SPI dump
+- `firmware/extracted/modules.tar` — all 18 STK module slots exported from that dump
+- `firmware/extracted/modules/` — the same 18 modules materialized individually for direct reverse work
+- `tools/vendor/sunplus-stk/STK Sunplus Tool Kits 0.2.3.zip` — historical STK archive containing the three known 0.2.3 executables
 
-Exact sizes and SHA-256 hashes are recorded in `docs/provenance.md` and in the `files` branch README.
+Exact sizes and SHA-256 hashes are recorded beside the artifacts and in `docs/provenance.md` / `firmware/MANIFEST.md`.
 
 ## Stock firmware
 
@@ -79,10 +80,12 @@ These prove those concepts exist in the software image; they do not by themselve
 
 - `docs/` — hardware, firmware and evidence ledger
 - `evidence/` — captured runtime/tool evidence
-- `firmware/` — manifests and extraction metadata; binary payloads live on `files`
+- `firmware/stock/` — immutable stock firmware dumps
+- `firmware/extracted/` — extraction archives and byte-exact extracted modules
 - `reverse/` — Ghidra/import notes and reverse scripts
 - `hardware/` — board/photo/pinout evidence
-- `tools/` — project-owned helper notes/scripts; vendor tools live on `files`
+- `tools/vendor/` — preserved third-party reverse tools with provenance
+- `tools/` — project-owned tool notes/scripts
 
 ## Working discipline
 
