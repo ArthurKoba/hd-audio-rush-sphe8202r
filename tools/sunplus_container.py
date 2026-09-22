@@ -499,6 +499,9 @@ def command_inspect(path: pathlib.Path) -> int:
 def command_roundtrip(path: pathlib.Path, output: pathlib.Path | None) -> int:
     raw = path.read_bytes()
     state = open_image(raw)
+    expected = {
+        i: unpack_slot(state, i).data for i in range(TABLE_ENTRIES)
+    }
     decoded, _ = build_decoded(state, {})
     rebuilt, extent = encode_preserving_stock_suffix(state, decoded)
 
@@ -520,10 +523,11 @@ def command_roundtrip(path: pathlib.Path, output: pathlib.Path | None) -> int:
     else:
         return_code = 0
 
-    # Re-open with the recovered 8203R rules even when exactness failed.
-    reopened = validate_repacked(rebuilt)
+    # Every payload must survive a complete encode/decode/extract pass.
+    reopened = validate_repacked(rebuilt, expected)
     print(f"reopen_encoded_extent=0x{reopened.encoded_extent:x}")
     print(f"reopen_logical_extent=0x{reopened.logical_extent:x}")
+    print("all_27_payloads_roundtrip_exact=1")
 
     if output is not None:
         output.write_bytes(rebuilt)
@@ -540,9 +544,14 @@ def command_repack(
     repl_paths = parse_replacements(replacement_args)
     replacements = {index: p.read_bytes() for index, p in repl_paths.items()}
 
+    expected = {
+        i: unpack_slot(state, i).data for i in range(TABLE_ENTRIES)
+    }
+    expected.update(replacements)
+
     decoded, offsets = build_decoded(state, replacements)
     rebuilt, new_extent = encode_preserving_stock_suffix(state, decoded)
-    reopened = validate_repacked(rebuilt, replacements)
+    reopened = validate_repacked(rebuilt, expected)
 
     output.write_bytes(rebuilt)
 
@@ -560,6 +569,7 @@ def command_repack(
             f"packed=0x{len(reopened.segments[index]):x} "
             f"offset=0x{offsets[index]:x}"
         )
+    print("all_27_payloads_reopen_exact=1")
     print("status=STATIC_REPACK_VALIDATED_REOPEN_ONLY")
     return 0
 
