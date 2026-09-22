@@ -1,36 +1,32 @@
-# Experimental MIPS compiler / AP1 extension probe
+# Experimental MIPS compiler / in-place AP1 probe
 
-This directory validates the independent compiler path without replacing the
-original Sunplus startup/runtime.
+This directory validates the independent MIPS compiler path without changing
+the AP1 size, loader range, startup code or runtime layout.
 
-Confirmed build ABI used by the probe:
+Confirmed build ABI:
 - MIPS32 little-endian;
 - o32 ABI;
 - soft-float;
 - freestanding / no PIC / no ABICALLS;
 - `-G0`, avoiding the original small-data `$gp` layout.
 
-The current AP1 image occupies `0x8067B800..0x8072289F`.  The next confirmed
-MIPS module, WMA, begins at `0x8073F000`.  Static target references do not
-identify executable/data targets in the small extension used by this probe.
+The first hardware probe uses the already-understood
+`ApplySurroundModeIndex @ 0x80702D0C`.
 
-The probe therefore:
-1. compiles a behavior-preserving implementation of
-   `ApplySurroundModeIndex` at `0x80723000`;
-2. extends AP1 with zero fill through that address;
-3. writes the 44-byte compiled wrapper there;
-4. replaces the first 8 bytes of the original action at `0x80702D0C` with
-   `j 0x80723000; nop`.
+The stock wrapper is exactly 44 bytes and implements:
 
-The injected C wrapper still performs exactly
-`DispatchAudioHardwareAction(5, index & 0xff, 0)`.  It adds no user-visible
-feature.  Its purpose is to validate compiler ABI, module growth and container
-repacking before any new audio control is introduced.
+`DispatchAudioHardwareAction(5, index & 0xff, 0)`.
+
+The replacement is independently compiled C implementing the same contract.
+It is linked directly at `0x80702D0C` and must remain exactly 44 bytes.
+`patch_ap1.py` verifies the exact original wrapper bytes before replacing
+them, and refuses any patch that changes the AP1 size.
 
 Build and patch:
 
 ```sh
 ./build-surround-probe.sh
+
 python3 patch_ap1.py \
   ../../firmware/modules/ap1.bin \
   build/surround_probe.bin \
@@ -42,8 +38,15 @@ python3 ../sunplus_container.py repack \
   --replace ap1=build/ap1.compiler-probe.bin
 ```
 
-Static end-to-end validation has already reproduced this route in-memory:
-the modified AP1 re-opened exactly after container reconstruction and all other
-26 payloads remained byte-identical.  This is **not hardware acceptance** and
-the generated image must not be described as boot-tested until a controlled
-flash/recovery experiment is performed.
+This is deliberately behavior-preserving. Its purpose is to validate:
+1. the independent compiler/ABI;
+2. AP1 module replacement;
+3. Sunplus container repacking;
+4. actual execution on hardware.
+
+It does **not** depend on the previously tested AP1-extension gap. The
+extension path remains useful for later larger features, but is not required
+for the first hardware acceptance test.
+
+No generated image is boot-tested until it has actually been flashed under a
+proven recovery procedure and the expected audio behavior is observed.

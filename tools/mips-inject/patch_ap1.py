@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""Build a reversible AP1 compiler/ABI probe patch.
+"""Build a reversible in-place AP1 compiler/ABI probe patch.
 
-The original AP1 startup/runtime remains intact.  The probe:
-1. extends AP1 through the statically unused gap up to VA 0x80723000;
-2. appends one independently compiled behavior-preserving audio wrapper;
-3. replaces the first two instructions of ApplySurroundModeIndex with
-   a local absolute jump to the appended wrapper.
-
-This file only patches the extracted AP1 module.  The Sunplus container is
-rebuilt separately by tools/sunplus_container.py.
+The original 44-byte ApplySurroundModeIndex wrapper is replaced by an
+independently compiled 44-byte implementation with the same external contract.
+AP1 size, loader range and all other bytes remain unchanged.
 """
 
 from __future__ import annotations
@@ -21,11 +16,6 @@ ORIGINAL_AP1_SIZE = 0xA70A0
 
 HOOK_VA = 0x80702D0C
 HOOK_OFF = HOOK_VA - AP1_BASE
-
-INJECT_VA = 0x80723000
-INJECT_OFF = INJECT_VA - AP1_BASE
-
-NEXT_CONFIRMED_MODULE_BASE = 0x8073F000
 
 ORIGINAL_WRAPPER = bytes.fromhex(
     "ff008430"
@@ -41,10 +31,7 @@ ORIGINAL_WRAPPER = bytes.fromhex(
     "1800bd27"
 )
 
-# MIPS32 LE: j 0x80723000 ; nop
-TRAMPOLINE = bytes.fromhex("008c1c0800000000")
-
-EXPECTED_INJECT_SIZE = 44
+EXPECTED_REPLACEMENT_SIZE = len(ORIGINAL_WRAPPER)
 
 
 def main() -> int:
@@ -62,9 +49,9 @@ def main() -> int:
             f"unexpected AP1 size 0x{len(ap1):x}; "
             f"expected 0x{ORIGINAL_AP1_SIZE:x}"
         )
-    if len(replacement) != EXPECTED_INJECT_SIZE:
+    if len(replacement) != EXPECTED_REPLACEMENT_SIZE:
         raise SystemExit(
-            f"replacement must be exactly {EXPECTED_INJECT_SIZE} bytes; "
+            f"replacement must be exactly {EXPECTED_REPLACEMENT_SIZE} bytes; "
             f"got {len(replacement)}"
         )
 
@@ -74,30 +61,19 @@ def main() -> int:
             f"original wrapper mismatch at AP1+0x{HOOK_OFF:x}; refusing patch"
         )
 
-    if len(ap1) > INJECT_OFF:
-        raise SystemExit("injection address overlaps the original AP1 image")
+    ap1[HOOK_OFF : HOOK_OFF + len(ORIGINAL_WRAPPER)] = replacement
 
-    ap1.extend(b"\x00" * (INJECT_OFF - len(ap1)))
-    ap1.extend(replacement)
-    ap1[HOOK_OFF : HOOK_OFF + len(TRAMPOLINE)] = TRAMPOLINE
+    if len(ap1) != ORIGINAL_AP1_SIZE:
+        raise SystemExit("internal error: in-place patch changed AP1 size")
 
-    runtime_end = AP1_BASE + len(ap1)
-    if runtime_end >= NEXT_CONFIRMED_MODULE_BASE:
-        raise SystemExit(
-            f"extended AP1 reaches 0x{runtime_end:08x}, "
-            "overlapping the next confirmed module"
-        )
-
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(ap1)
 
     print(
-        f"hook: AP1+0x{HOOK_OFF:x} / VA 0x{HOOK_VA:08x} "
-        f"-> 0x{INJECT_VA:08x}"
+        f"replaced AP1+0x{HOOK_OFF:x} / VA 0x{HOOK_VA:08x} "
+        f"with {len(replacement)} compiled bytes"
     )
-    print(
-        f"AP1 size: 0x{ORIGINAL_AP1_SIZE:x} -> 0x{len(ap1):x}; "
-        f"runtime end 0x{runtime_end:08x}"
-    )
+    print(f"AP1 size preserved: 0x{len(ap1):x}")
     return 0
 
 

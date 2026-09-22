@@ -13,7 +13,7 @@ typedef int (*audio_dispatch_fn)(uint32_t action, uint32_t value, uint32_t aux);
  *
  * No new feature is introduced by this replacement.
  */
-__attribute__((used, noinline))
+__attribute__((used, noinline, aligned(4)))
 int injected_apply_surround(uint32_t index)
 {
     audio_dispatch_fn dispatch =

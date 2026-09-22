@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE="${BASE:-0x80723000}"
 OUT="${OUT:-build}"
-
 mkdir -p "$OUT"
 
 clang --target=mipsel-none-elf \
@@ -15,8 +13,7 @@ clang --target=mipsel-none-elf \
   -c surround_probe.c -o "$OUT/surround_probe.o"
 
 ld.lld -m elf32ltsmip \
-  -Ttext="$BASE" \
-  -e injected_apply_surround \
+  -T surround_probe.ld \
   "$OUT/surround_probe.o" \
   -o "$OUT/surround_probe.elf"
 
@@ -25,11 +22,12 @@ llvm-objcopy \
   "$OUT/surround_probe.elf" \
   "$OUT/surround_probe.bin"
 
-echo "Built MIPS wrapper at $BASE"
+echo "Built in-place MIPS wrapper at 0x80702D0C"
+llvm-objdump -h "$OUT/surround_probe.elf"
 llvm-objdump -d "$OUT/surround_probe.elf"
 wc -c "$OUT/surround_probe.bin"
 
 if [ "$(wc -c < "$OUT/surround_probe.bin")" -ne 44 ]; then
-  echo "ERROR: compiler probe must remain exactly 44 bytes" >&2
+  echo "ERROR: in-place compiler probe must remain exactly 44 bytes" >&2
   exit 2
 fi
