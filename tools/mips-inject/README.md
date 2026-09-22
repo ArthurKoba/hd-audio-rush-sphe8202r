@@ -64,3 +64,19 @@ state or when reproducing one of the confirmed tiny action wrappers.
 
 This header deliberately does not expose unresolved decoder internals or
 physical-channel assumptions.
+
+
+## One-command static build
+
+From the repository root:
+
+```sh
+python3 tools/build_audio_probe.py
+```
+
+The driver verifies the canonical stock flash and AP1 SHA-256 values, compiles
+the 44-byte in-place wrapper, patches AP1, repacks the Sunplus image and
+re-opens the result through the Python container parser. Output goes to
+`build/compiler-probe/` by default.
+
+It deliberately has no flashing or hardware-access operation.
