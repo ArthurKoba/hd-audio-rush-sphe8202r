@@ -50,14 +50,16 @@ sphe_audio_dispatch(uint32_t action, uint32_t value, uint32_t aux)
  * Prefer these over the raw dispatcher when they also update AP1 state.
  */
 
-typedef int (*sphe_u8_fn)(uint32_t);
-typedef int (*sphe_u8_u16_fn)(uint32_t, uint32_t);
+typedef void (*sphe_u8_fn)(uint32_t);
+typedef void (*sphe_u8_u8_fn)(uint32_t, uint32_t);
+typedef void (*sphe_u8_u16_fn)(uint32_t, uint32_t);
+typedef void (*sphe_ptr_fn)(const void *);
 typedef void (*sphe_void_fn)(void);
 
-static inline int
+static inline void
 sphe_set_master_volume(uint8_t level)
 {
-    return ((sphe_u8_fn)(uintptr_t)0x8070129CU)(level);
+    ((sphe_u8_fn)(uintptr_t)0x8070129CU)(level);
 }
 
 static inline void
@@ -66,50 +68,50 @@ sphe_toggle_master_mute(void)
     ((sphe_void_fn)(uintptr_t)0x806F9D18U)();
 }
 
-static inline int
+static inline void
 sphe_set_spdif_hardware_mode(uint8_t mode)
 {
     /*
      * ApplySpdifHardwareOutputMode also stores the selected byte in AP1 state
      * before dispatching action 7.
      */
-    return ((sphe_u8_fn)(uintptr_t)0x80702BA0U)(mode);
+    ((sphe_u8_fn)(uintptr_t)0x80702BA0U)(mode);
 }
 
-static inline int
+static inline void
 sphe_set_decoder_output_mode(uint8_t mode, uint16_t aux)
 {
-    return ((sphe_u8_u16_fn)(uintptr_t)0x80702BD0U)(mode, aux);
+    ((sphe_u8_u16_fn)(uintptr_t)0x80702BD0U)(mode, aux);
 }
 
-static inline int
+static inline void
 sphe_set_speaker_delay(uint8_t channel, uint16_t delay)
 {
-    return ((sphe_u8_u16_fn)(uintptr_t)0x80702C60U)(channel, delay);
+    ((sphe_u8_u16_fn)(uintptr_t)0x80702C60U)(channel, delay);
 }
 
-static inline int
+static inline void
 sphe_set_echo_profile(uint8_t index)
 {
-    return ((sphe_u8_fn)(uintptr_t)0x80702C8CU)(index);
+    ((sphe_u8_fn)(uintptr_t)0x80702C8CU)(index);
 }
 
-static inline int
+static inline void
 sphe_set_mic1_level(uint8_t index)
 {
-    return ((sphe_u8_fn)(uintptr_t)0x80702B48U)(index);
+    ((sphe_u8_fn)(uintptr_t)0x80702B48U)(index);
 }
 
-static inline int
+static inline void
 sphe_set_mic2_selection(uint8_t index)
 {
-    return ((sphe_u8_fn)(uintptr_t)0x80702B74U)(index);
+    ((sphe_u8_fn)(uintptr_t)0x80702B74U)(index);
 }
 
-static inline int
-sphe_set_downsample_mode(uint16_t mode)
+static inline void
+sphe_set_downsample_mode(uint8_t mode)
 {
-    return ((sphe_u8_fn)(uintptr_t)0x80701B80U)(mode);
+    ((sphe_u8_fn)(uintptr_t)0x80701B80U)(mode);
 }
 
 static inline void
@@ -117,6 +119,130 @@ sphe_reapply_speaker_topology(void)
 {
     ((sphe_void_fn)(uintptr_t)0x8070106CU)();
 }
+
+/*
+ * High-level recovered control contracts.
+ *
+ * These routes perform the stock firmware's associated state transitions and
+ * dependent re-application. Prefer them for a compatibility control plane.
+ */
+
+enum sphe_spdif_output_option {
+    SPHE_SPDIF_OFF = 0x12,
+    SPHE_SPDIF_RAW = 0x75,
+    SPHE_SPDIF_PCM = 0x77,
+};
+
+enum sphe_downsample_mode {
+    SPHE_DOWNSAMPLE_48K  = 0,
+    SPHE_DOWNSAMPLE_96K  = 1,
+    SPHE_DOWNSAMPLE_192K = 2,
+};
+
+enum sphe_downmix_option {
+    SPHE_DOWNMIX_STEREO = 0x31,
+    SPHE_DOWNMIX_OFF    = 0x7B,
+    SPHE_DOWNMIX_LT_RT  = 0xF7,
+    SPHE_DOWNMIX_VSS    = 0xF8,
+};
+
+enum sphe_gm5_option {
+    SPHE_GM5_OFF   = 0x7B,
+    SPHE_GM5_MODE1 = 0x9F,
+    SPHE_GM5_MODE2 = 0xA0,
+};
+
+enum sphe_surround_mode {
+    SPHE_SURROUND_OFF     = 0,
+    SPHE_SURROUND_CONCERT = 1,
+    SPHE_SURROUND_CHURCH  = 2,
+    SPHE_SURROUND_PASSIVE = 3,
+    SPHE_SURROUND_WIDE    = 4,
+    SPHE_SURROUND_LIVE    = 5,
+};
+
+enum sphe_eq_selection {
+    SPHE_EQ_STANDARD = 2,
+    SPHE_EQ_CLASSIC  = 3,
+    SPHE_EQ_ROCK     = 4,
+    SPHE_EQ_JAZZ     = 5,
+    SPHE_EQ_POP      = 6,
+    SPHE_EQ_USER     = 7,
+};
+
+enum sphe_speaker_channel {
+    SPHE_SPEAKER_FRONT = 0,
+    SPHE_SPEAKER_CENTER = 1,
+    SPHE_SPEAKER_REAR = 2,
+    SPHE_SPEAKER_SUBWOOFER = 3,
+};
+
+enum sphe_speaker_state {
+    SPHE_SPEAKER_LARGE = 0,
+    SPHE_SPEAKER_SMALL = 1,
+    SPHE_SPEAKER_OFF = 2,
+};
+
+static inline void
+sphe_apply_spdif_output_option(enum sphe_spdif_output_option option)
+{
+    ((sphe_u8_fn)(uintptr_t)0x807759E0U)((uint8_t)option);
+}
+
+static inline void
+sphe_apply_downmix_option(enum sphe_downmix_option option)
+{
+    ((sphe_u8_fn)(uintptr_t)0x80775800U)((uint8_t)option);
+}
+
+static inline void
+sphe_apply_gm5_option(enum sphe_gm5_option option)
+{
+    ((sphe_u8_fn)(uintptr_t)0x80775F3CU)((uint8_t)option);
+}
+
+static inline void
+sphe_apply_dynamic_range(void)
+{
+    ((sphe_void_fn)(uintptr_t)0x807769B8U)();
+}
+
+static inline void
+sphe_apply_eq_preset(enum sphe_eq_selection selection)
+{
+    ((sphe_u8_fn)(uintptr_t)0x806E8960U)((uint8_t)selection);
+}
+
+static inline void
+sphe_apply_user_eq7(const uint8_t coefficients[7])
+{
+    ((sphe_ptr_fn)(uintptr_t)0x806E8ED0U)(coefficients);
+}
+
+static inline void
+sphe_reapply_eq_and_surround(void)
+{
+    ((sphe_void_fn)(uintptr_t)0x806E89E4U)();
+}
+
+static inline void
+sphe_set_speaker_channel_state(
+    enum sphe_speaker_channel channel,
+    uint8_t state
+)
+{
+    ((sphe_u8_u8_fn)(uintptr_t)0x80701168U)(
+        (uint8_t)channel,
+        state
+    );
+}
+
+static inline void
+sphe_apply_subwoofer_state(uint8_t enabled)
+{
+    ((sphe_u8_fn)(uintptr_t)0x80701268U)(enabled ? 1U : 0U);
+}
+
 
 /*
  * Stateless low-level wrappers. These are equivalent to the recovered tiny
