@@ -1,28 +1,31 @@
-# Experimental MIPS injection harness
+# Experimental MIPS compiler/ABI probe
 
-This directory is a build probe for the SPHE8202R firmware. It does **not**
-patch or flash firmware.
+This directory validates the independent compiler path against one
+already-understood AP1 action. It does **not** flash firmware.
 
-Current candidate ABI:
+The current probe replaces `ApplySurroundModeIndex @ 0x80702D0C`. The
+original wrapper is 44 bytes and implements:
+
+`DispatchAudioHardwareAction(5, index & 0xff, 0)`.
+
+`surround_probe.c` independently compiles the same external contract using:
 - MIPS32 little-endian;
 - o32 ABI;
-- freestanding / no PIC / no ABICALLS;
 - soft-float;
-- `-G0` so new code does not depend on the original small-data `$gp` layout.
+- freestanding / no PIC / no ABICALLS;
+- `-G0`, avoiding dependence on the original small-data `$gp` layout.
 
-Default candidate injection base is `0x80723000`. Static analysis shows the
-current AP1 image ending near `0x807228A0` and the next confirmed MIPS image
-(WMA) beginning at `0x8073F000`. This does **not** yet prove that the entire
-gap is runtime-safe; hardware use requires additional loader/layout validation.
-
-Build:
+Run:
 
 ```sh
 ./build.sh
+python3 patch_ap1.py ../../firmware/modules/ap1.bin \
+  build/surround_probe.bin build/ap1.compiler-probe.bin
 ```
 
-Override the candidate base with `BASE=0x... ./build.sh`.
+The patcher checks the exact original 44 bytes before modifying anything and
+keeps AP1 size unchanged. This is deliberately a behavior-preserving compiler
+probe, not a feature patch.
 
-The current `probe.c` is intentionally side-effect free. It exists only to
-validate the compiler/linker/raw-binary path before any firmware redirection is
-attempted.
+The modified AP1 must still pass the separate Sunplus container no-change /
+repack validation before any hardware use.
