@@ -13,7 +13,7 @@ PCB: **SPHE8202RD_SPDIF_V02**
 | Secondary controller | `AK24BP24230` | Controller running JieLi AC695N/BR23-family software | physical marking **CONFIRMED**; exact public SKU **UNKNOWN** |
 | Analog switch | `HCF4052` family marking reported | HCF4052B is a dual 4-channel analog multiplexer/demultiplexer, not a shift register or inverter | part function **CONFIRMED** by device documentation; exact board routing **UNKNOWN** |
 | Logic IC | `74HC04D` marking reported | Six CMOS inverters in one package | part function **CONFIRMED** by device documentation; exact board role **UNKNOWN** |
-| Analog output ICs | `4558D` marking on 8-pin devices near outputs | 4558-family devices are dual operational amplifiers; likely used for analog buffering/filtering/preamplification | part family function **CONFIRMED**; exact circuit role **LIKELY** |
+| Analog output ICs | `4558D` marking on 8-pin devices near outputs | 4558-family devices are dual operational amplifiers; likely used for analog buffering/filtering/preamplification | part family function **CONFIRMED**; exact product-board circuit role **LIKELY** |
 
 ### SDRAM marking
 
@@ -40,7 +40,8 @@ Current evidence:
 - routing toward SPHE: **user-reported board trace**;
 - exact D+/D-/VBUS/GND pad assignment: **UNKNOWN** until continuity is archived;
 - STK reports `Host USB 2.0 supported` for this firmware profile;
-- USB device/UAC capability of this exact board/firmware is **UNKNOWN**.
+- the Sunplus SPHE8202R demo-board reference schematic exposes `USB_DP` and `USB_DM` directly from the SPHE8202R and routes them to the USB connector;
+- USB device/UAC capability of this exact product board/firmware is **UNKNOWN**.
 
 ## Audio I/O and path
 
@@ -50,15 +51,39 @@ Observed product I/O includes:
 - AUX analog input;
 - six analog outputs: FL, FR, SL, SR, CEN, SUB.
 
-The firmware contains S/PDIF RAW/PCM/input and AC3/DTS anchors, but the exact physical path is not yet fully proven.
+### SPHE8202R reference-design audio contract
+
+The Sunplus **SPHE8202R Demo Board 8202R-16-SY-128-0-CZ** reference schematic provides strong architecture evidence for the SoC and its intended analog path:
+
+- SPHE8202R exposes dedicated analog outputs `AOUT_R`, `AOUT_L`, `AOUT_RS`, `AOUT_LS`, `AOUT_SUBW`, and `AOUT_CENTER`;
+- the demo-board AUDIO sheet routes these as `AOUT_FR/FL/SR/SL/SUB/C` through per-channel analog filter/buffer stages built around NJM4558 op-amps to `A_FR/A_FL/A_SR/A_SL/A_SUB/A_C`;
+- all six output stages share an `A_MUTE` net;
+- the demo board implements `A_MUTE` as a distinct **Power ON / OFF Mute** analog circuit, separate from the six DAC signals;
+- `SPDIF_OUT` is routed separately to coaxial and optical-output circuitry;
+- the reference design also exposes `AIN_R`/MIC input circuitry.
+
+This reference design resolves an earlier architectural uncertainty: **SPHE8202R itself is capable of directly supplying all six 5.1 analog DAC channels.** It also provides a plausible reference topology for the 4558-family devices observed on the product board.
+
+However, this is **reference-design evidence, not continuity proof for PCB SPHE8202RD_SPDIF_V02**. Do not silently claim that the product board copies the demo-board routing exactly.
+
+### Firmware-to-output contract
+
+Current firmware analysis independently establishes:
+- speaker topology is packed and applied through the SPHE audio-service path;
+- master volume is encoded as command family `0x1100|gain`;
+- software master mute is implemented through the master-gain/audio-service state and is distinct from the demo-board reference `A_MUTE` analog power-mute net;
+- S/PDIF RAW/PCM/output-mode control is handled separately from the six analog DAC channel topology;
+- speaker CENTER/REAR delay, FRONT/CENTER/REAR/SUB topology, EQ, surround, echo and microphone controls all converge on the SPHE audio-service layer.
+
+The exact mapping from runtime service internals to physical product-board nets still requires either:
+1. product-board continuity/scope tracing, or
+2. matching Sunplus 8202R SDK/source material.
 
 Do not currently claim:
-- that TOSLINK enters SPHE first;
+- that the product-board TOSLINK receiver enters SPHE first;
 - that the secondary controller performs or does not perform compressed decode;
-- that SPHE directly drives all six analog outputs;
-- that the 4558D devices are definitely the final channel buffers.
-
-Required physical work is continuity/scope tracing from the TOSLINK receiver, between both processors, and backward from the six analog outputs.
+- that PCB SPHE8202RD_SPDIF_V02 copies the demo-board analog output circuit component-for-component;
+- that the product-board `4558D` devices are definitely the final channel buffers until continuity is archived.
 
 ## Component references
 
