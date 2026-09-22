@@ -140,7 +140,7 @@ This snapshot records the current behavior map after the latest USB/audio pass. 
 
 ### Coverage
 
-- Strict semantic/action-node coverage across the four loaded MIPS modules: **142 / 4016 = 3.54%**.
+- Strict semantic/action-node coverage across the four loaded MIPS modules: **151 / 4145 = 3.64%** (live snapshot; parallel semantic work may continue changing both numerator and inventory).
 - This percentage counts only action nodes with stable human semantic names. It does not measure byte coverage, instruction coverage, route coverage, hardware acceptance or project completion.
 - Route understanding is substantially ahead of the naming percentage because many large actions, transitions, state tables and callback contracts are already understood without being split into separately named nodes.
 
@@ -326,3 +326,21 @@ The most important unresolved items after this pass are:
 - exact meaning of two standalone runtime step controls driven through hardware action IDs 4 and 0x0A;
 - physical board validation of S/PDIF/analog routing and channel ownership;
 - execution/hardware proof for the statically recovered USB/audio routes.
+
+
+### Speaker / digital controls to SPHE audio-service contract — 2026-09-22
+
+A focused instruction-level pass now separates menu semantics from the common low-level audio command transport.
+
+- `DispatchAudioHardwareAction @ 0x806FFD1C` writes the command word at `0xBFFE84C0`, optional/auxiliary value at `0xBFFE84C4`, then normally commits synchronously through runtime entry `0x88001C78(1,0,0,100000)`.
+- Action 1 is a generic decoder/output-mode transport, not a DOWNMIX-only command. Its base family is `0x0300 | mode`, with a 16-bit auxiliary payload. Confirmed users include DOWNMIX, S/PDIF/output handling, GM5, DIGITAL SETUP OP MODE, DUAL MONO and DYNAMIC RANGE.
+- Speaker-specific families are separate: action 6 -> `0x0800 | subwoofer_state`; action `0x0B` -> `0x0C00 | delay_selector` with the delay value in the auxiliary word; action `0x17` -> `0x2300 | packed_topology`.
+- `SetSpeakerChannelState` selectors are instruction-confirmed as `0=FRONT`, `1=CENTER`, `2=REAR`, `3=SUBWOOFER`. FRONT/CENTER/REAR feed the packed topology; SUBWOOFER also emits its dedicated action-6 command before topology reapply.
+- Descriptor-backed control IDs are now pinned: AUDIO SETUP `0x71 AUDIO OUT`, `0x5B DOWN SAMPLE`, `0x9E GM5`, `0x5C KEY`; SPEAKER SETUP `0xF5 DOWNMIX`, `0x8B SUBWOOFER`, `0xD1 CENTER DELAY`, `0xD2 REAR DELAY`, `0xD3 FRONT`, `0xCD CENTER`, `0xCE REAR`; DIGITAL SETUP `0xF9 OP MODE`, `0x6A DYNAMIC RANGE`, `0xFC DUAL MONO`.
+- OP MODE maps its two choices into generic output-mode payloads `0x20` and `0x10`. DUAL MONO maps its four choices into `0x90..0x93`. DYNAMIC RANGE uses mode selector `0x80`; its auxiliary payload is zero for state zero, otherwise `((state * 0x101) << 5) - 0x101` truncated to 16 bits.
+- `ApplyDownsampleRateMode @ 0x80701B80` maps selections `0..2` through the halfword table `0x80702F40` to internal masks `0x0007 / 0x0067 / 0x0667`, stores the changed mask at `gp+0x744`, then reuses `CommitAudioFormatMode`.
+- `ReapplyDigitalAndSpeakerDelayControls @ 0x8077C29C` is now named in the canonical project. It reapplies OP MODE, conditionally DYNAMIC RANGE, DUAL MONO, then CENTER and REAR delay values from the persistent selection state.
+
+The static proof currently ends at the SPHE service mailbox and runtime commit entry. `0x88001C78` is not present as an analyzable action node in the loaded modules, so DAC/channel/PCB routing below that boundary remains a board/runtime-proof task rather than a static conclusion.
+
+Master-volume persistence remains open. Direct stores to `gp+0x832 = 0x80003332` are confined to the VOL+/VOL- update paths found in the loaded AP1 code; those writers contain no direct NVRAM/save transition. This does not exclude a deferred/global persistence mechanism elsewhere.
