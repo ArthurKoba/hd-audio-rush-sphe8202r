@@ -50,3 +50,17 @@ for the first hardware acceptance test.
 
 No generated image is boot-tested until it has actually been flashed under a
 proven recovery procedure and the expected audio behavior is observed.
+
+
+## Recovered audio ABI
+
+`sphe_audio_api.h` exposes the small subset of the stock AP1 audio ABI that
+is already instruction-backed. It is intended for later minimal custom
+control code running inside the existing initialized AP1 runtime.
+
+Use stateful stock wrappers where they update AP1 state in addition to sending
+a backend command. Use `sphe_audio_dispatch()` only when the new code owns the
+state or when reproducing one of the confirmed tiny action wrappers.
+
+This header deliberately does not expose unresolved decoder internals or
+physical-channel assumptions.
