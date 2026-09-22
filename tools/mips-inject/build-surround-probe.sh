@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE="${BASE:-0x80702D0C}"
+BASE="${BASE:-0x80723000}"
 OUT="${OUT:-build}"
 
 mkdir -p "$OUT"
@@ -25,11 +25,11 @@ llvm-objcopy \
   "$OUT/surround_probe.elf" \
   "$OUT/surround_probe.bin"
 
-echo "Built MIPS wrapper replacement at $BASE"
+echo "Built MIPS wrapper at $BASE"
 llvm-objdump -d "$OUT/surround_probe.elf"
 wc -c "$OUT/surround_probe.bin"
 
 if [ "$(wc -c < "$OUT/surround_probe.bin")" -ne 44 ]; then
-  echo "ERROR: replacement must remain exactly 44 bytes" >&2
+  echo "ERROR: compiler probe must remain exactly 44 bytes" >&2
   exit 2
 fi
