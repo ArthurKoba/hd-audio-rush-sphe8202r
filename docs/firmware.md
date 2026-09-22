@@ -366,48 +366,72 @@ Ordinary payload compression is:
 - `memLevel=8`;
 - strategy 4 / `Z_FIXED`.
 
-Actual target packed payloads contain the raw DEFLATE stream followed by an 8-byte little-endian trailer:
+There is **no CRC32/ISIZE trailer** after a non-empty module. Each ordinary payload is only the raw DEFLATE stream. The earlier trailer interpretation came from analysis of the wrong STK revision and is withdrawn.
 
-`CRC32(unpacked) || unpacked_size`.
+For an empty ordinary module, rev-8203R has an explicit special case and emits exactly 10 bytes:
 
-This was independently reproduced byte-for-byte with Python/zlib on multiple target modules. Examples:
-- `iop_rst.bin`: trailer CRC32 `0x48859F6D`, size `0x2C8`;
-- `srvdsp.bin`: trailer CRC32 `0x58EF7F0C`, size `0x468`.
+`03 00 00 00 00 00 00 00 00 00`.
 
-An empty ordinary module is therefore exactly:
-
-`03 00 00 00 00 00 00 00 00 00`
-
-(two-byte empty raw-DEFLATE stream + zero CRC32 + zero size).
+The first two bytes are a valid empty raw-DEFLATE stream; the remaining eight zero bytes are part of the vendor empty-module representation, not a generic CRC/ISIZE trailer.
 
 Payload slot `0x0C` is special: it bypasses ordinary DEFLATE packing and is copied raw. It is empty in the preserved target, so its two neighboring offsets are equal.
 
-### Repack strategy and validation level
+The vendor tool contains zlib **1.2.3**. Recompressing non-empty modules with native zlib 1.3.1 and the same parameters produces valid but generally different DEFLATE byte streams and often slightly smaller packed sizes. Empty modules remain byte-identical. Therefore:
+- unchanged modules should be preserved in their original packed form;
+- a changed module can be repacked with a current compatible raw-DEFLATE implementation;
+- byte-identical recompression of changed non-empty modules requires reproducing zlib 1.2.3 behavior, but byte identity is not required by the recovered container parser.
 
-The stock vendor image contains nonzero encoded padding between decoded logical end `0xBC508` and container end `0xBC800`. rev-8203R's saver normalizes padding differently, so blindly reproducing STK's padding writer is not byte-identical to the vendor image even though the meaningful prefix/transform is correct.
+### Repack strategy and validation
 
-The project therefore uses a more conservative target-specific strategy:
-1. preserve the decoded `rom12` header unless intentionally changing it;
+The stock vendor image contains encoded bytes between decoded logical end `0xBC508` and container end `0xBC800`, plus a separate physical SPI region after `0xBC800`. Both are preserved unless an intentional change requires rewriting the meaningful prefix.
+
+The target-specific rebuild strategy is:
+1. preserve the decoded `rom12` loader/header unless intentionally changing it;
 2. preserve unchanged packed modules byte-for-byte;
 3. repack only intentionally replaced visible modules;
-4. preserve hidden/reserved slots;
-5. recompute all 27 offsets and the inner checksum;
+4. preserve all hidden/reserved payload slots;
+5. recompute all 27 offsets and the decoded inner checksum;
 6. re-encode the meaningful mode-4 prefix;
-7. preserve opaque stock encoded suffix bytes where possible;
-8. recompute the outer checksum;
+7. preserve untouched stock encoded suffix bytes;
+8. recompute the outer checksum over the effective encoded extent;
 9. preserve the physical SPI region after the recovered container extent.
 
-`tools/sunplus_container.py` implements this rev-8203R contract with `inspect`, `roundtrip`, and `repack --replace NAME=FILE`. It refuses a repack that would require extending the container into the currently-unclassified post-container flash region.
+`tools/sunplus_container.py` implements this rev-8203R contract with `inspect`, `roundtrip`, and `repack --replace NAME=FILE`. It validates every one of the 27 payloads after reopening a rebuilt image and refuses a repack that would extend into the currently-unclassified post-container flash region.
 
-Validation level is currently **static/tool + byte-contract validation**. The format, transforms, checksums, layout, header identity, empty payload representation, and ordinary compression stream/trailer have direct evidence. Hardware boot acceptance of a modified image is still pending and must not be inferred from successful static reopen.
+Two different validation levels have now been demonstrated:
 
-The extracted CPU modules remain flat MIPS32-LE load images with established bases:
+- **No-change reconstruction:** reusing the original 27 packed payload streams reproduces the complete preserved 1 MiB flash image byte-for-byte. `diff_count=0`; rebuilt SHA-256 is the canonical `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`. This closes the container/table/transform/checksum reconstruction for the stock image.
+- **Changed-module structural reconstruction:** rebuilding with zlib 1.3.1 reopens successfully and every unpacked payload matches the expected bytes. The compressed streams need not be vendor-byte-identical because the original tool uses zlib 1.2.3.
+
+### Independent MIPS build path
+
+The extracted CPU modules are flat MIPS32 little-endian load images with established bases:
 - `ap1.bin @ 0x8067B800`;
 - `wma.bin @ 0x8073F000`;
 - `cdrom.bin @ 0x8074C800`;
 - `drv_other.bin @ 0x80775800`.
 
-This is sufficient for a non-SDK development path: preserve the original loader and runtime/DSP/IOP artifacts, compile replacement MIPS32-LE code for a fixed target address, repack only the intended module, and retain the rest of the flash image unchanged.
+A normal LLVM MIPS toolchain is sufficient for new freestanding code. The validated compile model is MIPS32 little-endian, o32, soft-float, no PIC/no ABICALLS, and `-G0` to avoid depending on the original small-data `$gp` layout.
+
+`tools/mips-inject/` contains a behavior-preserving compiler/ABI probe. It keeps the original Sunplus startup/runtime and:
+- extends AP1 from `0xA70A0` to `0xA782C`;
+- places a 44-byte compiled wrapper at virtual address `0x80723000`;
+- replaces the first two instructions of `ApplySurroundModeIndex @ 0x80702D0C` with `j 0x80723000; nop`;
+- implements the same existing contract, `DispatchAudioHardwareAction(5, index & 0xff, 0)`, so the probe intentionally adds no feature.
+
+A complete static rebuild/reopen of that modified image has already been performed:
+- original AP1 packed size: `0x5407A`;
+- modified AP1 packed size with zlib 1.3.1: `0x5409A`;
+- container extent remains `0xBC800`;
+- modified AP1 reopens byte-for-byte as expected;
+- all other **26 payloads** reopen byte-for-byte unchanged;
+- candidate full-flash SHA-256 from that static build: `3511cd08d83fe1b337274d7d2571b2153fd3023461be2934e05b5a4bee415914`.
+
+This establishes a static/tool chain of:
+
+`C -> MIPS32-LE object -> fixed-address raw code -> AP1 patch/extension -> Sunplus repack -> reopen/extract validation`.
+
+It does **not** establish runtime loading of the AP1 extension, successful boot, hardware behavior, or recovery safety. Those are separate acceptance gates. The next loader-analysis task is to prove that AP1 is copied/loaded according to its decoded module size rather than a hard-coded end address, and to confirm that the appended range through `0x8072302C` does not overlap another runtime allocation.
 
 ## Secondary BR23 / AC695N side
 
