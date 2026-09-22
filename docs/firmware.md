@@ -289,29 +289,125 @@ Descriptor-backed audio groups are now decoded:
 
 Master volume and mute are not ordinary setup descriptors. Their confirmed runtime rule remains `effective_volume = mute ? 0 : master_volume_level`. The VOL+/VOL- and mute-toggle routes contain no direct save/NVRAM action. The shared runtime gain table at `0x88012CA0` is read by several audio command families; no writer for that table exists in the currently loaded modules.
 
-## STK container and checksum investigation
+## STK rev-8203R container and repack contract
 
-This section describes **static evidence from the existing Ghidra `/tools/stk.exe` program** (`x86:LE:32:default`, base `0x00400000`). Its exact original-file hash/revision has not been re-established against the three ZIP members; this identity check is a remaining gate before treating its implementation as the exact rev-8203R tool.
+The target-authoritative tool is now identified exactly as **STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe**, SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`, size 1,057,792 bytes. It is imported separately in the canonical analysis project.
 
-The module-name initializer at `0x0040BDD8` populates an array at `0x00502420` with names including ap1, cdrom, drv_other, wma and rom12. It has 19 named entries including romL/rom; this is a tool-side table, not yet a proven mapping for the target's 18 extracted slots. Function `0x00408238` selects names through module identifiers. The container object constructor chain includes `0x00408416 -> 0x00402E0E -> 0x00402CC2`.
+The older program named simply `/tools/stk.exe` is a **different STK revision**. Earlier construction notes derived from that executable (including its 0x80-byte transform and addresses around `0x00401B56/0x00401ED2`) are not authoritative for this target and are superseded by this section.
 
-### Additive word sum
+### Checksums and physical container extent
 
-`CalculateContainerWordSum` at `0x00401B56` is named, prototyped and commented in Ghidra:
+`FUN_00401BF6` in rev-8203R is the additive checksum primitive. It sums unsigned little-endian 16-bit words into a wrapping 32-bit accumulator; an odd final byte is ignored.
 
-`uint __cdecl CalculateContainerWordSum(void *context, byte *data, int byteLength)`.
+The physical-open path is:
 
-For nonnegative length, it sums `floor(byteLength / 2)` unsigned little-endian 16-bit words into a wrapping 32-bit accumulator. X86 proof: `MOVZX EAX,word ptr [ESI+ECX*2]` at `0x00401B6B`, `ADD EBX,EAX` at `0x00401B70`, and return through EAX at `0x00401B76`. The first argument is unused. An odd final byte is ignored. This helper has no CRC polynomial, complement or final XOR; that does not exclude other integrity stages elsewhere.
+`FUN_00402E0A`
+-> outer checksum/extent recovery
+-> `FUN_00402DAA`
+-> transform decode
+-> `FUN_00402D16`
+-> inner checksum/logical-end recovery
+-> `FUN_00402A88`
+-> loader/layout parsing.
 
-### Two parser stages, not yet a reproduced checksum
+For the preserved 1 MiB target dump:
+- outer stored checksum at `+0x20`: `0x02A3F129`;
+- effective encoded firmware-container extent: **`0xBC800`**;
+- mode after signature detection: **4**;
+- inner stored checksum at decoded `+0x40`: `0xD331A8F6`;
+- decoded logical extent: **`0xBC508`**.
 
-- `0x00402CC2` reads the expected 32-bit value from input `+0x20`, computes the word sum starting at `+0x50`, and searches the effective end by subtracting trailing words. Its initial extent is derived from trailing `0xFF` trimming and 0x400-byte rounding. A match changes the length passed onward; absence of a match is not by itself an explicit rejection in this function.
-- `0x00402C62` makes a copy and invokes `0x00401ED2`. That intermediate routine is unresolved; its decompile request was blocked, so no encryption/decryption/transform semantics are assigned to it.
-- After that routine succeeds, `0x00402BCE` reads an expected value at buffer `+0x40`, sums from `+0x50`, and searches up to a 0x400-byte suffix before passing an extent to `0x00402950`.
+Both checksums were reproduced against the preserved target bytes in the correct stage/order.
 
-Do not assume both expected values can be verified by summing the original raw dump in the same way: the second stage uses the intermediate buffer. Full target checksum reproduction was not completed. The source dump was retained separately as an immutable artifact with its canonical hash, not imported into Ghidra as executable code.
+Bytes after `0xBC800` remain physically present in the 1 MiB SPI image and contain non-`0xFF` data. They are **outside the firmware-container outer checksum**. A full-flash builder must preserve this post-container region unless/until its ownership is separately recovered.
 
-Remaining construction gates: identify the exact STK revision, resolve container/module records and load fields, understand the intermediate stage through an authorized evidence path, reproduce checksums on the preserved target, find the save/repack writer, perform a byte-exact no-change round trip, and only then prepare an intentional modified candidate. No modified firmware image or flash-ready candidate is claimed.
+### rev-8203R transform modes
+
+`FUN_00401FC8` selects the transform mode before parsing:
+- mode 1: `dword +0x70 == 0`, no transform;
+- mode 2: `dword +0x68 == 0xA5A5A5A5`;
+- mode 3: `dword +0x70 == 0xF5F5F5F5`;
+- mode 4: `dword +0x70 == 0xB1B1B1B1`.
+
+The preserved target has `+0x70 = 0xB1B1B1B1`, so it is unequivocally **mode 4**.
+
+Transform implementations:
+- mode 2, `FUN_00401E8C`: 0x20-byte blocks beginning at `+0x40`, XOR `0xA5`, swap the two 4-byte halves of every 8-byte group, then swap the two 16-byte halves;
+- mode 3, `FUN_00401F1E`: repeating 0x80-byte XOR key at STK `0x004F2200`, with the first `0x28` bytes restored unchanged;
+- mode 4, `FUN_00401F70`: repeating 0x200-byte XOR key at STK `0x004F2000`, with the first `0x28` bytes restored unchanged.
+
+The corresponding save finalizer is `FUN_004030DE`.
+
+### Loader/header and module-offset table
+
+`FUN_00402A88` derives layout metadata from MIPS loader code. On the target:
+- decoded loader/header length: **`0x14260`** (82,528 bytes);
+- module-offset table length: **`0x6C`** (108 bytes);
+- table entries: **27 dwords**;
+- packed payload start: **`0x142CC`**.
+
+The first `0x14260` decoded bytes match the repository's `rom12.bin` **byte-for-byte**. Therefore `rom12.bin` is the decoded loader/header image, not an ordinary compressed module payload.
+
+The 27-entry offset table describes payload starts. STK's normal module UI/parser exposes only the first 17 entries:
+0 dvd, 1 mpeg, 2 jpeg, 3 ap1, 4 cdrom, 5 iop, 6 iop_rst, 7 drv_other, 8 srvdsp, 9 ap2, 10 ap3, 11 free, 12 rom3, 13 mp4, 14 wma, 15 dvb, 16 dvd_ipod.
+
+Entries 17..26 are hidden/reserved payload slots in this target. All ten currently contain the same empty packed stream.
+
+The previously documented phrase "18 identical module slots" is therefore misleading. The preserved extraction directory contains 18 files because `rom12.bin` is also exported, but the decoded layout is **rom12/header + a 27-entry payload table**, of which STK exposes 17 ordinary payload slots.
+
+### Module compression contract
+
+Extraction is performed by `FUN_00402938`; ordinary payloads are inflated by `FUN_0040289A`. Save/repack uses `FUN_00403218` and compressor `FUN_00402FEE`.
+
+Ordinary payload compression is:
+- DEFLATE level 9;
+- method 8;
+- `windowBits=-15` (raw DEFLATE);
+- `memLevel=8`;
+- strategy 4 / `Z_FIXED`.
+
+Actual target packed payloads contain the raw DEFLATE stream followed by an 8-byte little-endian trailer:
+
+`CRC32(unpacked) || unpacked_size`.
+
+This was independently reproduced byte-for-byte with Python/zlib on multiple target modules. Examples:
+- `iop_rst.bin`: trailer CRC32 `0x48859F6D`, size `0x2C8`;
+- `srvdsp.bin`: trailer CRC32 `0x58EF7F0C`, size `0x468`.
+
+An empty ordinary module is therefore exactly:
+
+`03 00 00 00 00 00 00 00 00 00`
+
+(two-byte empty raw-DEFLATE stream + zero CRC32 + zero size).
+
+Payload slot `0x0C` is special: it bypasses ordinary DEFLATE packing and is copied raw. It is empty in the preserved target, so its two neighboring offsets are equal.
+
+### Repack strategy and validation level
+
+The stock vendor image contains nonzero encoded padding between decoded logical end `0xBC508` and container end `0xBC800`. rev-8203R's saver normalizes padding differently, so blindly reproducing STK's padding writer is not byte-identical to the vendor image even though the meaningful prefix/transform is correct.
+
+The project therefore uses a more conservative target-specific strategy:
+1. preserve the decoded `rom12` header unless intentionally changing it;
+2. preserve unchanged packed modules byte-for-byte;
+3. repack only intentionally replaced visible modules;
+4. preserve hidden/reserved slots;
+5. recompute all 27 offsets and the inner checksum;
+6. re-encode the meaningful mode-4 prefix;
+7. preserve opaque stock encoded suffix bytes where possible;
+8. recompute the outer checksum;
+9. preserve the physical SPI region after the recovered container extent.
+
+`tools/sunplus_container.py` implements this rev-8203R contract with `inspect`, `roundtrip`, and `repack --replace NAME=FILE`. It refuses a repack that would require extending the container into the currently-unclassified post-container flash region.
+
+Validation level is currently **static/tool + byte-contract validation**. The format, transforms, checksums, layout, header identity, empty payload representation, and ordinary compression stream/trailer have direct evidence. Hardware boot acceptance of a modified image is still pending and must not be inferred from successful static reopen.
+
+The extracted CPU modules remain flat MIPS32-LE load images with established bases:
+- `ap1.bin @ 0x8067B800`;
+- `wma.bin @ 0x8073F000`;
+- `cdrom.bin @ 0x8074C800`;
+- `drv_other.bin @ 0x80775800`.
+
+This is sufficient for a non-SDK development path: preserve the original loader and runtime/DSP/IOP artifacts, compile replacement MIPS32-LE code for a fixed target address, repack only the intended module, and retain the rest of the flash image unchanged.
 
 ## Secondary BR23 / AC695N side
 
@@ -402,45 +498,3 @@ Firmware work is not complete merely because dumps decompile or a checksum helpe
 We need to prove repeatable extraction/dump, coherent address and call models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
 
 Only after that should the project implement new product behavior.
-
-
-## Firmware construction / repack recovery — 2026-09-22
-
-The STK save path is now recovered far enough to define an independent experimental container implementation. This is **static/tool analysis only** until a no-change round trip is executed against the preserved target dump.
-
-Confirmed construction path:
-- `BuildFirmwareContainer @ 0x00403076` copies the decoded loader/header prefix, appends a cumulative 32-bit module-offset table, repacks module payloads, aligns the decoded length to an even byte count, and calls the finalizer.
-- The offset table has one 32-bit entry per module. Entry 0 is zero; later entries are cumulative packed-byte counts. Module payload begins immediately after `header_len + module_count*4`.
-- All ordinary module slots are compressed through `CompressFirmwareModulePayload @ 0x00402EA6`.
-- Compression is raw DEFLATE with parameters equivalent to zlib level 9, method 8, `windowBits=-15`, `memLevel=8`, strategy 4 (`Z_FIXED`).
-- Zero-length ordinary modules are represented by the exact ten-byte sequence beginning `03 00 ...` emitted by the STK routine.
-- Module slot `0x0C` bypasses DEFLATE and is copied raw.
-- `FinalizeFirmwareContainer @ 0x00402F96` writes the decoded checksum to offset `+0x40`, transforms 0x80-byte blocks beginning at `+0x40`, aligns first to 0x20 and then 0x400 bytes, writes zero padding outside the transformed tail, and finally writes the encoded checksum to `+0x20`.
-- Both checksums use `CalculateContainerWordSum`: wrapping 32-bit addition of unsigned little-endian 16-bit words; an odd trailing byte is ignored.
-
-The intermediate transform is no longer unresolved. `DecodeAndParseFirmwareContainer @ 0x00402C62` / helper `0x00401ED2` select one of three modes from markers in the encoded image:
-- mode 1: marker `0x65736572` at `+0x100`; no block transform;
-- mode 2: marker `0xC0D6C0D7` at `+0x114`; each 0x80-byte block is XORed with `0xA5`, then each pair of 4-byte halves inside an 8-byte group is swapped, then the two 16-byte halves of every 32-byte group are swapped;
-- mode 3: marker `0xC0D6C0D7` at `+0x100`; each 0x80-byte block is XORed with the fixed 128-byte key stored in STK at `0x004F1000`.
-
-Modes 2 and 3 are involutions, so the same block operation is used for encode and decode.
-
-Container extent handling is also recovered:
-- the encoded input is first trimmed over trailing `0xFF` bytes and rounded to a 0x400 boundary;
-- checksum `+0x20` is used to identify the effective encoded end;
-- after block decode, checksum `+0x40` is used to identify the decoded end within the final 0x400-byte window.
-
-`ParseFirmwareContainerLayout @ 0x00402950` derives construction metadata from the loader code itself rather than from an external catalog:
-- it reconstructs the absolute address of the module-offset table from a MIPS `LUI` + immediate-forming instruction pair and converts the `0x88000000` runtime address back into a file offset; this is the effective `header_len`;
-- it derives the module count from the low immediate byte of a loader `ADDIU`, with the effective relation `module_count = immediate_low_byte >> 2`;
-- the same parser derives per-module runtime/load addresses from loader code.
-
-The four extracted CPU modules remain flat load images with no ELF/COFF header:
-- `ap1.bin @ 0x8067B800`;
-- `wma.bin @ 0x8073F000`;
-- `cdrom.bin @ 0x8074C800`;
-- `drv_other.bin @ 0x80775800`.
-
-This makes a non-SDK build path plausible: preserve the original loader/header and mandatory runtime/DSP/IOP blobs, compile replacement MIPS32-LE code for the fixed target address, repack the affected module, rebuild offsets/checksums/transform, and pad to the physical flash size as a separate final step.
-
-Experimental implementation: `tools/sunplus_container.py`. It currently exposes only inspection and no-change round-trip operations. It must not be treated as flash-ready until it reproduces the preserved image/container byte-for-byte (or with only explicitly understood trailing-flash padding differences).
