@@ -413,25 +413,22 @@ The extracted CPU modules are flat MIPS32 little-endian load images with establi
 
 A normal LLVM MIPS toolchain is sufficient for new freestanding code. The validated compile model is MIPS32 little-endian, o32, soft-float, no PIC/no ABICALLS, and `-G0` to avoid depending on the original small-data `$gp` layout.
 
-`tools/mips-inject/` contains a behavior-preserving compiler/ABI probe. It keeps the original Sunplus startup/runtime and:
-- extends AP1 from `0xA70A0` to `0xA782C`;
-- places a 44-byte compiled wrapper at virtual address `0x80723000`;
-- replaces the first two instructions of `ApplySurroundModeIndex @ 0x80702D0C` with `j 0x80723000; nop`;
-- implements the same existing contract, `DispatchAudioHardwareAction(5, index & 0xff, 0)`, so the probe intentionally adds no feature.
+`tools/mips-inject/` now uses an **in-place** behavior-preserving compiler/ABI probe for the first hardware acceptance test:
+- the stock `ApplySurroundModeIndex @ 0x80702D0C` wrapper is exactly 44 bytes;
+- an independently compiled C implementation is linked directly at `0x80702D0C`;
+- it implements the same contract, `DispatchAudioHardwareAction(5, index & 0xff, 0)`;
+- `patch_ap1.py` verifies the exact original 44 bytes and replaces them in place;
+- AP1 remains exactly `0xA70A0` bytes, so the first compiler/ABI test does not change the loader range or runtime memory layout.
 
-A complete static rebuild/reopen of that modified image has already been performed:
-- original AP1 packed size: `0x5407A`;
-- modified AP1 packed size with zlib 1.3.1: `0x5409A`;
-- container extent remains `0xBC800`;
-- modified AP1 reopens byte-for-byte as expected;
-- all other **26 payloads** reopen byte-for-byte unchanged;
-- candidate full-flash SHA-256 from that static build: `3511cd08d83fe1b337274d7d2571b2153fd3023461be2934e05b5a4bee415914`.
+This is the preferred first hardware probe because it isolates the variables to compiler ABI + module replacement + container repack + execution.
 
-This establishes a static/tool chain of:
+A separate AP1-extension experiment was also statically reconstructed successfully before the in-place probe was adopted. That experiment extended AP1 through `0x8072302C`; its modified AP1 reopened exactly and all other 26 payloads remained unchanged after repack. The extension result is retained as evidence for later larger features, not as the first hardware test.
 
-`C -> MIPS32-LE object -> fixed-address raw code -> AP1 patch/extension -> Sunplus repack -> reopen/extract validation`.
+The currently established static/tool chain is:
 
-It does **not** establish runtime loading of the AP1 extension, successful boot, hardware behavior, or recovery safety. Those are separate acceptance gates. The next loader-analysis task is to prove that AP1 is copied/loaded according to its decoded module size rather than a hard-coded end address, and to confirm that the appended range through `0x8072302C` does not overlap another runtime allocation.
+`C -> MIPS32-LE object -> fixed-address raw code -> in-place AP1 replacement -> Sunplus repack -> reopen/extract validation`.
+
+It does **not** establish successful boot or hardware behavior. Those remain hardware-acceptance gates.
 
 
 ### AP1 loader-size proof
