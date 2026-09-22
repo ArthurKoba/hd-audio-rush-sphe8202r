@@ -402,3 +402,45 @@ Firmware work is not complete merely because dumps decompile or a checksum helpe
 We need to prove repeatable extraction/dump, coherent address and call models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
 
 Only after that should the project implement new product behavior.
+
+
+## Firmware construction / repack recovery — 2026-09-22
+
+The STK save path is now recovered far enough to define an independent experimental container implementation. This is **static/tool analysis only** until a no-change round trip is executed against the preserved target dump.
+
+Confirmed construction path:
+- `BuildFirmwareContainer @ 0x00403076` copies the decoded loader/header prefix, appends a cumulative 32-bit module-offset table, repacks module payloads, aligns the decoded length to an even byte count, and calls the finalizer.
+- The offset table has one 32-bit entry per module. Entry 0 is zero; later entries are cumulative packed-byte counts. Module payload begins immediately after `header_len + module_count*4`.
+- All ordinary module slots are compressed through `CompressFirmwareModulePayload @ 0x00402EA6`.
+- Compression is raw DEFLATE with parameters equivalent to zlib level 9, method 8, `windowBits=-15`, `memLevel=8`, strategy 4 (`Z_FIXED`).
+- Zero-length ordinary modules are represented by the exact ten-byte sequence beginning `03 00 ...` emitted by the STK routine.
+- Module slot `0x0C` bypasses DEFLATE and is copied raw.
+- `FinalizeFirmwareContainer @ 0x00402F96` writes the decoded checksum to offset `+0x40`, transforms 0x80-byte blocks beginning at `+0x40`, aligns first to 0x20 and then 0x400 bytes, writes zero padding outside the transformed tail, and finally writes the encoded checksum to `+0x20`.
+- Both checksums use `CalculateContainerWordSum`: wrapping 32-bit addition of unsigned little-endian 16-bit words; an odd trailing byte is ignored.
+
+The intermediate transform is no longer unresolved. `DecodeAndParseFirmwareContainer @ 0x00402C62` / helper `0x00401ED2` select one of three modes from markers in the encoded image:
+- mode 1: marker `0x65736572` at `+0x100`; no block transform;
+- mode 2: marker `0xC0D6C0D7` at `+0x114`; each 0x80-byte block is XORed with `0xA5`, then each pair of 4-byte halves inside an 8-byte group is swapped, then the two 16-byte halves of every 32-byte group are swapped;
+- mode 3: marker `0xC0D6C0D7` at `+0x100`; each 0x80-byte block is XORed with the fixed 128-byte key stored in STK at `0x004F1000`.
+
+Modes 2 and 3 are involutions, so the same block operation is used for encode and decode.
+
+Container extent handling is also recovered:
+- the encoded input is first trimmed over trailing `0xFF` bytes and rounded to a 0x400 boundary;
+- checksum `+0x20` is used to identify the effective encoded end;
+- after block decode, checksum `+0x40` is used to identify the decoded end within the final 0x400-byte window.
+
+`ParseFirmwareContainerLayout @ 0x00402950` derives construction metadata from the loader code itself rather than from an external catalog:
+- it reconstructs the absolute address of the module-offset table from a MIPS `LUI` + immediate-forming instruction pair and converts the `0x88000000` runtime address back into a file offset; this is the effective `header_len`;
+- it derives the module count from the low immediate byte of a loader `ADDIU`, with the effective relation `module_count = immediate_low_byte >> 2`;
+- the same parser derives per-module runtime/load addresses from loader code.
+
+The four extracted CPU modules remain flat load images with no ELF/COFF header:
+- `ap1.bin @ 0x8067B800`;
+- `wma.bin @ 0x8073F000`;
+- `cdrom.bin @ 0x8074C800`;
+- `drv_other.bin @ 0x80775800`.
+
+This makes a non-SDK build path plausible: preserve the original loader/header and mandatory runtime/DSP/IOP blobs, compile replacement MIPS32-LE code for the fixed target address, repack the affected module, rebuild offsets/checksums/transform, and pad to the physical flash size as a separate final step.
+
+Experimental implementation: `tools/sunplus_container.py`. It currently exposes only inspection and no-change round-trip operations. It must not be treated as flash-ready until it reproduces the preserved image/container byte-for-byte (or with only explicitly understood trailing-flash padding differences).
