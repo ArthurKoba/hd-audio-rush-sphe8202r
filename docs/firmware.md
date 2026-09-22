@@ -433,6 +433,31 @@ This establishes a static/tool chain of:
 
 It does **not** establish runtime loading of the AP1 extension, successful boot, hardware behavior, or recovery safety. Those are separate acceptance gates. The next loader-analysis task is to prove that AP1 is copied/loaded according to its decoded module size rather than a hard-coded end address, and to confirm that the appended range through `0x8072302C` does not overlap another runtime allocation.
 
+
+### AP1 loader-size proof
+
+The decoded `rom12.bin` loader has now been checked directly at runtime base `0x88000000`.
+
+`LoadPackedModuleToAddress @ 0x88000D34` takes a module slot in `a0` and a destination address in `a1`. It reads the slot's packed-payload offset from the 27-entry table at `0x88014260`, adds payload base `0x880142CC`, and passes the resulting packed-stream pointer together with the unchanged destination address into the raw-DEFLATE loader.
+
+`LoadModuleSlot @ 0x88000D9C` supplies the fixed destination addresses. Confirmed mappings relevant to the active CPU modules are:
+- slot 3 -> `0x8067B800` (AP1);
+- slot 4 -> `0x8074C800` (CDROM);
+- slot 7 -> `0x80775800` (drv_other);
+- slot 14 -> `0x8073F000` (WMA).
+
+The actual inflater is size-driven rather than old-end-address-driven. `InflateRawDeflateStream @ 0x88001D9C` begins with an output allowance of `0x7FFFFFFF`, advances the destination as bytes are emitted, and stops on the DEFLATE final-block marker. `0x88001E8C` writes literals/back-references to `destination + bytes_written` and only checks against the remaining output allowance; no hard-coded AP1 end address is present in this path.
+
+Therefore the loader will emit an enlarged AP1 according to the rebuilt DEFLATE stream, provided that the destination range remains free.
+
+For the current compiler probe:
+- stock AP1 end: `0x807228A0`;
+- enlarged AP1 end: `0x8072302C`;
+- next confirmed fixed module destination: WMA at `0x8073F000`;
+- remaining gap after the enlarged AP1: `0x1BFD4` bytes.
+
+No other fixed module destination selected by the loader lies inside `0x8072302C..0x8073EFFF`. This closes the **loader-size / fixed-module-overlap** part of the AP1-extension gate. It does **not** yet prove that no dynamic runtime allocation, scratch buffer, overlay, or later copy uses that address interval; that remains the next static/runtime-memory check before hardware execution.
+
 ## Secondary BR23 / AC695N side
 
 The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
