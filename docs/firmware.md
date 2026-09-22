@@ -455,6 +455,46 @@ For the current compiler probe:
 
 No other fixed module destination selected by the loader lies inside `0x8072302C..0x8073EFFF`. This closes the **loader-size / fixed-module-overlap** part of the AP1-extension gate. It does **not** yet prove that no dynamic runtime allocation, scratch buffer, overlay, or later copy uses that address interval; that remains the next static/runtime-memory check before hardware execution.
 
+
+### Startup module set and removal boundary
+
+The decoded ROM loader's main initialization action is now identified as
+`InitializeRuntimeAndLoadCoreModules @ 0x88000890`.
+
+Its startup module requests are:
+
+- slot 7 -> `drv_other` (non-empty);
+- slot 3 -> `ap1` (non-empty);
+- slot 11 -> `free` (empty in the preserved image);
+- slot 4 -> `cdrom` (non-empty);
+- later slot 1 -> `mpeg` (empty);
+- later slot 9 -> `ap2` (empty).
+
+Therefore the stock boot path only adds one substantial CPU payload beyond
+AP1/drv_other at startup: `cdrom.bin`. The nominal DVD/MPEG/AP2 calls in this
+target are currently empty payload slots.
+
+However, `cdrom.bin` is not removable from the stock AP1 by merely zeroing its
+payload. A raw-instruction scan of the preserved AP1 finds **113 direct JAL
+instructions** into the CDROM address range `0x8074C800..0x8075BF1F`, targeting
+**42 distinct CDROM entry points**. Many callers are in the recovered
+media/USB/navigation paths, but the dependency is structurally broad.
+
+This changes the minimization strategy:
+
+1. do not try to shrink the stock application by deleting CDROM first;
+2. keep the known-good loader/runtime/DSP modules while validating independent
+   C execution;
+3. build a new minimal audio control plane that calls the recovered AP1/runtime
+   audio ABI;
+4. bypass or replace legacy media/UI dispatch paths;
+5. only then remove `cdrom.bin` after no remaining live route requires its
+   entry points.
+
+The empty DVD/MPEG/AP2/etc. payload slots are not the main source of product
+complexity in this image. Most legacy DVD/UI/media behavior resides in AP1 and
+the non-empty CDROM module.
+
 ## Secondary BR23 / AC695N side
 
 The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
