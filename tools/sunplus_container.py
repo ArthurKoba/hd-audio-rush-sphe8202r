@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
+import json
 import pathlib
 import struct
 import sys
@@ -463,6 +465,137 @@ def parse_replacements(values: Iterable[str]) -> dict[int, pathlib.Path]:
     return out
 
 
+
+def sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def command_extract(
+    path: pathlib.Path,
+    output_dir: pathlib.Path,
+    include_hidden: bool,
+) -> int:
+    state = open_image(path.read_bytes())
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # The decoded loader/header is kept separately because it is not one of
+    # the compressed module-table payloads.
+    rom12 = state.decoded[:HEADER_LEN]
+    (output_dir / "rom12.bin").write_bytes(rom12)
+
+    entries: list[dict[str, object]] = []
+    max_count = TABLE_ENTRIES if include_hidden else STK_VISIBLE_COUNT
+
+    for index in range(max_count):
+        unpacked = unpack_slot(state, index).data
+        name = MODULE_NAMES[index]
+        filename = f"{name}.bin"
+        (output_dir / filename).write_bytes(unpacked)
+        entries.append(
+            {
+                "index": index,
+                "name": name,
+                "filename": filename,
+                "offset": state.offsets[index],
+                "packed_size": len(state.segments[index]),
+                "unpacked_size": len(unpacked),
+                "special_raw": index == SPECIAL_RAW_SLOT,
+                "sha256": sha256_hex(unpacked),
+            }
+        )
+
+    manifest = {
+        "format": "sphe8202r-stk-rev8203r",
+        "source_image": path.name,
+        "physical_size": len(state.raw),
+        "transform_mode": state.mode,
+        "encoded_extent": state.encoded_extent,
+        "logical_extent": state.logical_extent,
+        "header_len": HEADER_LEN,
+        "table_entries": TABLE_ENTRIES,
+        "stk_visible_count": STK_VISIBLE_COUNT,
+        "payload_start": PAYLOAD_START,
+        "rom12": {
+            "filename": "rom12.bin",
+            "size": len(rom12),
+            "sha256": sha256_hex(rom12),
+        },
+        "modules": entries,
+    }
+    (output_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    print(f"extracted_to={output_dir}")
+    print(f"visible_modules={STK_VISIBLE_COUNT}")
+    print(f"written_modules={max_count}")
+    print(f"rom12_size=0x{len(rom12):x}")
+    print("manifest=manifest.json")
+    return 0
+
+
+def command_build(
+    base_image: pathlib.Path,
+    modules_dir: pathlib.Path,
+    output: pathlib.Path,
+    include_hidden: bool,
+) -> int:
+    raw = base_image.read_bytes()
+    state = open_image(raw)
+
+    rom12_path = modules_dir / "rom12.bin"
+    if rom12_path.exists():
+        supplied_rom12 = rom12_path.read_bytes()
+        stock_rom12 = state.decoded[:HEADER_LEN]
+        if supplied_rom12 != stock_rom12:
+            raise ContainerError(
+                "rom12.bin differs from the base image; loader/header rebuild "
+                "is intentionally unsupported"
+            )
+
+    limit = TABLE_ENTRIES if include_hidden else STK_VISIBLE_COUNT
+    replacements: dict[int, bytes] = {}
+    for index in range(limit):
+        module_path = modules_dir / f"{MODULE_NAMES[index]}.bin"
+        if not module_path.exists():
+            continue
+        candidate = module_path.read_bytes()
+        current = unpack_slot(state, index).data
+        if candidate != current:
+            replacements[index] = candidate
+
+    decoded, offsets = build_decoded(state, replacements)
+    rebuilt, new_extent = encode_preserving_stock_suffix(state, decoded)
+
+    expected = {
+        i: unpack_slot(state, i).data for i in range(TABLE_ENTRIES)
+    }
+    expected.update(replacements)
+    reopened = validate_repacked(rebuilt, expected)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(rebuilt)
+
+    print(f"base_image={base_image}")
+    print(f"modules_dir={modules_dir}")
+    print(f"changed_modules={len(replacements)}")
+    for index in sorted(replacements):
+        print(
+            f"changed slot[{index:02d}] {MODULE_NAMES[index]} "
+            f"unpacked=0x{len(replacements[index]):x} "
+            f"packed=0x{len(reopened.segments[index]):x} "
+            f"offset=0x{offsets[index]:x}"
+        )
+    print(f"stock_encoded_extent=0x{state.encoded_extent:x}")
+    print(f"new_encoded_extent=0x{new_extent:x}")
+    print(f"physical_size=0x{len(rebuilt):x}")
+    print(f"output={output}")
+    print("all_27_payloads_reopen_exact=1")
+    print("status=STATIC_REPACK_VALIDATED_REOPEN_ONLY")
+    return 0
+
+
 def command_inspect(path: pathlib.Path) -> int:
     state = open_image(path.read_bytes())
     print(f"physical_size=0x{len(state.raw):x}")
@@ -581,6 +714,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     inspect_p = sub.add_parser("inspect")
     inspect_p.add_argument("image", type=pathlib.Path)
 
+    extract_p = sub.add_parser("extract")
+    extract_p.add_argument("image", type=pathlib.Path)
+    extract_p.add_argument("output_dir", type=pathlib.Path)
+    extract_p.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="also extract the ten non-UI payload-table slots",
+    )
+
+    build_p = sub.add_parser("build")
+    build_p.add_argument("base_image", type=pathlib.Path)
+    build_p.add_argument("modules_dir", type=pathlib.Path)
+    build_p.add_argument("-o", "--output", type=pathlib.Path, required=True)
+    build_p.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="allow hidden_NN.bin files to participate in rebuild",
+    )
+
     rt_p = sub.add_parser("roundtrip")
     rt_p.add_argument("image", type=pathlib.Path)
     rt_p.add_argument("-o", "--output", type=pathlib.Path)
@@ -600,6 +752,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "inspect":
             return command_inspect(args.image)
+        if args.command == "extract":
+            return command_extract(
+                args.image, args.output_dir, args.include_hidden
+            )
+        if args.command == "build":
+            return command_build(
+                args.base_image,
+                args.modules_dir,
+                args.output,
+                args.include_hidden,
+            )
         if args.command == "roundtrip":
             return command_roundtrip(args.image, args.output)
         if args.command == "repack":
