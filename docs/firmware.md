@@ -95,7 +95,7 @@ Snapshot from 2026-09-21:
 | cdrom | 6,944 | 660 | 17 | `+0x0074C800` |
 | drv_other | 12,184 | 962 | 24 | `+0x00775800` |
 
-No missing flow references were found in that scope. All 43 wrong references had source `DEFAULT`; their deltas match the low parts of their module bases, consistent with stale references after rebasing. This audit excludes indirect calls, data references and undisassembled bytes. In particular, AP1 having zero mismatches does not establish its load base.
+No missing flow references were found in that 2026-09-21 audit scope. All 43 wrong references in `wma/cdrom/drv_other` had source `DEFAULT`; their deltas match the low parts of their module bases, consistent with stale references after rebasing. The AP1 `0` row is now historical only: targeted raw checks on 2026-09-22 found at least four AP1 stored flow refs shifted by exactly `+0x800`, including `0x8071EC9C` raw `j 0x8071EC4C` vs stored `0x8071F44C`, `0x8071F548` raw `jal 0x806ED604` vs stored `0x806EDE04`, `0x8071F550` raw `j 0x8071F50C` vs stored `0x8071FD0C`, and `0x8067D514` raw `jal 0x806ED604` vs stored `0x806EDE04`. Therefore critical AP1 caller/decompiler edges must also be checked against raw instructions. No broad AP1 repair is claimed.
 
 Examples:
 - CDROM `0x8074C838`: encoded target `0x80701A44`, stored target `0x80E4E244`.
@@ -169,6 +169,35 @@ AP1 contains a separate external-input subsource selector at `0x800032FA` (`gp+0
 `ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `0x800032FA` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating source-state byte `0x800032A5`. This establishes a TUNER <-> S/PDIF input-selection path. `FUN_806FED18` additionally writes selector `1` or `2` from a broader external-input transition path; its complete higher-level contract is not yet named.
 
 The higher source dispatcher uses `gp+0x7A5 = 0x800032A5` as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
+
+### Audio-state, volume and USB media behavior — 2026-09-22
+
+Target-instruction checks now show that `gp+0x7A5 = 0x800032A5` is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.
+
+The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. Ghidra currently splits the logical action around `0x806FED18`; raw fallthrough is authoritative.
+
+Master volume and mute are a separate runtime-control route rather than ordinary setup-menu descriptors. `master_volume_level = gp+0x832 = 0x80003332`; `master_mute_flag = gp+0x7B5 = 0x800032B5`. `SetMasterVolumeLevel @ 0x8070129C` forwards action ID 2 into the common audio-action dispatcher, which reaches `ApplyMasterVolumeHardwareState @ 0x806FFBBC`. Mute is a separate flag, not merely volume zero: `ToggleMasterMute` sets/clears the flag, while unmute and several resume/reinit routes reapply `mute ? 0 : master_volume_level`. The hardware apply path indexes runtime table `0x88012CA0[level]`; exact level-to-coefficient bytes remain open because that runtime table is not mapped as readable memory in the canonical project. Persistence of `master_volume_level` is also not yet closed.
+
+The decoder audio-status block is 16 bytes at `0x800022E4`. `UpdateDecoderAudioStatus @ 0x8070059C` extracts the decoder type from bits 2:0 of the decoder/hardware word and updates that block; `CopyDecoderAudioStatus @ 0x80700558` copies it to callers; `RenderDecoderAudioStatus @ 0x8071E008` renders it. Instruction-backed type mapping is:
+- type `0` -> PCM;
+- type `1` -> AC3;
+- type `2/3` -> DTS;
+- type `>=4` -> NO SIGNAL.
+
+Codec changes feed the global decoder state `gp+0x698 = 0x80003198` through `SetAudioDecoderState`, `ReapplyAudioDecoderState`, and `ApplyAudioDecoderState`. Confirmed transitions are PCM type 0 -> state `0x8000`, AC3 type 1 -> `0x10000`, DTS type 2/3 -> `0x20000`; no-signal also falls back to baseline `0x8000` while forcing effective volume zero/status reset. State `0x4000` is independently tied to the WMA route because its profile action `0x807026F0` directly calls `InitializeWmaModule @ 0x8073F000`. Other states including `0x10`, `0x100`, `0x200`, `0x2000`, `0x40000` and `0x04000000` remain behaviorally distinct but are not all assigned codec names yet.
+
+The USB/removable-media path is now separated into controller, context and source-state layers:
+- `PollUsbControllerPresence` polls/reset-handles MMIO `0xBC0202A0` presence bits;
+- `InitializeUsbDeviceContext` creates the active USB device context and handles controller subtype state from `0xBC0202A8`;
+- `CreateMediaChildContexts` / `ReleaseMediaChildContexts` maintain child media contexts; unsupported hub handling prints `[Hubs Not Supported]`;
+- primary context `0x80002E24` is selected by `SelectPrimaryMediaContext`;
+- `ProbeUsbMediaUnits` is the sole lower-level probe used by `CheckUsbMediaDeviceReady` and includes an `APPLE` signature special case;
+- `ProcessUsbMediaDetection` and `NormalizeUsbMediaState` normalize device/media state into `gp+0x82D`; bit 0 is the instruction-backed USB-vs-SD discriminator used by `RenderUsbSdMediaStatus`;
+- `HandleUsbMediaRuntimeState` reports `[NO USB]` or `[BYTE/SECTOR >2048]` on failure and enters `HandleUsbMediaActivation` on success;
+- `InitializeUsbMediaRoute` installs media callback `0x8075A850` in `gp+0x6DC` and sets state 7;
+- `HandleMediaStreamCallbackState` is the state-7 action that executes `gp+0x6DC` through `jalr` and may transition onward to state 9.
+
+Callback `0x8075A850` lives in `cdrom.bin` and is a shared media-stream initialization action rather than proven USB-exclusive behavior. Its raw path reaches `ReapplyAudioDecoderState` under one media-context condition, providing a concrete bridge from media initialization into the common audio decoder state. The lower USB transport layer is separate: `ProgramUsbHostTransfer @ 0x806A9AA8` programs `0xBC0201xx/0xBC0202xx` transaction registers and should not be conflated with media/source activation.
 
 ### Audio-core findings retained with address caveats
 
