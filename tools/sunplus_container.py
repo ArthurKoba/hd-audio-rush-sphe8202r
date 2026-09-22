@@ -12,7 +12,7 @@ Important:
 - rom12.bin is the decoded loader/header, not a normal compressed module;
 - the loader table contains 27 payload offsets, while STK exposes the first
   17 ordinary module slots in its module UI;
-- slot 0x0c is copied raw; other payloads are raw DEFLATE + CRC32 + ISIZE.
+- slot 0x0c is copied raw; other payloads are raw DEFLATE streams only;\n- STK encodes an empty ordinary module as the exact 10-byte sequence\n  `03 00 00 00 00 00 00 00 00 00`.
 
 No output from this tool should be treated as hardware-validated until it has
 been flashed under a proven recovery procedure.
@@ -126,7 +126,6 @@ class ImageState:
 @dataclasses.dataclass(frozen=True)
 class Unpacked:
     data: bytes
-    crc32: int
     size: int
     extra: bytes
 
@@ -333,23 +332,14 @@ def unpack_packed_segment(segment: bytes) -> Unpacked:
     if not dec.eof:
         raise ContainerError("raw DEFLATE stream did not terminate")
 
-    trailing = dec.unused_data
-    if len(trailing) < 8:
-        raise ContainerError("packed module has no CRC32/ISIZE trailer")
-
-    crc32, size = struct.unpack_from("<II", trailing, 0)
-    extra = trailing[8:]
-
-    actual_crc = zlib.crc32(data) & 0xFFFFFFFF
-    if crc32 != actual_crc:
+    # rev-8203R stores raw DEFLATE only.  The one intentional suffix is the
+    # eight zero bytes in STK's 10-byte encoding of an empty module.
+    extra = dec.unused_data
+    if extra and not (data == b"" and extra == b"\\x00" * 8):
         raise ContainerError(
-            f"module CRC mismatch: stored 0x{crc32:08x}, actual 0x{actual_crc:08x}"
+            f"unexpected bytes after raw DEFLATE stream: {len(extra)}"
         )
-    if size != len(data):
-        raise ContainerError(
-            f"module size trailer mismatch: stored {size}, actual {len(data)}"
-        )
-    return Unpacked(data=data, crc32=crc32, size=size, extra=extra)
+    return Unpacked(data=data, size=len(data), extra=extra)
 
 
 def unpack_slot(state: ImageState, index: int) -> Unpacked:
@@ -357,7 +347,6 @@ def unpack_slot(state: ImageState, index: int) -> Unpacked:
     if index == SPECIAL_RAW_SLOT:
         return Unpacked(
             data=seg,
-            crc32=zlib.crc32(seg) & 0xFFFFFFFF,
             size=len(seg),
             extra=b"",
         )
@@ -365,6 +354,10 @@ def unpack_slot(state: ImageState, index: int) -> Unpacked:
 
 
 def pack_packed_segment(data: bytes) -> bytes:
+    if not data:
+        # Exact special case in STK rev-8203R FUN_00402FEE.
+        return b"\\x03\\x00" + b"\\x00" * 8
+
     obj = zlib.compressobj(
         level=9,
         method=zlib.DEFLATED,
@@ -372,10 +365,7 @@ def pack_packed_segment(data: bytes) -> bytes:
         memLevel=8,
         strategy=zlib.Z_FIXED,
     )
-    stream = obj.compress(data) + obj.flush(zlib.Z_FINISH)
-    return stream + struct.pack(
-        "<II", zlib.crc32(data) & 0xFFFFFFFF, len(data)
-    )
+    return obj.compress(data) + obj.flush(zlib.Z_FINISH)
 
 
 def build_decoded(
@@ -499,7 +489,8 @@ def command_inspect(path: pathlib.Path) -> int:
         u = unpack_packed_segment(seg)
         print(
             f"slot[{i:02d}] {name:12s} packed=0x{len(seg):x} "
-            f"unpacked=0x{len(u.data):x} crc32=0x{u.crc32:08x} "
+            f"unpacked=0x{len(u.data):x} "
+            f"crc32(calc)=0x{zlib.crc32(u.data) & 0xffffffff:08x} "
             f"extra={len(u.extra)}"
         )
     return 0
