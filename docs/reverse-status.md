@@ -132,3 +132,197 @@ The issue tracker remains the task backlog:
 - #10 — physical board map;
 - #11 — identify/dump secondary controller;
 - #15 — end-to-end reverse/reflash/recovery/control acceptance.
+
+
+## Behavior-analysis handoff — 2026-09-22 (latest)
+
+This snapshot records the current behavior map after the latest USB/audio pass. It is a handoff, not a project-complete claim.
+
+### Coverage
+
+- Strict semantic/action-node coverage across the four loaded MIPS modules: **142 / 4016 = 3.54%**.
+- This percentage counts only action nodes with stable human semantic names. It does not measure byte coverage, instruction coverage, route coverage, hardware acceptance or project completion.
+- Route understanding is substantially ahead of the naming percentage because many large actions, transitions, state tables and callback contracts are already understood without being split into separately named nodes.
+
+### USB host and Mass Storage behavior
+
+The USB path is now closed from controller presence through SCSI block I/O and into the media state machine.
+
+Confirmed route:
+
+`PollUsbControllerPresence`
+-> `ResetUsbHostControllerState` / `ClearUsbDeviceContext`
+-> `InitializeUsbDeviceContext`
+-> `HandleUsbDeviceTreeEvent`
+-> `InitializeUsbDeviceTreeContexts`
+-> `CreateMediaChildContexts`
+-> primary MSC context `0x80002E24`
+-> `ProbeUsbMediaUnits`
+-> `CheckUsbMediaDeviceReady`
+-> `NormalizeUsbMediaState`
+-> `HandleUsbMediaRuntimeState`
+-> `HandleUsbMediaActivation`
+-> `InitializeUsbMediaRoute`.
+
+USB class behavior is now explicit:
+- child class `0x08` is USB Mass Storage and creates the SCSI/MSC context;
+- child class `0x09` is USB Hub and uses the separate hub context `0x80002E2C`;
+- the unsupported hub branch emits `[Hubs Not Supported]`;
+- `ReleaseMediaChildContexts` / `ReleaseUsbDeviceTreeContexts` release the matching contexts and clear primary/secondary pointers.
+
+The Mass Storage readiness sequence is standard SCSI:
+- `RunUsbScsiInquiry`: opcode `0x12`, up to 3 attempts, returns the 36-byte inquiry payload;
+- `CheckUsbScsiUnitReady`: opcode `0x00` TEST UNIT READY;
+- `ReadUsbScsiCapacity`: opcode `0x25` READ CAPACITY(10), up to 2 attempts, converts both 32-bit big-endian response fields;
+- `ReadUsbScsiSense`: opcode `0x03` REQUEST SENSE, up to 3 attempts;
+- `ReadUsbBlocksWithRetry`: READ(10), opcode `0x28`;
+- WRITE path at action start `0x806AAB8C`: WRITE(10), opcode `0x2A`.
+
+READ/WRITE behavior:
+- requests are clamped so `LBA + count - 1` does not pass the last reported LBA;
+- READ retries up to four attempts;
+- WRITE retries up to three attempts;
+- result `-4` has a dedicated path instead of ordinary retry/failure handling;
+- `ExecuteUsbMassStorageScsiCommand` drives command/data/status phases;
+- CBW/CSW handling is separated into `BuildUsbMassStorageCbw`, `ProcessUsbMassStorageCsw`, and `ValidateUsbMassStorageCsw`;
+- CSW signature `0x53425355` and matching command tag are validated.
+
+REQUEST SENSE handling is now mapped:
+- sense key 0 NO SENSE -> internal `0x1FE`;
+- key 1 RECOVERED ERROR -> `0x1FF`;
+- key 2 NOT READY uses ASC mapping: `0x04 -> 0x200`, `0x06 -> 0x201`, `0x08/0x54 -> 0x202`, `0x3A` medium-not-present -> `0x203`, other -> `0x207`;
+- key 3 MEDIUM ERROR -> `0x208`;
+- key 4 HARDWARE ERROR -> `0x209`;
+- key 5 ILLEGAL REQUEST -> `0x20A`;
+- key 6 UNIT ATTENTION: `ASC/ASCQ 0x28/0x00` -> `0x212`, other -> `0x20B`;
+- key 7 DATA PROTECT -> `0x20C`;
+- key 11 ABORTED COMMAND -> `0x20D`;
+- key 13 VOLUME OVERFLOW -> `0x20E`.
+
+The readiness probe maintains an availability bitmask at context `+0x54`, stores the selected unit index at `+0x5A`, and records per-unit last-LBA/block-size data. Block size `>= 0x1000` enters the firmware's oversized-sector error route rendered as `[BYTE/SECTOR >2048]`. For ready polling, the firmware uses a larger attempt budget for one/two-unit devices and a shorter budget for devices exposing more units.
+
+### USB media to playback and decoder handoff
+
+USB source activation is multi-state, not a one-value source enum.
+
+`InitializeUsbMediaRoute` installs startup media callback `0x8075A850` and enters media state 7. `HandleMediaEventTransition` executes the active callback, decodes the normalized event word as `class = event & 0xC000` and `payload = event & 0x3FFF`, then either advances to state 9 or replaces the startup callback with a general playback handler:
+- `0x80719B70`;
+- `HandlePlaybackNavigationEvent @ 0x8071A624/0x8071A628`.
+
+State 9 is `HandleMediaAudioTransitionState`. For ordinary media payloads it advances to state 3 and calls `InitializeMediaAudioPlaybackRoute`, whose sole audio-preparation child is `PreparePackedMediaAudioRoute`. State 3 is then a post-start/session state rather than a decoder-selection state.
+
+The selected-stream path is separately confirmed:
+`ParseMediaContainerStreamMetadata`
+-> `ProcessSelectedMediaStreamState`
+-> stream/session selection actions
+-> `ConfigureSelectedMediaStreamAudio`.
+
+`ConfigureSelectedMediaStreamAudio` directly performs:
+1. stream/profile field extraction;
+2. `SetAudioDecoderState`;
+3. `ApplyDecoderOutputProfile`;
+4. `CommitAudioFormatMode`;
+5. `ConfigureSecondaryAudioFromStreamHeader` for header-derived service parameters.
+
+`ConfigureSecondaryAudioFromStreamHeader` fills the shared stream descriptor around `0x8000A860`, writes the changed header-derived fields, calls `ApplyDecoderServiceConfig`, and that route ultimately reaches `StartConfiguredAudioPipeline`. The pipeline-start path conditionally restores effective master volume.
+
+### Codec and decoder state map
+
+`HandleStreamTypeDecoderConfig` is a WAVE-format dispatcher. The first 16-bit field is the `WAVEFORMATEX.wFormatTag` value.
+
+Confirmed mappings:
+- `0x0001` PCM -> decoder state `0x10`, generic service mode `0x40`;
+- `0x0002` MS ADPCM -> state `0x04000000`, legacy WAVE codec route;
+- `0x0006` A-law -> state `0x04000000`, same legacy route;
+- `0x0007` mu-law -> state `0x04000000`, same legacy route;
+- `0x0011` IMA/DVI ADPCM -> state `0x10`, generic service mode `0x80`;
+- `0x0050` MPEG-1 audio -> state `0x100`;
+- `0x0055` MP3 -> state `0x100`;
+- `0x0161` WMA Standard -> state `0x4000`, WMA route.
+
+The legacy WAVE codec action at `0x80702004` is used for MS ADPCM/A-law/mu-law. It writes secondary audio registers `0x40`, `0x41`, `0x43`, and `0x48`, then calls `StartConfiguredAudioPipeline`.
+
+WMA is a separate route:
+`state 0x4000`
+-> `InitializeWmaDecoderConfig`
+-> `InitializeWmaModule @ 0x8073F000`
+-> secondary registers `0x40..0x49`
+-> backend commit/delay command `0x50`
+-> `StartConfiguredAudioPipeline`.
+
+The decoder/hardware status machine is distinct from stream-format states:
+- status type 0 PCM -> state `0x8000`;
+- status type 1 AC3 -> `0x10000`;
+- status type 2/3 DTS -> `0x20000`.
+
+Packed-media classification is also distinct:
+- classifier result `0xAC3` -> packed AC3 route -> state `0x200`;
+- positive non-AC3 results `1/2` -> `ConfigurePackedNonAc3AudioRoute` -> state `0x2000`.
+
+Do not collapse hardware-status states, WAVE codec states and packed-media states into one enum.
+
+### Sample-rate and audio-service profiles
+
+The action beginning at `0x807019BC` classifies sample-rate families before codec dispatch:
+- ranges around 8, 16 and 32 kHz select audio-format mode 1;
+- other rates, including the explicit bands around 11.025 and 22.05 kHz, select mode 2.
+
+`CommitAudioFormatMode` maintains a separate audio-service profile layer. Confirmed encodings in service field bits `[11:8]` include:
+- mode `1 -> 0x600`;
+- mode `2 -> 0x700`;
+- mode `4 -> 0x800`;
+- mode `0x1000 -> 0x300`;
+- mode `0x2000 -> 0x400`;
+- mode `0x4000 -> 0x500`.
+
+These service profiles are not the same thing as decoder states.
+
+### Hardware audio-action dispatcher and controls
+
+`DispatchAudioHardwareAction` accepts action IDs `0..0x1A` and writes command families through the common backend command area before issuing a synchronous backend commit.
+
+Confirmed action contracts include:
+- action 1 -> downmix command family `0x0300 | value`;
+- action 2 -> master-volume hardware path;
+- action 3 -> KEY command family `0x0500 | value`;
+- action 4 -> command family `0x0600 | value`;
+- action 5 -> `0x0700 | value`;
+- action 6 -> `0x0800 | value`;
+- action 7 -> S/PDIF/output mode family `0x0900 | value`;
+- action 8 -> `0x0A00 | value`;
+- action 9 -> `0x0D00 | value`;
+- action 0x0B -> `0x0C00 | value`;
+- action 0x17 -> speaker topology `0x2300 | topology`;
+- action 0x19 -> `0x2800 | value`.
+
+`ApplySpeakerConfiguration` builds a packed speaker topology from FRONT/CENTER/REAR/SUB state and applies it through action `0x17`.
+
+The control descriptors now identify the main setup groups:
+- **AUDIO SETUP**: `AUDIO OUT`, `DOWN SAMPLE`, `GM5`, `KEY`;
+- **SPEAKER SETUP**: `DOWNMIX`, `SUBWOOFER`, `CENTER DELAY`, `REAR DELAY`, `FRONT`, `CENTER`, `REAR`;
+- **DIGITAL SETUP**: `OP MODE`, `DYNAMIC RANGE`, `DUAL MONO`.
+
+The separate VIDEO SETUP group contains BRIGHTNESS/CONTRAST/HUE/SATURATION/SHARPNESS and must not be mixed into audio control interpretation.
+
+### Master volume and mute
+
+Master volume remains a runtime control:
+- `master_volume_level = 0x80003332`;
+- `master_mute_flag = 0x800032B5`.
+
+VOL+/VOL- update the runtime level, conditionally apply it through `SetMasterVolumeLevel`, and update UI/status. No direct save/NVRAM action is present in the confirmed VOL+/VOL- path. `ToggleMasterMute` is also runtime: mute sets the flag and applies effective level 0; unmute clears the flag and, at normal playback speed, calls `ClearMuteAndRestoreVolume`.
+
+The confirmed rule is therefore:
+`effective_volume = master_mute_flag ? 0 : master_volume_level`.
+
+The runtime gain table at `0x88012CA0` is shared by multiple audio command families, not only master volume. All references found in the loaded modules are reads. Its initialization/source is outside the currently loaded code/runtime image, so exact gain bytes remain open.
+
+### Remaining high-value gaps
+
+The most important unresolved items after this pass are:
+- origin/initialization of runtime gain table `0x88012CA0`;
+- startup/persistence source of `master_volume_level` if one exists outside the runtime button path;
+- exact semantic identities of private stream tags `0x2000/0x2001`;
+- exact meaning of two standalone runtime step controls driven through hardware action IDs 4 and 0x0A;
+- physical board validation of S/PDIF/analog routing and channel ownership;
+- execution/hardware proof for the statically recovered USB/audio routes.
