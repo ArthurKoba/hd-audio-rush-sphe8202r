@@ -224,6 +224,71 @@ The two converters show different word/bit packing behavior. Do not assign them 
 
 The created Ghidra type `CdromPackedStreamState` is a 24-byte working layout for the state beginning at `0x80003704`: four-byte shift/count fields at offsets 0/4, four carry bytes at 8..11, four-byte cursor/count fields at 12/16, and mode/signature-A/signature-B/sync-loss bytes at 20..23. It has 12 fields; read-back confirmed size and offsets. Six labels identify the state, mode, flags and signature tables. The type is not an original source declaration and has not been applied over fabricated RAM bytes.
 
+
+### Current USB/SCSI and audio behavior contracts — 2026-09-22
+
+The latest behavior pass closes several implementation-level contracts that are useful independently of the broader project status. The full handoff and current coverage are in `docs/reverse-status.md`.
+
+#### USB Mass Storage implementation
+
+USB child class `0x08` is confirmed as Mass Storage and class `0x09` as Hub. The class-8 path owns the primary SCSI/MSC context at `0x80002E24`; the class-9 path uses the separate hub context `0x80002E2C`.
+
+The SCSI command layer is now explicit:
+- INQUIRY `0x12`;
+- TEST UNIT READY `0x00`;
+- REQUEST SENSE `0x03`;
+- READ CAPACITY(10) `0x25`;
+- READ(10) `0x28`;
+- WRITE(10) `0x2A`.
+
+`ExecuteUsbMassStorageScsiCommand` owns command/data/status sequencing. CBW/CSW construction and validation are split into named actions, and the CSW signature `0x53425355` plus tag matching are checked. READ/WRITE requests are clamped to the reported medium boundary; READ retries up to four attempts and WRITE up to three.
+
+`ReadUsbScsiSense` maps standard sense keys into firmware status codes. In particular, NOT READY key 2 distinguishes ASC `0x04`, `0x06`, `0x08/0x54`, and `0x3A` (medium not present), while UNIT ATTENTION key 6 recognizes `ASC/ASCQ 0x28/0x00` as the media-change/ready-transition case.
+
+#### WAVE codec routing
+
+`HandleStreamTypeDecoderConfig` reads the first 16-bit `WAVEFORMATEX.wFormatTag` field. Confirmed tags and routes are:
+- `0x0001` PCM -> state `0x10`, generic service mode `0x40`;
+- `0x0002` MS ADPCM -> state `0x04000000`, legacy WAVE service path;
+- `0x0006` A-law -> same legacy route;
+- `0x0007` mu-law -> same legacy route;
+- `0x0011` IMA/DVI ADPCM -> state `0x10`, generic service mode `0x80`;
+- `0x0050` MPEG-1 audio -> state `0x100`;
+- `0x0055` MP3 -> state `0x100`;
+- `0x0161` WMA Standard -> state `0x4000`.
+
+The legacy WAVE route beginning at `0x80702004` writes secondary registers `0x40/0x41/0x43/0x48` and starts the configured pipeline. The WMA route writes `0x40..0x49`, then uses backend commit/delay command `0x50`, then starts the same pipeline.
+
+A separate pre-codec action at `0x807019BC` classifies sample-rate families before codec dispatch. Nominal 8/16/32-kHz bands select audio-format mode 1; other rates, including explicit bands around 11.025/22.05 kHz, select mode 2.
+
+#### Decoder state versus service profile
+
+Keep these layers separate:
+- decoder/hardware status states: PCM `0x8000`, AC3 `0x10000`, DTS `0x20000`;
+- packed-media states: classifier `0xAC3 -> 0x200`, positive non-AC3 packed signatures `1/2 -> 0x2000`;
+- WAVE/service states: e.g. `0x10`, `0x100`, `0x4000`, `0x04000000`;
+- audio-service format profiles committed by `CommitAudioFormatMode`.
+
+`ConfigureSelectedMediaStreamAudio` is the confirmed selected-stream bridge into the audio path: it derives stream fields, calls `SetAudioDecoderState`, applies the decoder output profile, commits the audio-format mode, and passes stream-header-derived parameters into the secondary audio service. `StartConfiguredAudioPipeline` is the common start/apply action and conditionally restores effective master volume.
+
+#### Hardware audio command layer
+
+`DispatchAudioHardwareAction` is the central hardware-command dispatcher for action IDs `0..0x1A`. Confirmed user-facing associations include:
+- action 1: DOWNMIX;
+- action 2: master volume;
+- action 3: KEY;
+- action 7: S/PDIF/output mode;
+- action `0x17`: packed speaker topology.
+
+`ApplySpeakerConfiguration` builds the topology from FRONT/CENTER/REAR/SUB state and sends command family `0x2300 | topology`.
+
+Descriptor-backed audio groups are now decoded:
+- AUDIO SETUP: AUDIO OUT, DOWN SAMPLE, GM5, KEY;
+- SPEAKER SETUP: DOWNMIX, SUBWOOFER, CENTER DELAY, REAR DELAY, FRONT, CENTER, REAR;
+- DIGITAL SETUP: OP MODE, DYNAMIC RANGE, DUAL MONO.
+
+Master volume and mute are not ordinary setup descriptors. Their confirmed runtime rule remains `effective_volume = mute ? 0 : master_volume_level`. The VOL+/VOL- and mute-toggle routes contain no direct save/NVRAM action. The shared runtime gain table at `0x88012CA0` is read by several audio command families; no writer for that table exists in the currently loaded modules.
+
 ## STK container and checksum investigation
 
 This section describes **static evidence from the existing Ghidra `/tools/stk.exe` program** (`x86:LE:32:default`, base `0x00400000`). Its exact original-file hash/revision has not been re-established against the three ZIP members; this identity check is a remaining gate before treating its implementation as the exact rev-8203R tool.
