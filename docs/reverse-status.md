@@ -10,7 +10,7 @@ Both firmware domains are required for the overall objective, but the active iss
 
 **AP1 placement has been corrected to `0x8067B800` in the canonical Ghidra project.** The former `0x8067B000` claim is withdrawn. `reverse/modules.csv` records the corrected base as confirmed/rebased. Function-boundary cleanup and stale-flow-reference cleanup remain separate gates; the rebase does not by itself validate every pre-existing AP1 symbol/caller.
 
-Separately, a read-only audit found 43 stale direct-flow references across `wma`, `cdrom` and `drv_other`. These make decompiler call targets and caller lists unreliable even where module placement is correct. The repair source is preserved, but its execution was blocked by the tool safety layer. No repair is claimed applied. See `docs/firmware.md` for reproducible examples, scope and remaining gates.
+Separately, a read-only audit found 43 stale direct-flow references across `wma`, `cdrom` and `drv_other`. The earlier AP1 row reporting zero mismatches is now withdrawn as a current-safety claim: targeted raw checks on 2026-09-22 found at least four AP1 stored flow references shifted by exactly `+0x800` after the rebase. Confirmed examples are `0x8071EC9C` raw `j 0x8071EC4C` but stored xref `0x8071F44C`, `0x8071F548` raw `jal 0x806ED604` but stored xref `0x806EDE04`, `0x8071F550` raw `j 0x8071F50C` but stored xref `0x8071FD0C`, and `0x8067D514` raw `jal 0x806ED604` but stored xref `0x806EDE04`. Therefore AP1 caller/decompiler data also requires raw-instruction validation in affected regions. No broad repair is claimed applied. See `docs/firmware.md` for reproducible examples, scope and remaining gates.
 
 Do not stack broad auto-analysis or hardware-control conclusions on this inconsistent state.
 
@@ -110,14 +110,14 @@ Immediate continuation order:
 
 Known analysis hazards / do not repeat:
 - AP1 base is **`0x8067B800` and already rebased in Ghidra**. The old `0x8067B000` model is invalid.
-- `wma/cdrom/drv_other` still have **43 stale DEFAULT direct-flow refs** from old rebases. Treat caller/decompiler output cautiously until repaired through an authorized path.
+- `wma/cdrom/drv_other` still have **43 stale DEFAULT direct-flow refs** from old rebases. AP1 is also now proven to contain at least four `+0x800` stale stored flow refs in the currently investigated source/media/audio region. Treat caller/decompiler output as provisional across all four modules and validate critical edges from raw instructions until repaired through an authorized path.
 - Runtime GP restore slot is instruction-proven **`0x88012200`**. The auxiliary Ghidra block currently at `0x88012A00` is stale metadata shifted by the AP1 rebase.
 - The tool safety layer intermittently blocks even read-only Ghidra calls on specific ranges. Do not loop/retry the same blocked action. Prefer narrow single-address queries; when blocked, use canonical module bytes for raw instruction evidence and return to Ghidra only for confirmed semantic markup.
 - Do not infer PCB routing from SoC/software capability. Current S/PDIF results are firmware-control evidence only.
 - Work directly in `main`; no PRs. Do not modify the canonical dump or extracted module bytes.
 
 Current coverage snapshot to carry forward:
-- semantic/non-`FUN_*` function naming: **36/4011 = 0.90%**;
+- semantic/non-`FUN_*` function naming in the live canonical project: **67/4059 = 1.65%**; function-inventory growth is not itself a completion metric;
 - issue #9 checklist: **7/22 = 31.8%** overall;
 - address-model scope: **3/7 = 42.9%**;
 - control-surface scope: **3/8 = 37.5%**;
