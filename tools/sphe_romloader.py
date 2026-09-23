@@ -342,7 +342,11 @@ class RomLoader:
                 return text
             if b == b"\r":
                 chars.append("\n")
-            elif 0x20 <= b[0] <= 0x7E or b in (b"\n", b"\t"):
+            elif b == b"\n":
+                # STK's target puts() emits LF then CR; its UI uses CR as
+                # the visible newline and ignores LF.
+                continue
+            elif 0x20 <= b[0] <= 0x7E or b == b"\t":
                 chars.append(b.decode("ascii", "replace"))
         raise ProtocolError("timeout waiting for RAM-loader console terminator")
 
@@ -422,7 +426,9 @@ class RomLoader:
                 return
             if b == b"\r":
                 sys.stdout.write("\n")
-            elif 0x20 <= b[0] <= 0x7E or b in (b"\n", b"\t"):
+            elif b == b"\n":
+                continue
+            elif 0x20 <= b[0] <= 0x7E or b == b"\t":
                 sys.stdout.write(b.decode("ascii", "replace"))
             else:
                 sys.stdout.write(f"<{b[0]:02x}>")
