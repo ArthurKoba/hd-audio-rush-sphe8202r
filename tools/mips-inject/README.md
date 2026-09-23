@@ -38,3 +38,24 @@ python3 patch_ap1.py ../../firmware/modules/ap1.bin \
 The patcher verifies the exact original 44 bytes and keeps AP1 at `0xA70A0`
 bytes. The resulting AP1 still has to pass full Sunplus container repack/reopen
 validation before hardware use.
+
+
+## Minimal audio control plane
+
+`sphe_audio_control.h/.c` is the transport-neutral compatibility layer for
+the intended minimal firmware direction. It bypasses the legacy DVD/UI control
+screens while reusing the stock initialized audio runtime.
+
+The current layer exposes stateful control for master volume/mute, S/PDIF
+OFF/RAW/PCM, downsample mode, surround, fixed/user seven-band EQ, speaker
+topology/subwoofer/delay, echo, MIC1/MIC2, downmix, GM5 and DRC re-apply. It
+also exposes a compact status snapshot from confirmed AP1 live-state fields.
+
+No UART/ALINK/I2S/inter-chip framing is defined here. The SPHE <-> secondary
+controller transport is still an open behavior contract, so inventing a wire
+protocol at this stage would couple the new control plane to an unproven
+interface.
+
+Persistence is also kept explicit: MIC1 uses the recovered stock save route;
+MIC2 is currently live-only; other direct live-state setters should not be
+described as persistent until their save contracts are independently proven.
