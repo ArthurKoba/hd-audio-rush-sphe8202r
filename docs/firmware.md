@@ -495,6 +495,51 @@ The empty DVD/MPEG/AP2/etc. payload slots are not the main source of product
 complexity in this image. Most legacy DVD/UI/media behavior resides in AP1 and
 the non-empty CDROM module.
 
+
+### ROM -> AP1 compatibility ABI
+
+The decoded ROM/runtime does not hand control to a single AP1 `main` entry. It loads AP1 and then reaches a fixed set of AP1 entry points directly. This is the compatibility boundary for any future minimal AP1 replacement.
+
+A narrow low-level audit of `rom12.bin` finds **22 direct ROM -> AP1 transitions** and no direct ROM transitions into the established WMA, CDROM or `drv_other` address ranges. Those modules therefore sit behind AP1 rather than forming part of the ROM-facing ABI.
+
+The core startup action `InitializeRuntimeAndLoadCoreModules @ 0x88000890` reaches these 16 AP1 entry points:
+
+| AP1 entry | ROM arguments | Current behavior classification |
+|---|---|---|
+| `0x806D5A68` | none | system/hardware initialization; configures several service/MMIO state fields |
+| `0x806D4F54` | `a0=-1` | system configuration state + dependent initialization |
+| `0x806D23BC` | none | direct hardware register initialization |
+| `0x8070E408` | `a0=0` | tiny runtime-state byte setter |
+| `0x8070BAFC` | `a0=4,a1=0,a2=0,a3=1` | higher system/media initialization route |
+| `0x806EF410` | none | runtime-state reset + callback/state initialization |
+| `0x806D334C` | none | initializes shared state/pointers and several subsystem actions |
+| `0x8071F088` | none | one-hop initialization wrapper; deeper behavior still pending |
+| `0x806DFC98` | none | initializes subordinate state then clears runtime state at `0x800031D0` |
+| `0x806EA084` | none | clears runtime word at `0x800045CC` |
+| `0x807075BC` | none | initializes three service fields at `s6+0x510/+0x514/+0x518` |
+| `0x806E1DB0` | none | resets service/runtime state and installs/uses callback state |
+| `0x806FD06C` | none | configures a runtime service block and invokes `0x80705400(1,...)` |
+| `0x806D54F4` | `a0=1` | mirrors one state byte into two runtime fields |
+| `0x806D5988` | `a0=1` | stores a runtime state byte and refreshes related flags |
+| `0x806F2B38` | `a0=0,a1=1` | conditional subsystem/service initialization using current runtime state |
+
+Six additional AP1 entries are reached from separate ROM service wrappers:
+
+| AP1 entry | ROM-side use |
+|---|---|
+| `0x806EF620` | called with `a0=0`; stores the byte at `gp+0x1407` |
+| `0x806D4DC8` | called with `a0=4`; stores the byte at `gp+0x1650` |
+| `0x806D2FB0` | called by ROM service setup; invokes three lower initialization actions |
+| `0x806D2C80` | `CheckAudioBackendStatusSelector`, ROM calls selector `4` |
+| `0x80694FEC` | periodic/service action used by a ROM wait/timing route |
+| `0x806AB8F4` | initializes USB/controller runtime state; reached from a ROM service action |
+
+Implementation consequence: replacing AP1 with one standalone `main` is not compatible with the current ROM contract. A minimal replacement must either:
+1. retain compatible entry points at these ROM-referenced addresses and route them into a smaller implementation, or
+2. intentionally patch the ROM/runtime transitions as part of the new image.
+
+Because ROM has no direct transitions into WMA/CDROM/`drv_other`, those dependencies can later be reduced behind the AP1 compatibility layer without changing the ROM-facing contract. The preferred first hardware experiment remains the in-place 44-byte compiler/ABI probe; a full AP1 compatibility shim is a later stage.
+
 ## Secondary BR23 / AC695N side
 
 The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
