@@ -806,7 +806,7 @@ The GUI `System Configuration` selector is the value used by the ROM-loader init
 
 The separate `SDRAM bus` selector is `0 = 16 bits`, `1 = 32 bits`.
 
-For the preserved target, STK reports 8202-family non-shared SDRAM and 16-bit bus, so the current **candidate** headless profile is `system_config=2`, `sdram_bus=16`, baud `115200`. This is implementation/profile evidence, not yet execution proof on hardware. The physical SPHE8202R marking vs STK's displayed SPHE8203R remains an explicit contradiction.
+For the preserved target, the firmware image metadata reports 8202-family non-shared SDRAM and a 16-bit bus. That describes the image/SDRAM configuration, not the flash-interface selector. The physical P25D80SH board uses the separate ROM-loader profile `8202L_128_SPI` while retaining the same recovered 16-bit SDRAM initialization script. The physical SPHE8202R marking vs STK's displayed SPHE8203R remains an explicit contradiction.
 
 This STK revision does **not** expose a separate user-facing `Crystal` selector in the recovered RomLoader panel. Do not invent one. Clock/SDRAM setup is represented by the system-configuration register scripts above.
 
@@ -819,7 +819,7 @@ The previously used `0x004E4960` address came from a different/legacy STK analys
 After `A`/configuration/`C`, STK:
 
 - clears RAM words `0x18FFC`, `0x18FF8`, `0x18FF4`, `0x18FF0`;
-- writes a loader variant word at `0x18FEC` (0 for target candidate profile);
+- writes the helper flash-mode word at `0x18FEC`; for the physical SPI-NOR path selected by `8202L_128_SPI`, the recovered value is `2`;
 - writes `0xE100` at `0x18FE8`;
 - writes the first loader dword to `0x19000` using the normal `W` packet;
 - sends every remaining loader dword as `'w' + dword`, requiring lowercase `'w'` acknowledgement after each dword.
@@ -878,7 +878,7 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - implements a non-destructive `probe` command for Boot-ROM/session initialization;
 - implements the recovered read-only `read-flash` path.
 
-Flash write is intentionally not exposed yet.
+Generic modified-image flash write is intentionally not exposed. The headless tool now contains a stock-only recovery route that accepts only the canonical 1 MiB image and requires explicit chip-erase acknowledgement; it still must not be treated as safe until recovery/rollback is board-proven.
 
 The stock SPI-write helper issues JEDEC-ID command `0x9F`, selects a controller/program profile from that result, performs a chip-erase sequence, then programs the staged image as 32-bit words while polling controller/flash-ready status. The recovered vendor route does not perform a mandatory full-image readback comparison after programming. Any future headless write command therefore requires an independent post-write `read-flash` plus SHA-256 verification and a proven recovery/rollback path before it can be considered safe.
 
@@ -932,7 +932,7 @@ and is acknowledged by one-byte `'w'`. STK uses it after one explicit `W32` at t
 
 The target image maps to:
 - STK System Configuration: **8202 Non Share Mode**;
-- system profile index: **2**;
+- image/SDRAM profile index: **2**;\n- ROM-loader flash-interface profile: **8202L_128_SPI**;
 - SDRAM bus: **16 bits**;
 - SDRAM bus index: **0**.
 
@@ -955,7 +955,7 @@ After this sequence STK performs a `C/C` echo before uploading a RAM stub.
 
 ### RAM-stub loading and execution
 
-For target profile index 2, rev-8203R uses an embedded 0x2878-byte MIPS stub. The load contract is:
+For the target board, rev-8203R uses the common embedded 0x2878-byte MIPS helper together with the SPI flash-interface mode. The load contract is:
 - control/header words at `0x18FE8..0x18FFC`;
 - first stub word through `W32(0x00019000, first_word)`;
 - remaining words through the acknowledged lower-case `w` stream.

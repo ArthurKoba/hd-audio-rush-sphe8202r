@@ -363,12 +363,12 @@ Implementation-level behavior recovery now covers the target SPHE UART ROM-loade
 - canonical STK analysis program is now `stk`, backed by the verified rev-8203R executable SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`;
 - serial framing is 8N1 at 57600 / 115200 / 230400 with recovered UART-divisor values `0x74 / 0x3A / 0x1D`;
 - Boot-ROM/session handshake is `A/A`, followed by the target system/SDRAM register script and `C/C`;
-- target profile is `8202 Non Share Mode`, 16-bit SDRAM bus;
+- target image SDRAM descriptor is `8202 Non Share Mode`, 16-bit; the physical SPI-ROM-loader path uses the separate `8202L_128_SPI` profile while retaining the same recovered 16-bit SDRAM register script;
 - canonical embedded helper for this profile is STK VA `0x004E5960`, size `0x2878`; the earlier `0x004E4960` value belonged to a different legacy analysis copy and is invalid for canonical rev-8203R;
 - `W + addr32le + value32le` and lower-case streaming `w + dword` are recovered; `R + addr32le` is confirmed in the post-`S` transition sequence but is not exposed pre-start without separate proof;
 - READ mode is produced by patching the common embedded flash-service helper. For the target branch it uses memory-mapped flash at `0xA8000000`, stages data at `0x8001E000`, emits a NUL ready marker, then transfers `size32 + image` with one host flow-control byte per 16-byte block;
 - standalone UART MMIO is recovered as data `0xBFFE8900`, status `0xBFFE8904`, TX-ready bit 0 and RX-ready bit 1;
-- `tools/sphe_romloader.py` now implements `info`, `probe`, `write32`, `upload-ram`, `read-flash`, `run-ram` and `monitor`; `read-flash` prints SHA-256 and can enforce an expected digest;
+- `tools/sphe_romloader.py` now implements `info`, `probe`, `write32`, `upload-ram`, `read-flash`, `restore-stock`, `run-ram` and `monitor`; `read-flash` prints SHA-256 and can enforce an expected digest; `restore-stock` accepts only the exact preserved stock image and still requires board-proven recovery before use;
 - `tools/mips-inject/sphe_rom_uart.h` plus the standalone RAM diagnostic image provide a flash-independent execution/logging path.
 
 The vendor SPI-write helper issues JEDEC command `0x9F`, performs chip erase and word programming, but no mandatory full-image post-write readback comparison is present in the recovered route. Flash write therefore remains intentionally unexposed until recovery/rollback is proven and post-write readback+SHA verification is mandatory.
@@ -376,3 +376,110 @@ The vendor SPI-write helper issues JEDEC command `0x9F`, performs chip erase and
 Current validation level is implementation proof only. The remaining immediate board gate is locating/confirming the physical SPHE UART path; the known captured UART header belongs to the secondary controller. The likely SPHE UART pin candidates from reference-design evidence remain package pins 11/12 and 33/45 until continuity/execution evidence resolves them.
 
 Debugger feasibility improved: AP1 contains a common exception frame that saves CP0 EPC and restores context through `rfe`, but a dedicated BREAK/debug route has not yet been proven.
+
+
+## ROM-loader behavior handoff — 2026-09-23
+
+This is the active continuation point for the next agent. Do not restart STK identity/profile discovery.
+
+### Canonical analysis state
+
+- canonical analysis project: `sphe8202r_decoder_p25d80`;
+- canonical STK program: `stk`, verified rev-8203R SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`;
+- legacy STK copies were moved under `/tools/legacy`;
+- current RAM helper analysis program: `sphe8202_read_loader.bin`;
+- both programs were explicitly saved before handoff.
+
+### Recovered host transport
+
+CONFIRMED implementation behavior:
+- serial transport is exact-length synchronous read/write with 8N1;
+- baud choices are 57600 / 115200 / 230400;
+- Boot-ROM synchronization is `A/A`, configuration writes, then `C/C`;
+- direct write packet is `W + address32le + value32le`, acknowledged by `W`;
+- lower-case streaming is `w + dword`, acknowledged by `w`;
+- post-upload execution begins with `S/S` and the recovered system-switch sequence;
+- READ and WRITE both use the same uploaded RAM-helper execution path;
+- readback sends a little-endian size followed by 16-byte blocks, with one host flow-control byte after the size and after every block;
+- STK rejects a reported readback size above 2 MiB.
+
+Named STK action nodes currently include:
+- `OpenRomLoaderSerialPort`;
+- `ConfigureRomLoaderUartBaud`;
+- `InitializeRomLoaderSystemProfile`;
+- `ConnectAndUploadRomLoaderStub`;
+- `WriteRomLoaderRegister32`;
+- `SerialReadExact`;
+- `SerialWriteExact`;
+- `StartUploadedRamCode`;
+- `UploadFirmwareBlobToRomLoader`;
+- `ReceiveFirmwareReadback`;
+- `ReadFirmwareViaRomLoader`;
+- `WriteFirmwareViaRomLoader`;
+- `WaitForRomLoaderTextStatus`;
+- `NotifyRomLoaderTransferStarted`;
+- `NotifyRomLoaderProgress`;
+- `HandleRomLoaderUiEvents`;
+- `AppendRomLoaderStatusLine`;
+- `ReplaceRomLoaderStatusLine`;
+- `ResetRomLoaderStatusAndNotify`.
+
+The UI/progress/status nodes are not part of the physical protocol and can be replaced by normal CLI logging/callbacks.
+
+### Profile split — do not collapse these
+
+The firmware image metadata and the ROM-loader flash interface are separate selectors:
+
+- image SDRAM descriptor: `8202 Non Share Mode`, 16-bit;
+- ROM-loader flash-interface profile for the physical P25D80SH board: `8202L_128_SPI`;
+- the two paths share the recovered 16-bit SDRAM initialization script;
+- the SPI profile selects helper flash mode word 2;
+- using the non-shared SDRAM descriptor directly as the flash-interface selector incorrectly enters the separate non-SPI probe path.
+
+This distinction is now reflected in `tools/sphe_romloader.py` and `tools/mips-inject/ROM_LOADER.md`.
+
+### RAM helper and SPI behavior
+
+CONFIRMED from the uploaded helper:
+- helper validates the staged image before dispatching the flash-upgrade route;
+- JEDEC ID is read with command 0x9F;
+- flash-family selection chooses a controller/program profile;
+- the SPI write route performs full-chip erase before sequential programming;
+- programming is 32-bit-word based and polls controller readiness;
+- the recovered vendor write route does not perform mandatory full-image post-write comparison;
+- completion is signaled through the existing UART console/terminator path.
+
+Therefore generic modified-image flash write must remain unavailable until recovery/rollback and post-write full readback+SHA verification are hardware-proven.
+
+### Headless tooling status
+
+`tools/sphe_romloader.py` is the current Python implementation. It contains:
+- canonical STK verification/extraction;
+- target SDRAM initialization;
+- SPI helper-mode selection;
+- ROM-monitor write primitive;
+- RAM-helper upload;
+- RAM execution;
+- full flash read;
+- stock-only recovery guarded by exact size/SHA and explicit erase acknowledgement;
+- UART monitor support.
+
+Important validation distinction:
+- container reconstruction: implementation proof complete for no-change byte-identical rebuild and changed-module structural reopen;
+- ROM-loader protocol/tool: implementation proof;
+- actual SPHE UART execution: not yet board-proven in this repository state;
+- stock restore: implemented but must not be treated as safe until recovery entry + two independent reads + rollback are board-proven;
+- generic modified-image flashing: intentionally not exposed;
+- debugger/GDB-level behavior: still UNKNOWN.
+
+### Immediate continuation
+
+1. With the new MCP setup, continue behavior recovery from the RAM helper rather than re-reading STK GUI code.
+2. Finish naming/documenting the remaining SPI-helper actions around readiness polling, program-profile selection, completion signaling and READ-mode path.
+3. Cross-check the Python helper selection/profile constants against those recovered helper routes; keep image-SDRAM and flash-interface selectors separate.
+4. Run only offline/source validation until hardware UART is connected: syntax/import checks, helper extraction hash checks, READ-patch checks and command construction tests.
+5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-flash` captures and compare both against the canonical 1 MiB dump.
+6. Only after that consider `restore-stock`; generic modified-image flash stays gated.
+7. After ROM-loader/readback/recovery is board-proven, return to custom RAM logging and then debugger feasibility.
+
+Approximate useful STK behavior coverage at handoff: **about 67%** of the project-relevant STK behavior lane. This denominator is the useful ROM-loader/container/control behavior needed by this project, not total executable nodes or GUI/library code.
