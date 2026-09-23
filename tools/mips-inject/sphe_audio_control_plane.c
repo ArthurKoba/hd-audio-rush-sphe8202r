@@ -1,7 +1,9 @@
 #include "sphe_audio_control_plane.h"
 #include "sphe_audio_api.h"
 
-#define REG8(addr) (*(volatile uint8_t *)(uintptr_t)(addr))
+#define REG8(addr)  (*(volatile uint8_t *)(uintptr_t)(addr))
+#define REG16(addr) (*(volatile uint16_t *)(uintptr_t)(addr))
+#define REG32(addr) (*(volatile uint32_t *)(uintptr_t)(addr))
 
 /* Confirmed AP1 runtime state locations for the preserved 02R-D-02 image. */
 #define MASTER_MUTE_FLAG        REG8(0x800032B5U)
@@ -9,6 +11,15 @@
 #define CURRENT_SURROUND_SEL    REG8(0x80002B0CU)
 #define CURRENT_EQ_SEL          REG8(0x80002B0DU)
 #define USER_EQ7_BASE           ((volatile uint8_t *)(uintptr_t)0x80002B10U)
+
+#define SPEAKER_FRONT_STATE     REG8(0x80003327U)
+#define SPEAKER_CENTER_STATE    REG8(0x800032DCU)
+#define SPEAKER_REAR_STATE      REG8(0x8000330EU)
+#define SUBWOOFER_STATE         REG8(0x800032D6U)
+
+#define DOWNSAMPLE_MODE_MASK    REG16(0x80003244U)
+#define EXTERNAL_INPUT_SELECTOR REG8(0x800032FAU)
+#define DECODER_STATE           REG32(0x80003198U)
 
 static int set_master_volume(uint8_t level)
 {
@@ -196,4 +207,49 @@ int sphe_audio_control_apply(const struct sphe_audio_control_command *command)
     default:
         return SPHE_CTL_BAD_OPCODE;
     }
+}
+
+
+static uint8_t current_downsample_mode(void)
+{
+    switch (DOWNSAMPLE_MODE_MASK) {
+    case 0x0007:
+        return SPHE_DOWNSAMPLE_48K;
+    case 0x0067:
+        return SPHE_DOWNSAMPLE_96K;
+    case 0x0667:
+        return SPHE_DOWNSAMPLE_192K;
+    default:
+        return 0xFFU;
+    }
+}
+
+void sphe_audio_control_snapshot(struct sphe_audio_control_snapshot *snapshot)
+{
+    uint8_t surround_selection;
+
+    if (snapshot == 0) {
+        return;
+    }
+
+    snapshot->master_volume = MASTER_VOLUME_LEVEL;
+    snapshot->master_muted = MASTER_MUTE_FLAG ? 1U : 0U;
+
+    surround_selection = CURRENT_SURROUND_SEL;
+    snapshot->surround_mode =
+        (surround_selection >= 2U && surround_selection <= 7U)
+            ? (uint8_t)(surround_selection - 2U)
+            : 0xFFU;
+    snapshot->eq_selection = CURRENT_EQ_SEL;
+
+    snapshot->speaker_front = SPEAKER_FRONT_STATE;
+    snapshot->speaker_center = SPEAKER_CENTER_STATE;
+    snapshot->speaker_rear = SPEAKER_REAR_STATE;
+    snapshot->subwoofer = SUBWOOFER_STATE;
+
+    snapshot->downsample_mode = current_downsample_mode();
+    snapshot->external_input_selector = EXTERNAL_INPUT_SELECTOR;
+    snapshot->reserved = 0;
+
+    snapshot->decoder_state = DECODER_STATE;
 }

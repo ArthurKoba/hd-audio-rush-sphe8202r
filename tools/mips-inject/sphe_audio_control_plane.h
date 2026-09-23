@@ -44,6 +44,26 @@ struct sphe_audio_control_command {
     uint8_t payload[7];
 };
 
+struct sphe_audio_control_snapshot {
+    uint8_t master_volume;
+    uint8_t master_muted;
+
+    uint8_t surround_mode;
+    uint8_t eq_selection;
+
+    uint8_t speaker_front;
+    uint8_t speaker_center;
+    uint8_t speaker_rear;
+    uint8_t subwoofer;
+
+    uint8_t downsample_mode;
+    uint8_t external_input_selector;
+    uint16_t reserved;
+
+    uint32_t decoder_state;
+};
+
 int sphe_audio_control_apply(const struct sphe_audio_control_command *command);
+void sphe_audio_control_snapshot(struct sphe_audio_control_snapshot *snapshot);
 
 #endif
