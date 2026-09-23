@@ -36,3 +36,20 @@ No flash-writing command is exposed yet. The final execution/flash route is
 being kept separate until rollback/recovery is proven.
 
 Requires Python 3 and `pyserial`.
+
+
+## Reference UART pins
+
+Sunplus demo-board reference `CN12 UART`:
+- pin 1: +5 V supply;
+- pin 2: UART1 TX via `V_V_SYNC`;
+- pin 3: UART1 RX via `V_H_SYNC`;
+- pin 4: GND.
+
+SPHE8202R package mapping from the reference GPIO table:
+- package pin 11 = GPIO22 = RX1;
+- package pin 12 = GPIO23 = TX1.
+
+Use 3.3 V TTL signaling for TX/RX. Do not drive the logic pins with 5 V merely because the connector also exposes a +5 V supply pin.
+
+On the target HD Audio Rush board this pin route must still be confirmed by continuity. The already observed external UART header is on the secondary controller side.
