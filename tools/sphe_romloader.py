@@ -49,8 +49,10 @@ TARGET_STUB_VA = 0x004E4960
 TARGET_STUB_SIZE = 0x2878
 
 RAM_STUB_ADDRESS = 0x00019000
+RAM_EXEC_VA = 0x80019000
 IMAGE_SIZE_ADDRESS = 0x0001DFFC
 IMAGE_ADDRESS = 0x0001E000
+RAM_EXEC_MAX_SIZE = IMAGE_SIZE_ADDRESS - RAM_STUB_ADDRESS
 
 
 class ProtocolError(RuntimeError):
@@ -281,6 +283,11 @@ class RomLoader:
     def upload_stub(self, stub: bytes) -> None:
         if len(stub) < 4:
             raise ProtocolError("stub is too short")
+        if len(stub) > RAM_EXEC_MAX_SIZE:
+            raise ProtocolError(
+                f"RAM executable is too large: 0x{len(stub):x}; "
+                f"safe recovered window is <= 0x{RAM_EXEC_MAX_SIZE:x}"
+            )
         self.prepare_stub_upload()
         self.write32(RAM_STUB_ADDRESS, u32le(stub[:4]))
         self.stream_words(stub, 4)
@@ -375,6 +382,24 @@ class RomLoader:
         self.start_uploaded_stub()
         return self.receive_firmware_image()
 
+
+    def run_ram_image(
+        self,
+        image: bytes,
+        monitor: bool = True,
+        monitor_timeout: float = 5.0,
+    ) -> None:
+        """
+        Load a raw MIPS image at physical 0x00019000 / execution VA
+        0x80019000 and transfer control using the recovered STK sequence.
+
+        This is RAM-only. It does not stage or program SPI flash.
+        """
+        self.initialize_session(image)
+        self.start_uploaded_stub()
+        if monitor:
+            self.monitor_until_nul(monitor_timeout)
+
     def upload_image_to_ram(self, image: bytes) -> None:
         """
         Transfer an image into the loader's image staging area without issuing
@@ -452,6 +477,16 @@ def main() -> int:
     add_serial_args(read_flash)
     read_flash.add_argument("output", type=pathlib.Path)
 
+    run_ram = sub.add_parser("run-ram")
+    add_serial_args(run_ram)
+    run_ram.add_argument("image", type=pathlib.Path)
+    run_ram.add_argument(
+        "--monitor-timeout",
+        type=float,
+        default=5.0,
+        help="seconds without console bytes before failing",
+    )
+
     mon = sub.add_parser("monitor")
     add_serial_args(mon)
     mon.add_argument("--stop-on-nul", action="store_true")
@@ -480,6 +515,19 @@ def main() -> int:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             print(f"read 0x{len(image):x} bytes -> {args.output}")
+            return 0
+
+        if args.command == "run-ram":
+            image = args.image.read_bytes()
+            rl.run_ram_image(
+                image,
+                monitor=True,
+                monitor_timeout=args.monitor_timeout,
+            )
+            print(
+                f"RAM image executed at VA 0x{RAM_EXEC_VA:08x}; "
+                "SPI flash was not programmed"
+            )
             return 0
 
         if args.command in ("probe", "read32", "write32"):
