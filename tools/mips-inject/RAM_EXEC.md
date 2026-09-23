@@ -45,3 +45,23 @@ than `0x4FFC` bytes.
 
 This is execution proof only after it is actually run on hardware. A successful
 build is still only implementation proof.
+
+
+## Implementation validation
+
+The probe build has been independently compiled with the documented LLVM
+toolchain. The resulting raw image is 936 bytes, well below the recovered
+`0x4FFC` RAM-execution window.
+
+The linked entry is `0x80019000`; the first instructions establish the same
+`$s6=0xBFFE8000` and `$sp=0x80001000` environment as the stock STK RAM
+loader. No GOT or small-data `$gp` dependency is present.
+
+The probe reports:
+- its own first instruction at `0x80019000`;
+- UART status/divisor state;
+- the target system-profile registers written during Boot ROM setup.
+
+A successful UART transcript therefore proves more than a single print:
+RAM upload, control transfer, MIPS execution, MMIO reads and UART TX are all
+working in the recovered environment.
