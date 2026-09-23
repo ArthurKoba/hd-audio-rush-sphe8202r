@@ -83,43 +83,4 @@ after `0xBC800` remain byte-for-byte stock.
 
 This still does not establish successful boot or hardware behavior.
 
-
-## RAM-only ROM-loader diagnostic
-
-`romloader_diag.c` is the first execution probe for the recovered UART
-ROM-loader path. It is linked at `0x80019000`, uses the recovered stock UART
-text channel, prints two diagnostic lines, emits the NUL terminator expected by
-`sphe_romloader.py`, and then spins forever.
-
-Build:
-
-```sh
-./build-romloader-diag.sh
-```
-
-Run from the repository root:
-
-```sh
-python3 tools/sphe_romloader.py run-ram \
-  --port <serial-port> \
-  --baud 115200 \
-  tools/mips-inject/build/romloader_diag.bin
-```
-
-Expected text:
-
-```text
-SPHE8202R RAM diag: entered
-UART log path: ok
-```
-
-This path is RAM-only. It does not issue the firmware-image staging or SPI
-programming sequence. Successful compilation is only build validation;
-successful UART output on the target is the required execution proof.
-
-The recovered logging contract is:
-- `s6 = 0xBFFE8000`;
-- TX/data word at `0xBFFE8900`;
-- ROM/runtime service entry `0x80033F38(1)`;
-- stock string output sends CR after LF;
-- NUL terminates the STK-compatible text-status record.
+RAM-only ROM-loader execution diagnostics are documented in `RAM_DIAG.md`.
