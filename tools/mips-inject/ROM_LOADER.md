@@ -53,3 +53,53 @@ SPHE8202R package mapping from the reference GPIO table:
 Use 3.3 V TTL signaling for TX/RX. Do not drive the logic pins with 5 V merely because the connector also exposes a +5 V supply pin.
 
 On the target HD Audio Rush board this pin route must still be confirmed by continuity. The already observed external UART header is on the secondary controller side.
+
+
+## Safe first hardware session
+
+Chip-level bootstrap/UART mapping for SPHE8202R-128:
+- physical pin 1 = `VFD_CLK` and is used as the boot-trap strap in independent service practice;
+- physical pin 11 = UART1 RX / `V_H_SYNC`;
+- physical pin 12 = UART1 TX / `V_V_SYNC`.
+
+Before applying the bootstrap strap on the HD Audio Rush PCB, continuity-map those three package pins to accessible pads and confirm package orientation.
+
+Recommended first session:
+1. board powered off: continuity-map pin 1, pin 11, pin 12 and GND;
+2. connect only GND, adapter RX and adapter TX using a 3.3 V TTL adapter;
+3. do not connect the adapter's VCC pin to the board;
+4. hold the confirmed pin-1/VFD_CLK bootstrap net at GND;
+5. power/reset the board into boot-trap;
+6. start with 115200; if communication is unstable, retry 57600;
+7. run `probe` first;
+8. then run one non-destructive `read32` against a known system register;
+9. only then run `read-flash`;
+10. perform two complete reads and compare them byte-for-byte and against the preserved canonical 1 MiB dump.
+
+Example:
+
+```sh
+python3 tools/sphe_romloader.py probe \
+  --port /dev/ttyUSB0 --baud 115200
+
+python3 tools/sphe_romloader.py read32 \
+  --port /dev/ttyUSB0 --baud 115200 0x1ffe8048
+
+python3 tools/sphe_romloader.py read-flash \
+  --port /dev/ttyUSB0 --baud 115200 dump-1.bin
+
+python3 tools/sphe_romloader.py read-flash \
+  --port /dev/ttyUSB0 --baud 115200 dump-2.bin
+```
+
+The read-mode RAM stub is instruction-backed to jump around the erase/program route. No `write-flash` command is exposed.
+
+### Logging
+
+The same UART remains usable as a textual console after the ROM-loader/system-switch sequence. The recovered direct UART registers are:
+- data: `0xBFFE8900`;
+- status: `0xBFFE8904`;
+- TX-ready bit: 0;
+- RX-ready bit: 1.
+
+`tools/mips-inject/sphe_uart.h` provides freestanding `putc`, `puts`, RX helpers and hexadecimal logging for custom MIPS code without libc.
