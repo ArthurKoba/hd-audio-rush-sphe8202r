@@ -26,7 +26,7 @@ Expected console output:
 
 ```text
 [sphe] RAM execution OK
-[sphe] status=0x........
+[sphe] uart_status=0x........
 ```
 
 The probe then emits the recovered NUL end marker and remains in an infinite
@@ -50,7 +50,7 @@ build is still only implementation proof.
 ## Implementation validation
 
 The probe build has been independently compiled with the documented LLVM
-toolchain. The resulting raw image is 936 bytes, well below the recovered
+toolchain. The resulting raw image is 1252 bytes, well below the recovered
 `0x4FFC` RAM-execution window.
 
 The linked entry is `0x80019000`; the first instructions establish the same
