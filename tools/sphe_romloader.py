@@ -420,8 +420,7 @@ class RomLoader:
     def run_ram_image(
         self,
         image: bytes,
-        monitor: bool = True,
-        monitor_timeout: float = 5.0,
+        wait_nul: float | None = None,
     ) -> None:
         """
         Load a raw MIPS image at physical 0x00019000 / execution VA
@@ -431,8 +430,8 @@ class RomLoader:
         """
         self.initialize_session(image)
         self.start_uploaded_stub()
-        if monitor:
-            self.monitor_until_nul(monitor_timeout)
+        if wait_nul is not None:
+            self.monitor_until_nul(wait_nul)
 
     def upload_image_to_ram(self, image: bytes) -> None:
         """
@@ -517,10 +516,14 @@ def main() -> int:
     add_serial_args(run_ram)
     run_ram.add_argument("image", type=pathlib.Path)
     run_ram.add_argument(
-        "--monitor-timeout",
+        "--wait-nul",
         type=float,
-        default=5.0,
-        help="seconds without console bytes before failing",
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "wait for a NUL-terminated one-shot status instead of opening "
+            "the interactive UART monitor"
+        ),
     )
 
     mon = sub.add_parser("monitor")
@@ -554,15 +557,13 @@ def main() -> int:
 
         if args.command == "run-ram":
             image = args.image.read_bytes()
-            rl.run_ram_image(
-                image,
-                monitor=True,
-                monitor_timeout=args.monitor_timeout,
-            )
+            rl.run_ram_image(image, wait_nul=args.wait_nul)
             print(
                 f"RAM image executed at VA 0x{RAM_EXEC_VA:08x}; "
                 "SPI flash was not programmed"
             )
+            if args.wait_nul is None:
+                rl.monitor()
             return 0
 
         if args.command in ("probe", "read32", "write32", "upload-ram"):
