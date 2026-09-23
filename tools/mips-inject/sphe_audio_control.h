@@ -15,6 +15,13 @@
  * exposed here.
  */
 
+enum sphe_external_mode_code {
+    SPHE_EXTERNAL_MODE_0 = 0,
+    SPHE_EXTERNAL_MODE_1 = 1,
+    SPHE_EXTERNAL_MODE_2 = 2,
+    SPHE_EXTERNAL_MODE_AUX = 3,
+};
+
 struct sphe_audio_status {
     uint32_t decoder_state;
     uint16_t downsample_mask;
@@ -39,6 +46,8 @@ struct sphe_audio_status {
 };
 
 void sphe_control_get_status(struct sphe_audio_status *out);
+
+bool sphe_control_set_external_mode(enum sphe_external_mode_code mode);
 
 void sphe_control_set_master_volume(uint8_t level);
 void sphe_control_set_master_mute(bool muted);

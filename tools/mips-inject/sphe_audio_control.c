@@ -10,8 +10,12 @@
  * Recovered AP1 live-state addresses.  These are target-specific to the
  * preserved 02R-D-02 image and intentionally bypass the legacy DVD/UI layer.
  */
+#define SPHE_STATE_EXTERNAL_MODE         0x80002C2BU
+#define SPHE_STATE_EXTERNAL_MODE_PREV    0x80002C2CU
+
 #define SPHE_STATE_DECODER              0x80003198U
 #define SPHE_STATE_MASTER_MUTE          0x800032B5U
+#define SPHE_STATE_SOURCE_MEDIA         0x800032A5U
 #define SPHE_STATE_EXTERNAL_INPUT       0x800032FAU
 #define SPHE_STATE_SPEAKER_SUB          0x800032D6U
 #define SPHE_STATE_SPEAKER_CENTER       0x800032DCU
@@ -45,6 +49,59 @@ static inline void stock_apply_current_echo(void)
 static inline void stock_apply_current_mic1(void)
 {
     ((stock_void_fn)(uintptr_t)0x8077CA44U)();
+}
+
+static inline void stock_apply_external_mode(void)
+{
+    ((stock_void_fn)(uintptr_t)0x806FED88U)();
+}
+
+static inline void stock_save_external_mode(void)
+{
+    ((stock_void_fn)(uintptr_t)0x8071DB1CU)();
+}
+
+static inline void stock_prepare_external_transition(void)
+{
+    ((stock_void_fn)(uintptr_t)0x806FABA0U)();
+}
+
+
+bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
+{
+    const uint8_t next = (uint8_t)mode;
+    const uint8_t previous = REG8(SPHE_STATE_EXTERNAL_MODE_PREV);
+
+    if (next > 3U) {
+        return false;
+    }
+
+    REG8(SPHE_STATE_EXTERNAL_MODE) = next;
+    stock_apply_external_mode();
+    stock_save_external_mode();
+
+    if (previous == next) {
+        return true;
+    }
+
+    /*
+     * Stock behavior performs the mute/delay transition whenever AUX is one
+     * side of the change: entering mode 3 or leaving previous mode 3.
+     */
+    if (next == 3U || previous == 3U) {
+        stock_prepare_external_transition();
+    }
+
+    if (next == 3U) {
+        REG8(SPHE_STATE_EXTERNAL_INPUT) = 1U;
+        REG8(SPHE_STATE_SOURCE_MEDIA) = 0x0BU;
+    } else {
+        REG8(SPHE_STATE_EXTERNAL_INPUT) = 2U;
+        REG8(SPHE_STATE_SOURCE_MEDIA) = 0x0DU;
+    }
+
+    REG8(SPHE_STATE_EXTERNAL_MODE_PREV) = next;
+    return true;
 }
 
 void sphe_control_get_status(struct sphe_audio_status *out)
