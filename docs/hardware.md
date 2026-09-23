@@ -133,8 +133,8 @@ This is **reference-design evidence**, not continuity proof for PCB
 `SPHE8202RD_SPDIF_V02`. The service UART already observed on the product board
 routes to the secondary JieLi controller, so it must not be assumed to be the
 SPHE ROM-loader UART. The next target-board measurement is continuity from
-SPHE package pins 22/23 to any unpopulated header/test pads and verification of
-idle voltage before connection.
+SPHE package pins 11/12 (GPIO22/23) to any unpopulated header/test pads and
+verification of idle voltage before connection.
 
 
 ### SPHE8202R bootstrap / ROM-loader entry
