@@ -812,7 +812,9 @@ This STK revision does **not** expose a separate user-facing `Crystal` selector 
 
 ### Stock RAM-loader bootstrap
 
-STK contains multiple small MIPS RAM-loader images and chooses one by system configuration. For the target candidate profile (system config 2) the selected embedded loader is the image at STK VA `0x004E4960`, length `0x2878`.
+STK contains multiple small MIPS RAM-loader images and chooses one by system configuration. For the target candidate profile (system config 2) the selected embedded loader is the image at STK VA `0x004E5960`, length `0x2878`.
+
+The previously used `0x004E4960` address came from a different/legacy STK analysis copy and is invalid for the canonical rev-8203R executable. The canonical helper signature at `0x004E5960` begins `fe bf 16 3c 00 80 d6 36 ...`; `0x004E4960` contains ordinary string/data bytes instead.
 
 After `A`/configuration/`C`, STK:
 
@@ -862,7 +864,7 @@ The target-profile RAM-loader establishes a minimal TX path using the normal run
 
 One stock loader action polls `status & 1` until ready and then writes the character to the data register. A stock string-output action walks a NUL-terminated string and sends each byte; after LF it additionally sends CR.
 
-`tools/mips-inject/sphe_audio_api.h` now exposes `sphe_uart_putc`, `sphe_uart_puts` and a small hex-output helper so injected/minimal control code can report state without the original DVD/UI stack.
+`tools/mips-inject/sphe_rom_uart.h` exposes the recovered standalone UART register contract (`putc`, blocking/try `getc`, and `puts`) so injected/minimal control code can report state without the original DVD/UI stack.
 
 This is an implementation-level UART contract. The exact physical header/pin used by the SPHE ROM-loader still requires board-level continuity/execution validation.
 
@@ -873,7 +875,7 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - can read the executable directly or from `tools/STK_0.2.3.zip`;
 - reconstructs the STK system/SDRAM profile scripts;
 - extracts and READ-patches the appropriate stock RAM-loader;
-- implements a non-destructive `handshake` command;
+- implements a non-destructive `probe` command for Boot-ROM/session initialization;
 - implements the recovered read-only `read-flash` path.
 
 Flash write is intentionally not exposed yet.
