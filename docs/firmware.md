@@ -740,3 +740,142 @@ Details:
 This materially strengthens the case for later AP1 extension, but does not
 prove absence of dynamically calculated scratch/heap/overlay use. Therefore
 the first hardware test remains the in-place fixed-slot compiler probe.
+
+
+## UART ROM-loader and diagnostic channel — 2026-09-23
+
+The current priority is a headless, reproducible SPHE8202R load/read/debug path rather than reproducing the old STK GUI.
+
+### Serial transport contract
+
+The rev-8203R STK serial action opens the selected port as synchronous **8N1** and exposes three baud selections:
+
+- selector 0 -> **57600**;
+- selector 1 -> **115200**;
+- selector 2 -> **230400**.
+
+The firmware-side baud divider written by the ROM monitor is respectively `0x74 / 0x3A / 0x1D` at `0x1FFE8914`, after clearing `0x1FFE8918`.
+
+The STK Win32 transport uses:
+- read interval timeout 100 ms;
+- read multiplier 100;
+- read constant 500 ms;
+- write multiplier 10;
+- write constant 1000 ms;
+- purge mask `0x0F` before a session.
+
+### ROM monitor packet contract
+
+The initial connection is instruction-backed:
+
+1. send byte `'A'`; require echo `'A'`;
+2. configure the UART divider through monitor writes;
+3. apply the selected system/SDRAM register script;
+4. send byte `'C'`; require echo `'C'`.
+
+A monitor word-write packet is exactly nine bytes:
+
+`'W' + address_le32 + value_le32`
+
+and expects `'W'` acknowledgement.
+
+A five-byte read request:
+
+`'R' + address_le32`
+
+is confirmed in the post-start monitor/RAM-loader route and returns:
+
+`'R' + value_le32`.
+
+Use of `'R'` before the RAM-loader start transition is not yet independently proven and must not be assumed.
+
+### STK system configuration profiles
+
+The GUI `System Configuration` selector is the value used by the ROM-loader initialization action:
+
+| Index | Profile |
+|---:|---|
+| 0 | `8200 and 8210` |
+| 1 | `8202 Share Mode` |
+| 2 | `8202 Non Share Mode` |
+| 3 | `8202_E` |
+| 4 | `7300` |
+| 5 | `82XX_216_SPI` |
+| 6 | `82XX_256_SPI` |
+| 7 | `8202L_128_SPI` |
+
+The separate `SDRAM bus` selector is `0 = 16 bits`, `1 = 32 bits`.
+
+For the preserved target, STK reports 8202-family non-shared SDRAM and 16-bit bus, so the current **candidate** headless profile is `system_config=2`, `sdram_bus=16`, baud `115200`. This is implementation/profile evidence, not yet execution proof on hardware. The physical SPHE8202R marking vs STK's displayed SPHE8203R remains an explicit contradiction.
+
+This STK revision does **not** expose a separate user-facing `Crystal` selector in the recovered RomLoader panel. Do not invent one. Clock/SDRAM setup is represented by the system-configuration register scripts above.
+
+### Stock RAM-loader bootstrap
+
+STK contains multiple small MIPS RAM-loader images and chooses one by system configuration. For the target candidate profile (system config 2) the selected embedded loader is the image at STK VA `0x004E4960`, length `0x2878`.
+
+After `A`/configuration/`C`, STK:
+
+- clears RAM words `0x18FFC`, `0x18FF8`, `0x18FF4`, `0x18FF0`;
+- writes a loader variant word at `0x18FEC` (0 for target candidate profile);
+- writes `0xE100` at `0x18FE8`;
+- writes the first loader dword to `0x19000` using the normal `W` packet;
+- sends every remaining loader dword as `'w' + dword`, requiring lowercase `'w'` acknowledgement after each dword.
+
+The READ and WRITE actions patch a few words inside the embedded loader before upload. The headless implementation extracts and patches the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
+
+### RAM-loader start and console-ready contract
+
+After loader upload the host sends `'S'` and requires echo `'S'`, then performs the same small runtime setup sequence used by STK, including access to `0x1FFE8048` and `0x1FFE8008`.
+
+The RAM-loader emits text over the serial channel. STK displays printable bytes, treats CR as a line transition and treats **NUL (0x00)** as the ready/completion marker. This establishes an existing console-style UART path that can also be reused for custom firmware diagnostics.
+
+### Read-only flash path
+
+The recovered READ action is separate from WRITE and is suitable as the first hardware-validation route.
+
+After the RAM-loader reports ready:
+- it emits a little-endian 32-bit ROM size;
+- STK accepts sizes up to `0x200000`;
+- flash data is transferred in 16-byte blocks;
+- the host returns the first byte of the current shared transfer buffer after each block, matching the vendor flow-control behavior.
+
+The resulting bytes are returned as the firmware dump. The intended acceptance procedure is still two independent reads plus byte-for-byte/SHA-256 comparison before any write experiment.
+
+### WRITE staging path (recovered, not enabled)
+
+The host-side WRITE route is implementation-recovered but deliberately not exposed by the current headless tool until recovery/rollback is proven.
+
+Before the RAM-loader performs the flash upgrade, STK stages the image in RAM:
+- `0x0001DFFC <- firmware_size`;
+- first dword at `0x0001E000`;
+- remaining image dwords via lowercase `w + dword` with `w` acknowledgement.
+
+This separates serial transport/staging from the later flash-upgrade behavior.
+
+### UART logging contract for custom AP1 code
+
+The target-profile RAM-loader establishes a minimal TX path using the normal runtime system base `0xBFFE8000`:
+
+- `0xBFFE8900` — UART data register;
+- `0xBFFE8904` bit 0 — TX-ready indication.
+
+One stock loader action polls `status & 1` until ready and then writes the character to the data register. A stock string-output action walks a NUL-terminated string and sends each byte; after LF it additionally sends CR.
+
+`tools/mips-inject/sphe_audio_api.h` now exposes `sphe_uart_putc`, `sphe_uart_puts` and a small hex-output helper so injected/minimal control code can report state without the original DVD/UI stack.
+
+This is an implementation-level UART contract. The exact physical header/pin used by the SPHE ROM-loader still requires board-level continuity/execution validation.
+
+### Headless tool
+
+`tools/sphe_romloader.py` is the current Python implementation. It:
+- verifies the exact rev-8203R STK executable SHA-256;
+- can read the executable directly or from `tools/STK_0.2.3.zip`;
+- reconstructs the STK system/SDRAM profile scripts;
+- extracts and READ-patches the appropriate stock RAM-loader;
+- implements a non-destructive `handshake` command;
+- implements the recovered read-only `read-flash` path.
+
+Flash write is intentionally not exposed yet.
+
+A debugger is a later layer. The monitor already provides useful memory read/write primitives, but register access, breakpoint insertion, single-step behavior and a safe exception/debug transport are still **UNKNOWN**. Do not call the current monitor a debugger or GDB stub.
