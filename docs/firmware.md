@@ -170,6 +170,39 @@ AP1 contains a separate external-input subsource selector at `0x800032FA` (`gp+0
 
 The higher source dispatcher uses `gp+0x7A5 = 0x800032A5` as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
 
+### External AUX / S/PDIF decoder transition — 2026-09-23
+
+The external-input path is now separated into hardware-mode, subsource and decoder-transition layers.
+
+- `gp+0x12B = 0x80002C2B` is the current external hardware mode code; valid values are `0..3`.
+- `gp+0x12C = 0x80002C2C` is the previously applied mode code.
+- `ApplyExternalInputModeCode @ 0x806FED88` applies mode `0..3` to the external-input hardware-control bits.
+- `SaveExternalInputModeCode @ 0x8071DB1C` writes the current mode through config key `0x136`; `PollExternalInputModeCode @ 0x8071DAC8` reads the same key.
+- `PrepareExternalInputTransition @ 0x806FABA0` applies effective volume zero and waits 500 time units. Stock behavior invokes this anti-pop transition whenever AUX is one side of the change.
+- mode `3` maps to selector `1` / source state `0x0B` and is the confirmed AUX route.
+- modes `0..2` map to selector `2` / source state `0x0D` and enter the S/PDIF-IN route. The physical meanings of the three individual hardware mode codes remain **UNKNOWN**; do not label them optical/coax/etc. without board evidence.
+- selector `0` is TUNER; `ToggleTunerSpdifInput @ 0x806FB920` performs the stock `0 <-> 2` TUNER/SPDIF-IN transition after the same anti-pop action.
+
+States `0x0B` and `0x0D` are transient external-source transition states, not entries in the ordinary 1..9 media-state dispatch table.
+
+AUX decoder transition behavior at raw action entry `0x8071E4F0` is now instruction-backed:
+1. temporarily applies master level 0;
+2. reapplies the current decoder state;
+3. commits audio-format mode `2`;
+4. sets decoder state `0x40000`;
+5. sends raw ECHO hardware profile `(0,0)`;
+6. reapplies decoder state and restores master volume;
+7. holds source state `0x0B` while the external-input transition completes.
+
+The S/PDIF-IN action beginning at `0x8071EE94` is selector-2-specific. Its decoder preparation at `0x8071E1B0`:
+- saves the current downsample mask;
+- temporarily applies downsample mode `1`;
+- resets/updates/copies decoder audio status;
+- reapplies decoder state;
+- then the outer route holds source state `0x0D` until the external transition completes and reapplies the current downsample setting.
+
+This closes the implementation-level source-to-decoder bridge needed by a minimal audio control plane. It does not establish physical TOSLINK/coax ownership or the SPHE <-> secondary-controller transport.
+
 ### Audio-state, volume and USB media behavior — 2026-09-22
 
 Target-instruction checks now show that `gp+0x7A5 = 0x800032A5` is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.

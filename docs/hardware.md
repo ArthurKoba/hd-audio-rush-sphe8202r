@@ -32,6 +32,25 @@ Confirmed behavior:
 
 The RX function/protocol therefore remains **UNKNOWN**; `UserUartInit success` may refer to another user-UART path.
 
+### SPHE UART candidates for inter-chip tracing
+
+Reference-design evidence gives two multiplexed UART pin pairs on the SPHE8202R-128 GPIO map:
+
+- package pin 11 / GPIO22: `HSYNC(1) / RX(1)`;
+- package pin 12 / GPIO23: `VSYNC(1) / TX(1)`;
+- package pin 33 / GPIO25: `HSYNC(2) / RX(2) / CARD_SENSE(1)`;
+- package pin 45 / GPIO27: `VSYNC(2) / TX(2) / GAME_D1(1)`.
+
+The Sunplus demo board exposes its UART connector using the `V_H_SYNC` / `V_V_SYNC` pair, consistent with the GPIO22/23 alternate UART function.
+
+The available SPHE8202R design guide documents UART, USB, internal 5.1 DAC, ADC and S/PDIF output, but its searchable text contains no `I2S` or `IIS` interface description. This is **not proof that the silicon lacks another digital-audio interface**; it only means the current reference documentation does not establish one.
+
+For the target PCB, the decisive measurement is continuity from SPHE package pins 11/12 and 33/45 to the secondary controller/test pads. A match to either RX/TX pair would establish an inter-chip UART candidate. Until continuity or execution evidence exists, do not claim that either pair is used between the two processors.
+
+Reference sources:
+- Sunplus SPHE8202R Demo Board GPIO list / UART connector.
+- Sunplus SPHE8202R Design Guide V2.0, sections 1.2 and 3.6.
+
 ### USB footprint
 
 There is a four-pad unpopulated USB/service footprint. The user traced it toward the **main SPHE8202R**, not the secondary controller.
