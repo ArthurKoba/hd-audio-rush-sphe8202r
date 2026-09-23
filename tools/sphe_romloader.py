@@ -464,7 +464,11 @@ class RomLoader:
             sys.stdout.flush()
 
 
-def add_serial_args(p: argparse.ArgumentParser) -> None:
+def add_serial_args(
+    p: argparse.ArgumentParser,
+    *,
+    with_stk: bool = False,
+) -> None:
     p.add_argument("--port", required=True)
     p.add_argument(
         "--baud",
@@ -473,12 +477,13 @@ def add_serial_args(p: argparse.ArgumentParser) -> None:
         default=115200,
     )
     p.add_argument("--timeout", type=float, default=1.5)
-    p.add_argument(
-        "--stk",
-        type=pathlib.Path,
-        default=pathlib.Path("tools/STK_0.2.3.zip"),
-        help="canonical rev-8203R STK ZIP or executable; required only by vendor-helper commands",
-    )
+    if with_stk:
+        p.add_argument(
+            "--stk",
+            type=pathlib.Path,
+            default=pathlib.Path("tools/STK_0.2.3.zip"),
+            help="canonical rev-8203R STK ZIP or executable",
+        )
 
 
 def main() -> int:
@@ -495,10 +500,6 @@ def main() -> int:
     probe = sub.add_parser("probe")
     add_serial_args(probe)
 
-    read32 = sub.add_parser("read32")
-    add_serial_args(read32)
-    read32.add_argument("address", type=lambda x: int(x, 0))
-
     write32 = sub.add_parser("write32")
     add_serial_args(write32)
     write32.add_argument("address", type=lambda x: int(x, 0))
@@ -509,7 +510,7 @@ def main() -> int:
     upload.add_argument("image", type=pathlib.Path)
 
     read_flash = sub.add_parser("read-flash")
-    add_serial_args(read_flash)
+    add_serial_args(read_flash, with_stk=True)
     read_flash.add_argument("output", type=pathlib.Path)
 
     run_ram = sub.add_parser("run-ram")
@@ -566,17 +567,12 @@ def main() -> int:
                 rl.monitor()
             return 0
 
-        if args.command in ("probe", "read32", "write32", "upload-ram"):
+        if args.command in ("probe", "write32", "upload-ram"):
             rl.initialize_bootrom()
 
         if args.command == "probe":
             print("ROM-loader Boot ROM session initialized")
             return 0
-        if args.command == "read32":
-            raise ProtocolError(
-                "pre-start ROM-monitor read32 is not independently proven "
-                "on canonical rev-8203R; command is intentionally disabled"
-            )
         if args.command == "write32":
             rl.write32(args.address, args.value)
             print(
