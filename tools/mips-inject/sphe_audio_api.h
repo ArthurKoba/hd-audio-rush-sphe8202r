@@ -111,10 +111,39 @@ sphe_set_echo_profile(uint8_t index)
     ((sphe_u8_fn)(uintptr_t)0x80702C8CU)(index);
 }
 
+#define SPHE_ECHO_LEVEL_STATE \
+    (*(volatile uint8_t *)(uintptr_t)0x8000333AU)
+#define SPHE_MIC1_LEVEL_STATE \
+    (*(volatile uint8_t *)(uintptr_t)0x80003297U)
+
+static inline int
+sphe_set_echo_level_stateful(uint8_t index)
+{
+    if (index > 8U) {
+        return -1;
+    }
+
+    SPHE_ECHO_LEVEL_STATE = index;
+    ((sphe_void_fn)(uintptr_t)0x8077CA14U)();
+    return 0;
+}
+
 static inline void
 sphe_set_mic1_level(uint8_t index)
 {
     ((sphe_u8_fn)(uintptr_t)0x80702B48U)(index);
+}
+
+static inline int
+sphe_set_mic1_level_stateful(uint8_t index)
+{
+    if (index > 8U) {
+        return -1;
+    }
+
+    SPHE_MIC1_LEVEL_STATE = index;
+    ((sphe_void_fn)(uintptr_t)0x8077CA44U)();
+    return 0;
 }
 
 static inline void

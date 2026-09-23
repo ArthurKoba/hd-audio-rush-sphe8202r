@@ -1,0 +1,31 @@
+#ifndef SPHE_CONTROL_PLANE_H
+#define SPHE_CONTROL_PLANE_H
+
+#include <stdint.h>
+
+enum sphe_control_opcode {
+    SPHE_CTRL_SET_MASTER_VOLUME = 0x01,
+    SPHE_CTRL_TOGGLE_MASTER_MUTE = 0x02,
+    SPHE_CTRL_SET_SURROUND = 0x03,
+    SPHE_CTRL_SET_EQ_SELECTION = 0x04,
+    SPHE_CTRL_SET_DOWNSAMPLE = 0x05,
+    SPHE_CTRL_SET_ECHO_LEVEL = 0x06,
+    SPHE_CTRL_SET_MIC1_LEVEL = 0x07,
+    SPHE_CTRL_APPLY_SPDIF_OPTION = 0x08,
+    SPHE_CTRL_SET_DECODER_OUTPUT_MODE = 0x09,
+};
+
+struct sphe_control_command {
+    uint8_t opcode;
+    uint8_t value;
+    uint16_t aux;
+};
+
+/*
+ * Returns 0 on success.
+ * Negative values are local validation/dispatch failures; they are not
+ * original firmware error codes.
+ */
+int sphe_handle_control_command(const struct sphe_control_command *cmd);
+
+#endif
