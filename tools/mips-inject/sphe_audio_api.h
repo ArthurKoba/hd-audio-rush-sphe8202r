@@ -56,10 +56,25 @@ typedef void (*sphe_u8_u16_fn)(uint32_t, uint32_t);
 typedef void (*sphe_ptr_fn)(const void *);
 typedef void (*sphe_void_fn)(void);
 
+#define SPHE_MASTER_VOLUME_LEVEL \
+    (*(volatile uint8_t *)(uintptr_t)0x80003332U)
+
 static inline void
-sphe_set_master_volume(uint8_t level)
+sphe_apply_master_volume_hardware(uint8_t level)
 {
     ((sphe_u8_fn)(uintptr_t)0x8070129CU)(level);
+}
+
+static inline int
+sphe_set_master_volume(uint8_t level)
+{
+    if (level > 15U) {
+        return -1;
+    }
+
+    SPHE_MASTER_VOLUME_LEVEL = level;
+    sphe_apply_master_volume_hardware(level);
+    return 0;
 }
 
 static inline void
@@ -223,6 +238,61 @@ static inline void
 sphe_reapply_eq_and_surround(void)
 {
     ((sphe_void_fn)(uintptr_t)0x806E89E4U)();
+}
+
+
+#define SPHE_SURROUND_SELECTION \
+    (*(volatile uint8_t *)(uintptr_t)0x80002B0CU)
+#define SPHE_EQ_SELECTION \
+    (*(volatile uint8_t *)(uintptr_t)0x80002B0DU)
+#define SPHE_USER_EQ7 \
+    ((volatile uint8_t *)(uintptr_t)0x80002B10U)
+
+static inline int
+sphe_set_surround_mode(enum sphe_surround_mode mode)
+{
+    if ((uint8_t)mode > (uint8_t)SPHE_SURROUND_LIVE) {
+        return -1;
+    }
+
+    SPHE_SURROUND_SELECTION = (uint8_t)mode + 2U;
+    sphe_audio_dispatch(
+        SPHE_AUDIO_ACTION_SURROUND,
+        (uint8_t)mode,
+        0
+    );
+    return 0;
+}
+
+static inline int
+sphe_set_eq_selection_stateful(enum sphe_eq_selection selection)
+{
+    if ((uint8_t)selection < (uint8_t)SPHE_EQ_STANDARD ||
+        (uint8_t)selection > (uint8_t)SPHE_EQ_USER) {
+        return -1;
+    }
+
+    SPHE_EQ_SELECTION = (uint8_t)selection;
+    sphe_reapply_eq_and_surround();
+    return 0;
+}
+
+static inline int
+sphe_set_user_eq7_stateful(const uint8_t coefficients[7])
+{
+    unsigned i;
+
+    if (coefficients == (const uint8_t *)0) {
+        return -1;
+    }
+
+    for (i = 0; i < 7U; ++i) {
+        SPHE_USER_EQ7[i] = coefficients[i];
+    }
+
+    SPHE_EQ_SELECTION = (uint8_t)SPHE_EQ_USER;
+    sphe_reapply_eq_and_surround();
+    return 0;
 }
 
 static inline void
