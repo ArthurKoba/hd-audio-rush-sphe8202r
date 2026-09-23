@@ -14,7 +14,7 @@ Build:
 
 ```sh
 cd tools/mips-inject
-./build-ram-diag.sh
+bash build-ram-diag.sh
 ```
 
 Run through the headless loader:
@@ -25,7 +25,7 @@ python3 ../sphe_romloader.py run-ram \
   build/ram_diag.bin
 ```
 
-Expected first console output is `SPHE8202R RAM DIAG`. Commands are:
+The command stays attached to the UART monitor until interrupted with `Ctrl-C`. Expected first console output is `SPHE8202R RAM DIAG`. Commands are:
 `?` for help, `p` for `PONG`, and `e` followed by one byte for an
 RX/TX echo check.
 
