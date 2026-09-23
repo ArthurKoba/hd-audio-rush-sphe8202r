@@ -32,8 +32,11 @@ python3 tools/sphe_romloader.py monitor \
 switch sequence.
 
 The first hardware session should use `probe` and read-only diagnostics.
-No flash-writing command is exposed yet. The final execution/flash route is
-being kept separate until rollback/recovery is proven.
+Generic modified-image flash writing is not exposed.  The only write path is
+`restore-stock`, which accepts the exact preserved stock image SHA-256 and
+requires an explicit full-chip-erase acknowledgement.  Do not use it until
+two independent full reads and repeatable boot-trap entry have been proven on
+the target.
 
 Requires Python 3 and `pyserial`.
 
@@ -89,7 +92,30 @@ python3 tools/sphe_romloader.py read-flash \
   --port /dev/ttyUSB0 --baud 115200 dump-2.bin
 ```
 
-The read-mode RAM stub is instruction-backed to jump around the erase/program route. No `write-flash` command is exposed.
+Only after the read/boot-trap recovery path has been hardware-proven, stock
+rollback is available as:
+
+```sh
+python3 tools/sphe_romloader.py restore-stock \
+  --port /dev/ttyUSB0 --baud 115200 \
+  --confirm-chip-erase \
+  firmware/P25D80SH@SOP8.BIN
+```
+
+`restore-stock` refuses any image whose size or SHA-256 differs from the
+preserved canonical dump.
+
+The vendor read patch is instruction-backed to jump around the erase/program
+route.  Vendor STK normally stops that read when its running 16-bit checksum
+matches flash word `+0x20`, which identifies the encoded container extent
+rather than the physical SPI size.  The project's `read-flash` command adds
+two target-specific instructions: it forces the end address to exactly
+`0x8011E000` (1 MiB from staging base `0x8001E000`) and loops until that
+end.  A result of any size other than `0x100000` is rejected.
+
+No generic `write-flash` command is exposed.  The recovered vendor write
+helper performs a full chip erase before programming sequential words from
+offset zero, so partial-image writes are not safe through this route.
 
 ### Logging
 
@@ -111,19 +137,3 @@ of the recommended first hardware session.
 For a flash-independent custom-code test, build the RAM log probe described in
 `RAM_EXEC.md` and use `run-ram`; it executes at `0x80019000` and does not
 erase or program SPI flash.
-
-
-## Recovery implications
-
-The recovered session establishment does not execute the SPI firmware before
-the host obtains control.  UART synchronization, system/SDRAM setup, RAM-helper
-upload and the `S` transition all occur before the READ/WRITE helper accesses
-SPI.  Therefore the implementation model does not depend on a valid user
-firmware image in SPI in order to reach the ROM-loader/RAM-helper path.
-
-This makes the chip-level boot strap + UART route a strong recovery candidate
-for a corrupted SPI image.  It is not yet board proof: on the HD Audio Rush
-PCB we still need to continuity-map physical SPHE pins 1/11/12, enter the
-strap successfully, run `probe`, and complete two matching `read-flash`
-captures.  Flash writing remains disabled until those recovery prerequisites
-are demonstrated on the target.
