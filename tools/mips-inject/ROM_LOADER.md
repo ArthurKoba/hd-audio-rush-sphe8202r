@@ -111,3 +111,19 @@ of the recommended first hardware session.
 For a flash-independent custom-code test, build the RAM log probe described in
 `RAM_EXEC.md` and use `run-ram`; it executes at `0x80019000` and does not
 erase or program SPI flash.
+
+
+## Recovery implications
+
+The recovered session establishment does not execute the SPI firmware before
+the host obtains control.  UART synchronization, system/SDRAM setup, RAM-helper
+upload and the `S` transition all occur before the READ/WRITE helper accesses
+SPI.  Therefore the implementation model does not depend on a valid user
+firmware image in SPI in order to reach the ROM-loader/RAM-helper path.
+
+This makes the chip-level boot strap + UART route a strong recovery candidate
+for a corrupted SPI image.  It is not yet board proof: on the HD Audio Rush
+PCB we still need to continuity-map physical SPHE pins 1/11/12, enter the
+strap successfully, run `probe`, and complete two matching `read-flash`
+captures.  Flash writing remains disabled until those recovery prerequisites
+are demonstrated on the target.
