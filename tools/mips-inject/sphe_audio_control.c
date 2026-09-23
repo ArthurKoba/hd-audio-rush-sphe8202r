@@ -104,6 +104,31 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
     return true;
 }
 
+
+bool sphe_control_set_tuner_spdif(bool spdif)
+{
+    const uint8_t desired_selector = spdif ? 2U : 0U;
+    const uint8_t desired_state = spdif ? 0x0DU : 0x02U;
+
+    /*
+     * Mode 3 is the confirmed AUX route.  Do not silently choose one of the
+     * still-unlabelled external hardware modes 0..2 on behalf of the caller.
+     */
+    if (REG8(SPHE_STATE_EXTERNAL_MODE) == 3U) {
+        return false;
+    }
+
+    if (REG8(SPHE_STATE_EXTERNAL_INPUT) == desired_selector) {
+        REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
+        return true;
+    }
+
+    stock_prepare_external_transition();
+    REG8(SPHE_STATE_EXTERNAL_INPUT) = desired_selector;
+    REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
+    return true;
+}
+
 void sphe_control_get_status(struct sphe_audio_status *out)
 {
     if (out == NULL) {
@@ -128,7 +153,9 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->speaker_rear = REG8(SPHE_STATE_SPEAKER_REAR);
     out->speaker_subwoofer = REG8(SPHE_STATE_SPEAKER_SUB);
 
+    out->external_mode = REG8(SPHE_STATE_EXTERNAL_MODE);
     out->external_input_selector = REG8(SPHE_STATE_EXTERNAL_INPUT);
+    out->source_media_state = REG8(SPHE_STATE_SOURCE_MEDIA);
     out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HW_MODE);
 }
 

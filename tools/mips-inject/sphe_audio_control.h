@@ -41,13 +41,21 @@ struct sphe_audio_status {
     uint8_t speaker_rear;
     uint8_t speaker_subwoofer;
 
+    uint8_t external_mode;
     uint8_t external_input_selector;
+    uint8_t source_media_state;
     uint8_t spdif_hardware_mode;
 };
 
 void sphe_control_get_status(struct sphe_audio_status *out);
 
 bool sphe_control_set_external_mode(enum sphe_external_mode_code mode);
+
+/*
+ * Explicit TUNER <-> SPDIF IN subsource selection.
+ * Returns false while external mode 3/AUX is active; choose mode 0..2 first.
+ */
+bool sphe_control_set_tuner_spdif(bool spdif);
 
 void sphe_control_set_master_volume(uint8_t level);
 void sphe_control_set_master_mute(bool muted);
