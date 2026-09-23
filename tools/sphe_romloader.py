@@ -4,7 +4,7 @@ Headless UART ROM-loader client for the target SPHE8202R board.
 
 STATUS:
 - protocol recovered from STK 0.2.3 rev-8203R;
-- target profile implemented: 8202 Non Share Mode, 16-bit;
+- target image SDRAM descriptor: 8202 Non Share Mode, 16-bit;\n- target RomLoader flash profile: 8202L_128_SPI (SPI helper mode 2);
 - default commands are RAM/session operations only;
 - generic modified-image flash writing is deliberately not exposed;
 - stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
@@ -50,7 +50,7 @@ TARGET_FLASH_MODE = 2
 TARGET_FLASH_SIZE = 0x100000
 TARGET_STOCK_SHA256 = "67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e"
 
-# rev-8203R embedded RAM-loader used by target profile 2.
+# rev-8203R common 0x2878 RAM-loader used by the target SPI profile.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
 STK_EXE_SHA256 = "e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89"
 TARGET_STUB_VA = 0x004E5960
@@ -108,7 +108,7 @@ def pe_va_to_file_offset(exe: bytes, va: int) -> int:
 
 def patch_target_stub_for_read(stub: bytes) -> bytes:
     """
-    Apply the exact rev-8203R read-firmware patches for target profile 2.
+    Apply the exact rev-8203R read-firmware patches to the common target helper.
 
     Offsets are relative to embedded target stub VA 0x004E5960.
     """
