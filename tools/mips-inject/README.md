@@ -1,82 +1,40 @@
-# Experimental MIPS compiler / in-place AP1 probe
+# Experimental MIPS compiler/ABI probe
 
-This directory validates the independent MIPS compiler path without changing
-the AP1 size, loader range, startup code or runtime layout.
+This directory validates the independent compiler path against one
+already-understood AP1 action. It does **not** establish hardware acceptance.
 
-Confirmed build ABI:
+The current probe replaces `ApplySurroundModeIndex @ 0x80702D0C`. The stock
+wrapper is 44 bytes and implements:
+
+`DispatchAudioHardwareAction(5, index & 0xff, 0)`.
+
+The replacement is independently compiled from C using:
 - MIPS32 little-endian;
 - o32 ABI;
 - soft-float;
 - freestanding / no PIC / no ABICALLS;
-- `-G0`, avoiding the original small-data `$gp` layout.
+- `-G0`, avoiding dependence on the original small-data `$gp` layout.
 
-The first hardware probe uses the already-understood
-`ApplySurroundModeIndex @ 0x80702D0C`.
+The linker binds `DispatchAudioHardwareAction = 0x806FFD1C`, so the generated
+function uses a direct MIPS `jal` rather than an indirect absolute-call
+sequence. The compiled function is 36 bytes. The build script appends the two
+stock epilogue instructions as unreachable 8-byte padding, preserving the exact
+44-byte wrapper window.
 
-The stock wrapper is exactly 44 bytes and implements:
+With zlib 1.3.1 using the recovered vendor parameters (raw DEFLATE, level 9,
+`windowBits=-15`, `memLevel=8`, `Z_FIXED`), the patched AP1 compresses to
+`0x54078` bytes versus the stock AP1 packed slot size `0x5407A`. Therefore
+the first probe can keep every module offset and the decoded container extent
+unchanged; the two remaining packed-slot bytes can be preserved from stock.
 
-`DispatchAudioHardwareAction(5, index & 0xff, 0)`.
-
-The replacement is independently compiled C implementing the same contract.
-It is linked directly at `0x80702D0C` and must remain exactly 44 bytes.
-`patch_ap1.py` verifies the exact original wrapper bytes before replacing
-them, and refuses any patch that changes the AP1 size.
-
-Build and patch:
+Run:
 
 ```sh
 ./build-surround-probe.sh
-
-python3 patch_ap1.py \
-  ../../firmware/modules/ap1.bin \
-  build/surround_probe.bin \
-  build/ap1.compiler-probe.bin
-
-python3 ../sunplus_container.py repack \
-  ../../firmware/P25D80SH@SOP8.BIN \
-  -o build/P25D80SH.compiler-probe.bin \
-  --replace ap1=build/ap1.compiler-probe.bin
+python3 patch_ap1.py ../../firmware/modules/ap1.bin \
+  build/surround_probe.bin build/ap1.compiler-probe.bin
 ```
 
-This is deliberately behavior-preserving. Its purpose is to validate:
-1. the independent compiler/ABI;
-2. AP1 module replacement;
-3. Sunplus container repacking;
-4. actual execution on hardware.
-
-It does **not** depend on the previously tested AP1-extension gap. The
-extension path remains useful for later larger features, but is not required
-for the first hardware acceptance test.
-
-No generated image is boot-tested until it has actually been flashed under a
-proven recovery procedure and the expected audio behavior is observed.
-
-
-## Recovered audio ABI
-
-`sphe_audio_api.h` exposes the small subset of the stock AP1 audio ABI that
-is already instruction-backed. It is intended for later minimal custom
-control code running inside the existing initialized AP1 runtime.
-
-Use stateful stock wrappers where they update AP1 state in addition to sending
-a backend command. Use `sphe_audio_dispatch()` only when the new code owns the
-state or when reproducing one of the confirmed tiny action wrappers.
-
-This header deliberately does not expose unresolved decoder internals or
-physical-channel assumptions.
-
-
-## One-command static build
-
-From the repository root:
-
-```sh
-python3 tools/build_audio_probe.py
-```
-
-The driver verifies the canonical stock flash and AP1 SHA-256 values, compiles
-the 44-byte in-place wrapper, patches AP1, repacks the Sunplus image and
-re-opens the result through the Python container parser. Output goes to
-`build/compiler-probe/` by default.
-
-It deliberately has no flashing or hardware-access operation.
+The patcher verifies the exact original 44 bytes and keeps AP1 at `0xA70A0`
+bytes. The resulting AP1 still has to pass full Sunplus container repack/reopen
+validation before hardware use.

@@ -1,22 +1,23 @@
 #include <stdint.h>
 
-typedef int (*audio_dispatch_fn)(uint32_t action, uint32_t value, uint32_t aux);
+extern int DispatchAudioHardwareAction(
+    uint32_t action,
+    uint32_t value,
+    uint32_t aux
+);
 
 /*
- * Compiler/ABI validation replacement for the original
+ * Compiler/ABI validation replacement for the stock
  * ApplySurroundModeIndex @ 0x80702D0C.
  *
- * It intentionally preserves the original externally visible behavior:
- *   action = 5
- *   value  = index & 0xff
- *   aux    = 0
+ * The C-visible contract is intentionally identical:
+ *   DispatchAudioHardwareAction(5, index & 0xff, 0)
  *
- * No new feature is introduced by this replacement.
+ * The linker binds DispatchAudioHardwareAction to its recovered absolute
+ * address so the compiler emits the same direct JAL class used by stock code.
  */
 __attribute__((used, noinline, aligned(4)))
 int injected_apply_surround(uint32_t index)
 {
-    audio_dispatch_fn dispatch =
-        (audio_dispatch_fn)(uintptr_t)0x806FFD1CU;
-    return dispatch(5U, index & 0xffU, 0U);
+    return DispatchAudioHardwareAction(5U, index & 0xffU, 0U);
 }
