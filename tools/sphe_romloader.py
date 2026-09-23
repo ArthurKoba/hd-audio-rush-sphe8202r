@@ -6,7 +6,8 @@ STATUS:
 - protocol recovered from STK 0.2.3 rev-8203R;
 - target profile implemented: 8202 Non Share Mode, 16-bit;
 - default commands are RAM/session operations only;
-- flash-affecting execution is deliberately not exposed yet.
+- generic modified-image flash writing is deliberately not exposed;
+- stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
 
 Requires: pyserial
 
@@ -43,6 +44,8 @@ BAUD_DIVISOR = {
 TARGET_PROFILE_INDEX = 2
 TARGET_PROFILE_NAME = "8202 Non Share Mode"
 TARGET_SDRAM_WIDTH = 16
+TARGET_FLASH_SIZE = 0x100000
+TARGET_STOCK_SHA256 = "67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e"
 
 # rev-8203R embedded RAM-loader used by target profile 2.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
@@ -133,6 +136,39 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     work[0x1B2D] = 0x0A
     work[0x1B2E] = 0x00
     put32(0x27E0, 0x8C920000)
+    return bytes(work)
+
+
+def patch_target_stub_for_full_flash_read(stub: bytes) -> bytes:
+    """
+    Extend the vendor read patch to the complete 1 MiB target SPI.
+
+    The exact STK read route stops at the first 0x400-byte boundary where
+    its running 16-bit sum matches flash word +0x20.  That is the encoded
+    container extent, not the physical P25D80SH size.
+
+    This project-specific patch preserves the vendor SPI/UART implementation
+    but forces the loop to the known physical end of the 1 MiB target flash.
+    """
+    work = bytearray(patch_target_stub_for_read(stub))
+
+    expected = {
+        0x2750: 0x3C068022,  # lui a2,0x8022
+        0x2768: 0x1611FFFB,  # bne s0,s1,loop
+    }
+    for off, value in expected.items():
+        actual = u32le(work[off:off + 4])
+        if actual != value:
+            raise ProtocolError(
+                f"full-read patch mismatch at +0x{off:x}: "
+                f"0x{actual:08x} != 0x{value:08x}"
+            )
+
+    # Original end: 0x8021E000 (2 MiB cap from staging base).
+    # Target end:   0x8011E000 = 0x8001E000 + 0x100000.
+    work[0x2750:0x2754] = p32(0x3C068012)
+    # Ignore the checksum equality and continue until the fixed target end.
+    work[0x2768:0x276C] = p32(0x1000FFFB)
     return bytes(work)
 
 
@@ -419,6 +455,23 @@ class RomLoader:
         return self.receive_firmware_image()
 
 
+    def read_full_flash(self, stub: bytes) -> bytes:
+        """
+        Read the complete physical P25D80SH target image.
+        """
+        self.initialize_session(
+            patch_target_stub_for_full_flash_read(stub)
+        )
+        self.start_uploaded_stub()
+        image = self.receive_firmware_image()
+        if len(image) != TARGET_FLASH_SIZE:
+            raise ProtocolError(
+                f"full flash read returned 0x{len(image):x} bytes; "
+                f"expected 0x{TARGET_FLASH_SIZE:x}"
+            )
+        return image
+
+
     def restore_stock_flash(self, stub: bytes, image: bytes) -> str:
         """
         Execute the exact vendor write helper with the preserved stock image.
@@ -547,7 +600,7 @@ def main() -> int:
     )
 
     restore_stock = sub.add_parser("restore-stock")
-    add_serial_args(restore_stock)
+    add_serial_args(restore_stock, with_stk=True)
     restore_stock.add_argument(
         "image",
         type=pathlib.Path,
@@ -596,6 +649,12 @@ def main() -> int:
             "read_stub_sha256="
             f"{hashlib.sha256(read_stub).hexdigest()}"
         )
+        full_read_stub = patch_target_stub_for_full_flash_read(stub)
+        print(
+            "full_read_stub_sha256="
+            f"{hashlib.sha256(full_read_stub).hexdigest()}"
+        )
+        print(f"target_flash_size=0x{TARGET_FLASH_SIZE:x}")
         print("read_patch_validation=ok")
         return 0
 
@@ -606,7 +665,7 @@ def main() -> int:
 
         if args.command == "read-flash":
             stub = extract_target_stub(args.stk)
-            image = rl.read_firmware(stub)
+            image = rl.read_full_flash(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             digest = hashlib.sha256(image).hexdigest()
