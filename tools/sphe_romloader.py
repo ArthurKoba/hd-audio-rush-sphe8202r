@@ -43,6 +43,7 @@ BAUD_DIVISOR = {
 TARGET_PROFILE_INDEX = 2
 TARGET_PROFILE_NAME = "8202 Non Share Mode"
 TARGET_SDRAM_WIDTH = 16
+TARGET_FLASH_SIZE = 0x100000
 
 # rev-8203R embedded RAM-loader used by target profile 2.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
@@ -133,6 +134,41 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     work[0x1B2D] = 0x0A
     work[0x1B2E] = 0x00
     put32(0x27E0, 0x8C920000)
+    return bytes(work)
+
+
+def patch_target_stub_for_full_flash_read(stub: bytes) -> bytes:
+    """
+    Extend the exact vendor read patch into a physical 1 MiB target dump.
+
+    The vendor read route scans 0x400-byte SPI blocks until the accumulated
+    16-bit sum matches the checksum stored at flash +0x20, with a 2 MiB cap.
+    On this target that identifies the encoded firmware-container extent, not
+    the complete P25D80SH device.
+
+    For recovery we keep the vendor SPI/UART routines but:
+    - change the RAM/read end from 0x8021E000 (2 MiB cap) to
+      0x8011E000 (exactly 1 MiB from 0x8001E000);
+    - make the checksum-mismatch loop unconditional until that end.
+
+    This is a project-specific extension, not behavior attributed to STK.
+    """
+    work = bytearray(patch_target_stub_for_read(stub))
+
+    expected = {
+        0x2750: 0x3C068022,  # lui a2,0x8022
+        0x2768: 0x1611FFFB,  # bne s0,s1,loop
+    }
+    for off, value in expected.items():
+        actual = u32le(work[off:off + 4])
+        if actual != value:
+            raise ProtocolError(
+                f"full-read patch mismatch at +0x{off:x}: "
+                f"0x{actual:08x} != 0x{value:08x}"
+            )
+
+    work[0x2750:0x2754] = p32(0x3C068012)  # lui a2,0x8012
+    work[0x2768:0x276C] = p32(0x1000FFFB)  # b loop unconditionally
     return bytes(work)
 
 
@@ -407,14 +443,31 @@ class RomLoader:
 
         return bytes(output[:size])
 
-    def read_firmware(self, stub: bytes) -> bytes:
+    def read_vendor_extent(self, stub: bytes) -> bytes:
         """
-        Initialize target Boot ROM, upload read-mode RAM stub, start it and
-        return the firmware image received from the stub.
+        Run the exact STK read patch.  The returned length is checksum-bounded
+        and may be shorter than the physical SPI device.
         """
         self.initialize_session(patch_target_stub_for_read(stub))
         self.start_uploaded_stub()
         return self.receive_firmware_image()
+
+    def read_full_flash(self, stub: bytes) -> bytes:
+        """
+        Read the complete physical 1 MiB P25D80SH using the recovered vendor
+        SPI/UART routines plus the project-specific fixed-length read patch.
+        """
+        self.initialize_session(
+            patch_target_stub_for_full_flash_read(stub)
+        )
+        self.start_uploaded_stub()
+        image = self.receive_firmware_image()
+        if len(image) != TARGET_FLASH_SIZE:
+            raise ProtocolError(
+                f"full flash read returned 0x{len(image):x} bytes; "
+                f"expected 0x{TARGET_FLASH_SIZE:x}"
+            )
+        return image
 
 
     def run_ram_image(
@@ -564,7 +617,7 @@ def main() -> int:
 
         if args.command == "read-flash":
             stub = extract_target_stub(args.stk)
-            image = rl.read_firmware(stub)
+            image = rl.read_full_flash(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             digest = hashlib.sha256(image).hexdigest()
