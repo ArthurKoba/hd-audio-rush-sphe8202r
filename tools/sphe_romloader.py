@@ -183,6 +183,40 @@ def read_verified_stk(path: pathlib.Path) -> bytes:
     return raw
 
 
+def apply_write_loader_patches(pe: PEImage, system_config: int) -> None:
+    # Recovered from the WRITE action before ROM/RAM-loader bootstrap.
+    if system_config == 3:
+        pe.patch_u32(0x004E37A8, 0x0C006947)
+        pe.patch_u32(0x004E3868, 0x0C006528)
+        return
+
+    if system_config == 0:
+        pe.patch_u32(0x004E7F90, 0x0C006853)
+        pe.patch_u32(0x004E808C, 0x0C006610)
+        return
+
+    if system_config == 5:
+        pe.patch_u32(0x004E10C8, 0x08006862)
+        pe.patch_u32(0x004E118C, 0x08006CA8)
+        return
+
+    pe.patch_u32(0x004E5E44, 0x0C006AFB)
+    pe.patch_u32(0x004E5FBC, 0x0C006AFB)
+    pe.patch_u32(0x004E60D0, 0x0C006616)
+    pe.patch_va(0x004E6484 + 9, b" u")
+
+
+def extract_write_loader(stk_source: pathlib.Path, system_config: int) -> bytes:
+    exe = read_verified_stk(stk_source)
+    pe = PEImage(exe)
+    apply_write_loader_patches(pe, system_config)
+    va, size = LOADER_IMAGES.get(system_config, DEFAULT_LOADER_IMAGE)
+    blob = pe.read_va(va, size)
+    if len(blob) != size or size % 4:
+        raise LoaderError("unexpected WRITE RAM-loader size")
+    return blob
+
+
 def apply_read_loader_patches(pe: PEImage, system_config: int) -> None:
     # Recovered from the READ action before ROM/RAM-loader bootstrap.
     if system_config == 3:
@@ -553,9 +587,13 @@ def command_profiles() -> int:
 
 def command_extract_loader(args: argparse.Namespace) -> int:
     profile = make_profile(args)
-    blob = extract_read_loader(args.stk, profile.system_config)
+    if args.kind == "read":
+        blob = extract_read_loader(args.stk, profile.system_config)
+    else:
+        blob = extract_write_loader(args.stk, profile.system_config)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(blob)
+    print(f"kind={args.kind}")
     print(f"system_config={profile.system_config}:{profile.system_name}")
     print(f"loader_size=0x{len(blob):x}")
     print(f"loader_sha256={hashlib.sha256(blob).hexdigest()}")
@@ -616,9 +654,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     extract_p = sub.add_parser(
         "extract-loader",
-        help="extract the patched READ RAM-loader from verified STK",
+        help="extract a patched READ/WRITE RAM-loader from verified STK",
     )
     extract_p.add_argument("--stk", type=pathlib.Path, required=True)
+    extract_p.add_argument(
+        "--kind",
+        choices=("read", "write"),
+        default="read",
+        help="loader behavior to reconstruct (default: read)",
+    )
     extract_p.add_argument("-o", "--output", type=pathlib.Path, required=True)
     add_profile_args(extract_p)
 
