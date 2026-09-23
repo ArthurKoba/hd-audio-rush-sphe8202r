@@ -20,8 +20,8 @@ python3 tools/sphe_romloader.py info
 python3 tools/sphe_romloader.py probe \
   --port /dev/ttyUSB0 --baud 115200
 
-python3 tools/sphe_romloader.py read32 \
-  --port /dev/ttyUSB0 --baud 115200 0x1ffe8048
+python3 tools/sphe_romloader.py read-flash \
+  --port /dev/ttyUSB0 --baud 115200 dump-1.bin
 
 python3 tools/sphe_romloader.py monitor \
   --port /dev/ttyUSB0 --baud 115200
@@ -72,18 +72,15 @@ Recommended first session:
 5. power/reset the board into boot-trap;
 6. start with 115200; if communication is unstable, retry 57600;
 7. run `probe` first;
-8. then run one non-destructive `read32` against a known system register;
-9. only then run `read-flash`;
-10. perform two complete reads and compare them byte-for-byte and against the preserved canonical 1 MiB dump.
+8. run `read-flash`;
+9. perform a second complete `read-flash`;
+10. compare the two reads byte-for-byte and against the preserved canonical 1 MiB dump.
 
 Example:
 
 ```sh
 python3 tools/sphe_romloader.py probe \
   --port /dev/ttyUSB0 --baud 115200
-
-python3 tools/sphe_romloader.py read32 \
-  --port /dev/ttyUSB0 --baud 115200 0x1ffe8048
 
 python3 tools/sphe_romloader.py read-flash \
   --port /dev/ttyUSB0 --baud 115200 dump-1.bin
@@ -103,3 +100,14 @@ The same UART remains usable as a textual console after the ROM-loader/system-sw
 - RX-ready bit: 1.
 
 `tools/mips-inject/sphe_uart.h` provides freestanding `putc`, `puts`, RX helpers and hexadecimal logging for custom MIPS code without libc.
+
+
+The low-level `R + address_le32` read transaction is confirmed in the
+post-`S` transition, but pre-start Boot-ROM `read32` is not independently
+proven.  Therefore the current CLI does not expose a pre-start `read32`
+command.  `write32` exists as a recovered low-level primitive but is not part
+of the recommended first hardware session.
+
+For a flash-independent custom-code test, build the RAM log probe described in
+`RAM_EXEC.md` and use `run-ram`; it executes at `0x80019000` and does not
+erase or program SPI flash.
