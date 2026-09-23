@@ -540,12 +540,21 @@ def main() -> int:
 
     if args.command == "info":
         stub = extract_target_stub(args.stk)
+        read_stub = patch_target_stub_for_read(stub)
+        print(f"stk_sha256={STK_EXE_SHA256}")
         print(f"profile_index={TARGET_PROFILE_INDEX}")
         print(f"profile={TARGET_PROFILE_NAME}")
         print(f"sdram_width={TARGET_SDRAM_WIDTH}")
+        print(f"embedded_stub_va=0x{TARGET_STUB_VA:08x}")
         print(f"ram_stub_address=0x{RAM_STUB_ADDRESS:08x}")
         print(f"ram_stub_size=0x{len(stub):x}")
         print(f"ram_stub_first_word=0x{u32le(stub[:4]):08x}")
+        print(f"ram_stub_sha256={hashlib.sha256(stub).hexdigest()}")
+        print(
+            "read_stub_sha256="
+            f"{hashlib.sha256(read_stub).hexdigest()}"
+        )
+        print("read_patch_validation=ok")
         return 0
 
     with RomLoader(args.port, args.baud, args.timeout) as rl:
