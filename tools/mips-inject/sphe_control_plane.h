@@ -14,6 +14,7 @@ enum sphe_control_opcode {
     SPHE_CTRL_APPLY_SPDIF_OPTION = 0x08,
     SPHE_CTRL_SET_DECODER_OUTPUT_MODE = 0x09,
     SPHE_CTRL_SET_EXTERNAL_INPUT_MODE = 0x0A,
+    SPHE_CTRL_SET_EXTERNAL_SUBSOURCE = 0x0B,
 };
 
 struct sphe_control_command {

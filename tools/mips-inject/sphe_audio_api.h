@@ -99,6 +99,38 @@ sphe_set_external_input_mode(uint8_t mode)
     return 0;
 }
 
+
+#define SPHE_EXTERNAL_SUBSOURCE \
+    (*(volatile uint8_t *)(uintptr_t)0x800032FAU)
+#define SPHE_SOURCE_STATE \
+    (*(volatile uint8_t *)(uintptr_t)0x800032A5U)
+
+enum sphe_external_subsource {
+    SPHE_SUBSOURCE_TUNER = 0,
+    SPHE_SUBSOURCE_SPDIF = 2,
+};
+
+static inline int
+sphe_set_external_subsource(enum sphe_external_subsource source)
+{
+    if (source != SPHE_SUBSOURCE_TUNER &&
+        source != SPHE_SUBSOURCE_SPDIF) {
+        return -1;
+    }
+
+    ((sphe_void_fn)(uintptr_t)0x806FABA0U)();
+
+    if (source == SPHE_SUBSOURCE_TUNER) {
+        SPHE_EXTERNAL_SUBSOURCE = 0;
+        SPHE_SOURCE_STATE = 2;
+    } else {
+        SPHE_EXTERNAL_SUBSOURCE = 2;
+        SPHE_SOURCE_STATE = 0x0D;
+    }
+
+    return 0;
+}
+
 static inline void
 sphe_set_spdif_hardware_mode(uint8_t mode)
 {

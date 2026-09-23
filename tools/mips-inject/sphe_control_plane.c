@@ -57,6 +57,11 @@ sphe_handle_control_command(const struct sphe_control_command *cmd)
     case SPHE_CTRL_SET_EXTERNAL_INPUT_MODE:
         return sphe_set_external_input_mode(cmd->value);
 
+    case SPHE_CTRL_SET_EXTERNAL_SUBSOURCE:
+        return sphe_set_external_subsource(
+            (enum sphe_external_subsource)cmd->value
+        );
+
     default:
         return -3;
     }
