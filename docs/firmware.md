@@ -880,6 +880,8 @@ This is an implementation-level UART contract. The exact physical header/pin use
 
 Flash write is intentionally not exposed yet.
 
+The stock SPI-write helper issues JEDEC-ID command `0x9F`, selects a controller/program profile from that result, performs a chip-erase sequence, then programs the staged image as 32-bit words while polling controller/flash-ready status. The recovered vendor route does not perform a mandatory full-image readback comparison after programming. Any future headless write command therefore requires an independent post-write `read-flash` plus SHA-256 verification and a proven recovery/rollback path before it can be considered safe.
+
 Pre-start `read32` is intentionally disabled in the CLI: the canonical rev-8203R evidence currently confirms the `R + address_le32` transaction only in the post-`S` transition sequence. `run-ram` is flash-independent and opens an interactive UART monitor by default; use `--wait-nul SECONDS` only for one-shot RAM programs that deliberately terminate their status stream with NUL.
 
 A debugger is a later layer. The monitor already provides useful memory read/write primitives, but register access, breakpoint insertion, single-step behavior and a safe exception/debug transport are still **UNKNOWN**. Do not call the current monitor a debugger or GDB stub.
