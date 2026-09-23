@@ -46,6 +46,7 @@ TARGET_SDRAM_WIDTH = 16
 
 # rev-8203R embedded RAM-loader used by target profile 2.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
+STK_EXE_SHA256 = "e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89"
 TARGET_STUB_VA = 0x004E5960
 TARGET_STUB_SIZE = 0x2878
 
@@ -157,18 +158,21 @@ def patch_target_stub_for_write(stub: bytes) -> bytes:
     return bytes(work)
 
 
-def extract_target_stub(stk_zip: pathlib.Path) -> bytes:
-    with zipfile.ZipFile(stk_zip, "r") as zf:
-        names = zf.namelist()
-        member = next(
-            (name for name in names if name.endswith(STK_EXE_MEMBER)),
-            None,
-        )
-        if member is None:
-            raise ProtocolError(
-                f"{STK_EXE_MEMBER!r} not found in {stk_zip}"
+def load_canonical_stk_executable(source: pathlib.Path) -> bytes:
+    if zipfile.is_zipfile(source):
+        with zipfile.ZipFile(source, "r") as zf:
+            names = zf.namelist()
+            member = next(
+                (name for name in names if name.endswith(STK_EXE_MEMBER)),
+                None,
             )
-        exe = zf.read(member)
+            if member is None:
+                raise ProtocolError(
+                    f"{STK_EXE_MEMBER!r} not found in {source}"
+                )
+            exe = zf.read(member)
+    else:
+        exe = source.read_bytes()
 
     digest = hashlib.sha256(exe).hexdigest()
     if digest != STK_EXE_SHA256:
@@ -176,12 +180,16 @@ def extract_target_stub(stk_zip: pathlib.Path) -> bytes:
             f"unexpected rev-8203R executable SHA-256: {digest}; "
             f"expected {STK_EXE_SHA256}"
         )
+    return exe
+
+
+def extract_target_stub(stk_source: pathlib.Path) -> bytes:
+    exe = load_canonical_stk_executable(stk_source)
 
     off = pe_va_to_file_offset(exe, TARGET_STUB_VA)
     stub = exe[off:off + TARGET_STUB_SIZE]
     if len(stub) != TARGET_STUB_SIZE:
         raise ProtocolError("truncated embedded RAM-loader")
-    # First word is target MIPS code: lui s6,0xbffe = 0x3c16bffe LE.
     if stub[:4] != bytes.fromhex("febf163c"):
         raise ProtocolError(
             "embedded RAM-loader signature mismatch; wrong STK revision?"
@@ -470,7 +478,7 @@ def add_serial_args(p: argparse.ArgumentParser) -> None:
         "--stk",
         type=pathlib.Path,
         default=pathlib.Path("tools/STK_0.2.3.zip"),
-        help="STK archive used only as the source of the recovered RAM-loader",
+        help="canonical rev-8203R STK ZIP or executable; required only by vendor-helper commands",
     )
 
 
@@ -531,14 +539,13 @@ def main() -> int:
         print(f"ram_stub_first_word=0x{u32le(stub[:4]):08x}")
         return 0
 
-    stub = extract_target_stub(args.stk)
-
     with RomLoader(args.port, args.baud, args.timeout) as rl:
         if args.command == "monitor":
             rl.monitor(args.stop_on_nul)
             return 0
 
         if args.command == "read-flash":
+            stub = extract_target_stub(args.stk)
             image = rl.read_firmware(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
@@ -558,18 +565,17 @@ def main() -> int:
             )
             return 0
 
-        if args.command in ("probe", "read32", "write32"):
+        if args.command in ("probe", "read32", "write32", "upload-ram"):
             rl.initialize_bootrom()
-        else:
-            rl.initialize_session(patch_target_stub_for_write(stub))
 
         if args.command == "probe":
             print("ROM-loader Boot ROM session initialized")
             return 0
         if args.command == "read32":
-            value = rl.read32(args.address)
-            print(f"0x{args.address:08x}: 0x{value:08x}")
-            return 0
+            raise ProtocolError(
+                "pre-start ROM-monitor read32 is not independently proven "
+                "on canonical rev-8203R; command is intentionally disabled"
+            )
         if args.command == "write32":
             rl.write32(args.address, args.value)
             print(
