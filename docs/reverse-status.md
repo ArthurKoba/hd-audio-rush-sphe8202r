@@ -354,3 +354,25 @@ Master-volume persistence remains open. Direct stores to `gp+0x832 = 0x80003332`
 - The loaded modules do not map executable/readable bytes for 0x88001C78, and the runtime gain table at 0x88012CA0 is likewise not available as ordinary module memory. Therefore the current implementation proof ends at the internal SPHE audio-service contract. It does not prove which downstream DAC/interface block, PCB trace, 4558 stage, TOSLINK/coax path or six-channel connector is driven by each command. Closing that edge requires another retained firmware/runtime provider or board-level observation; no physical routing is inferred from command semantics alone.
 - Master volume remains a runtime state at 0x80003332 with mute at 0x800032B5. Narrow reference review continues to show volume adjustment/reapply paths, but no direct generic control-selection/NVRAM write from the VOL+/VOL- handlers. Persistence is still open rather than assumed absent, because several affected regions have imperfect action boundaries and helper calls still need independent validation.
 
+
+
+### UART ROM-loader / RAM diagnostics — 2026-09-23
+
+Implementation-level behavior recovery now covers the target SPHE UART ROM-loader path far enough to support a headless read/execute workflow:
+
+- canonical STK analysis program is now `stk`, backed by the verified rev-8203R executable SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`;
+- serial framing is 8N1 at 57600 / 115200 / 230400 with recovered UART-divisor values `0x74 / 0x3A / 0x1D`;
+- Boot-ROM/session handshake is `A/A`, followed by the target system/SDRAM register script and `C/C`;
+- target profile is `8202 Non Share Mode`, 16-bit SDRAM bus;
+- canonical embedded helper for this profile is STK VA `0x004E5960`, size `0x2878`; the earlier `0x004E4960` value belonged to a different legacy analysis copy and is invalid for canonical rev-8203R;
+- `W + addr32le + value32le` and lower-case streaming `w + dword` are recovered; `R + addr32le` is confirmed in the post-`S` transition sequence but is not exposed pre-start without separate proof;
+- READ mode is produced by patching the common embedded flash-service helper. For the target branch it uses memory-mapped flash at `0xA8000000`, stages data at `0x8001E000`, emits a NUL ready marker, then transfers `size32 + image` with one host flow-control byte per 16-byte block;
+- standalone UART MMIO is recovered as data `0xBFFE8900`, status `0xBFFE8904`, TX-ready bit 0 and RX-ready bit 1;
+- `tools/sphe_romloader.py` now implements `info`, `probe`, `write32`, `upload-ram`, `read-flash`, `run-ram` and `monitor`; `read-flash` prints SHA-256 and can enforce an expected digest;
+- `tools/mips-inject/sphe_rom_uart.h` plus the standalone RAM diagnostic image provide a flash-independent execution/logging path.
+
+The vendor SPI-write helper issues JEDEC command `0x9F`, performs chip erase and word programming, but no mandatory full-image post-write readback comparison is present in the recovered route. Flash write therefore remains intentionally unexposed until recovery/rollback is proven and post-write readback+SHA verification is mandatory.
+
+Current validation level is implementation proof only. The remaining immediate board gate is locating/confirming the physical SPHE UART path; the known captured UART header belongs to the secondary controller. The likely SPHE UART pin candidates from reference-design evidence remain package pins 11/12 and 33/45 until continuity/execution evidence resolves them.
+
+Debugger feasibility improved: AP1 contains a common exception frame that saves CP0 EPC and restores context through `rfe`, but a dedicated BREAK/debug route has not yet been proven.
