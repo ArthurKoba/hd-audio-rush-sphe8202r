@@ -96,6 +96,50 @@ def pe_va_to_file_offset(exe: bytes, va: int) -> int:
     raise ProtocolError(f"VA 0x{va:08x} is outside PE sections")
 
 
+def patch_target_stub_for_read(stub: bytes) -> bytes:
+    """
+    Apply the exact rev-8203R read-firmware patches for target profile 2.
+
+    Offsets are relative to embedded target stub VA 0x004E4960.
+    """
+    work = bytearray(stub)
+
+    def put32(off: int, value: int) -> None:
+        if off < 0 or off + 4 > len(work):
+            raise ProtocolError(f"stub patch outside image at +0x{off:x}")
+        work[off:off + 4] = p32(value)
+
+    put32(0x14E4, 0x08006DC0)
+    put32(0x165C, 0x080069C7)
+    put32(0x1770, 0x08006DC0)
+    work[0x1B2D] = 0x0A
+    work[0x1B2E] = 0x00
+    put32(0x27E0, 0x8C920000)
+    return bytes(work)
+
+
+def patch_target_stub_for_write(stub: bytes) -> bytes:
+    """
+    Apply the exact rev-8203R write-firmware patches for target profile 2.
+
+    This helper exists for protocol completeness; no flash-write command is
+    currently exposed by the CLI.
+    """
+    work = bytearray(stub)
+
+    def put32(off: int, value: int) -> None:
+        if off < 0 or off + 4 > len(work):
+            raise ProtocolError(f"stub patch outside image at +0x{off:x}")
+        work[off:off + 4] = p32(value)
+
+    put32(0x14E4, 0x0C006AFB)
+    put32(0x165C, 0x0C006AFB)
+    put32(0x1770, 0x0C006616)
+    work[0x1B2D] = 0x20
+    work[0x1B2E] = ord("u")
+    return bytes(work)
+
+
 def extract_target_stub(stk_zip: pathlib.Path) -> bytes:
     with zipfile.ZipFile(stk_zip, "r") as zf:
         names = zf.namelist()
@@ -241,11 +285,95 @@ class RomLoader:
         self.write32(RAM_STUB_ADDRESS, u32le(stub[:4]))
         self.stream_words(stub, 4)
 
-    def initialize_session(self, stub: bytes) -> None:
+    def initialize_bootrom(self) -> None:
         self.handshake()
         self.configure_baud_divisor()
         self.configure_target_system()
+
+    def initialize_session(self, stub: bytes) -> None:
+        self.initialize_bootrom()
         self.upload_stub(stub)
+
+
+    def start_uploaded_stub(self) -> None:
+        """
+        Execute the recovered post-upload system-switch sequence used by STK.
+        """
+        self.exchange_byte(ord("S"), ord("S"))
+
+        # First control write has a three-byte response; STK checks byte 2.
+        self.write_exact(b"W" + p32(0x00000000) + p32(0x08006400))
+        reply = self.read_exact(3)
+        if reply[2:3] != b"W":
+            raise ProtocolError(
+                f"start control ACK mismatch: {reply!r}"
+            )
+
+        self.write32(0x00000004, 0)
+        self.write32(0x00000008, 0)
+        _ = self.read32(0x1FFE8048)
+        self.write32(0x1FFE8048, 0x0000203F)
+        self.write32(0x1FFE8008, 0)
+
+    def monitor_until_nul(self, timeout_seconds: float = 5.0) -> str:
+        """
+        Collect the STK-compatible textual console until a zero terminator.
+        """
+        ser = self._serial()
+        deadline = time.monotonic() + timeout_seconds
+        chars: list[str] = []
+        while time.monotonic() < deadline:
+            b = ser.read(1)
+            if not b:
+                continue
+            deadline = time.monotonic() + timeout_seconds
+            if b == b"\x00":
+                text = "".join(chars)
+                if text:
+                    sys.stdout.write(text)
+                    sys.stdout.flush()
+                return text
+            if b == b"\r":
+                chars.append("\n")
+            elif 0x20 <= b[0] <= 0x7E or b in (b"\n", b"\t"):
+                chars.append(b.decode("ascii", "replace"))
+        raise ProtocolError("timeout waiting for RAM-loader console terminator")
+
+    def receive_firmware_image(self) -> bytes:
+        """
+        Receive the read-firmware stream used by STK.
+
+        Flow control is unusual but instruction-confirmed: after the 4-byte
+        size the host echoes size_bytes[0]; after every 16-byte block it echoes
+        block[0].
+        """
+        self.monitor_until_nul(5.0)
+
+        size_bytes = self.read_exact(4)
+        size = u32le(size_bytes)
+        if size > 0x200000:
+            raise ProtocolError(
+                f"RAM-loader reported implausible image size 0x{size:x}"
+            )
+
+        self.write_exact(size_bytes[:1])
+
+        output = bytearray()
+        while len(output) < size:
+            block = self.read_exact(16)
+            output += block
+            self.write_exact(block[:1])
+
+        return bytes(output[:size])
+
+    def read_firmware(self, stub: bytes) -> bytes:
+        """
+        Initialize target Boot ROM, upload read-mode RAM stub, start it and
+        return the firmware image received from the stub.
+        """
+        self.initialize_session(patch_target_stub_for_read(stub))
+        self.start_uploaded_stub()
+        return self.receive_firmware_image()
 
     def upload_image_to_ram(self, image: bytes) -> None:
         """
@@ -320,6 +448,10 @@ def main() -> int:
     add_serial_args(upload)
     upload.add_argument("image", type=pathlib.Path)
 
+    read_flash = sub.add_parser("read-flash")
+    add_serial_args(read_flash)
+    read_flash.add_argument("output", type=pathlib.Path)
+
     mon = sub.add_parser("monitor")
     add_serial_args(mon)
     mon.add_argument("--stop-on-nul", action="store_true")
@@ -343,10 +475,20 @@ def main() -> int:
             rl.monitor(args.stop_on_nul)
             return 0
 
-        rl.initialize_session(stub)
+        if args.command == "read-flash":
+            image = rl.read_firmware(stub)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_bytes(image)
+            print(f"read 0x{len(image):x} bytes -> {args.output}")
+            return 0
+
+        if args.command in ("probe", "read32", "write32"):
+            rl.initialize_bootrom()
+        else:
+            rl.initialize_session(patch_target_stub_for_write(stub))
 
         if args.command == "probe":
-            print("ROM-loader session initialized; RAM stub uploaded")
+            print("ROM-loader Boot ROM session initialized")
             return 0
         if args.command == "read32":
             value = rl.read32(args.address)
