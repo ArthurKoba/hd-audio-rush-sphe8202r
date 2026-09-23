@@ -83,6 +83,22 @@ sphe_toggle_master_mute(void)
     ((sphe_void_fn)(uintptr_t)0x806F9D18U)();
 }
 
+
+#define SPHE_EXTERNAL_INPUT_MODE \
+    (*(volatile uint8_t *)(uintptr_t)0x80002C2BU)
+
+static inline int
+sphe_set_external_input_mode(uint8_t mode)
+{
+    if (mode > 3U) {
+        return -1;
+    }
+
+    SPHE_EXTERNAL_INPUT_MODE = mode;
+    ((sphe_void_fn)(uintptr_t)0x806FED0CU)();
+    return 0;
+}
+
 static inline void
 sphe_set_spdif_hardware_mode(uint8_t mode)
 {

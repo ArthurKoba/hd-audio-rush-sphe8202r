@@ -54,6 +54,9 @@ sphe_handle_control_command(const struct sphe_control_command *cmd)
         sphe_set_decoder_output_mode(cmd->value, cmd->aux);
         return 0;
 
+    case SPHE_CTRL_SET_EXTERNAL_INPUT_MODE:
+        return sphe_set_external_input_mode(cmd->value);
+
     default:
         return -3;
     }
