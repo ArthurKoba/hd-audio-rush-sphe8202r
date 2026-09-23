@@ -512,6 +512,11 @@ def main() -> int:
     read_flash = sub.add_parser("read-flash")
     add_serial_args(read_flash, with_stk=True)
     read_flash.add_argument("output", type=pathlib.Path)
+    read_flash.add_argument(
+        "--expect-sha256",
+        default=None,
+        help="optional expected SHA-256 for immediate readback verification",
+    )
 
     run_ram = sub.add_parser("run-ram")
     add_serial_args(run_ram)
@@ -553,7 +558,17 @@ def main() -> int:
             image = rl.read_firmware(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
+            digest = hashlib.sha256(image).hexdigest()
             print(f"read 0x{len(image):x} bytes -> {args.output}")
+            print(f"sha256={digest}")
+            if (
+                args.expect_sha256 is not None
+                and digest.lower() != args.expect_sha256.lower()
+            ):
+                raise ProtocolError(
+                    "readback SHA-256 mismatch: "
+                    f"{digest} != {args.expect_sha256}"
+                )
             return 0
 
         if args.command == "run-ram":
