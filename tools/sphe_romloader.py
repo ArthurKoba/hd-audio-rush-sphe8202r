@@ -21,6 +21,7 @@ Recovered target UART:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import pathlib
 import struct
 import sys
@@ -168,6 +169,13 @@ def extract_target_stub(stk_zip: pathlib.Path) -> bytes:
                 f"{STK_EXE_MEMBER!r} not found in {stk_zip}"
             )
         exe = zf.read(member)
+
+    digest = hashlib.sha256(exe).hexdigest()
+    if digest != STK_EXE_SHA256:
+        raise ProtocolError(
+            f"unexpected rev-8203R executable SHA-256: {digest}; "
+            f"expected {STK_EXE_SHA256}"
+        )
 
     off = pe_va_to_file_offset(exe, TARGET_STUB_VA)
     stub = exe[off:off + TARGET_STUB_SIZE]
