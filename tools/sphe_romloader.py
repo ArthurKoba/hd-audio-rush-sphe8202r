@@ -58,10 +58,16 @@ BAUD_SELECTORS = {
 # STK resident RAM-loader images selected by system_config.
 # Values are virtual addresses inside the verified rev-8203R STK executable.
 LOADER_IMAGES = {
-    0: (0x004E71E0, 0x1D88),
-    3: (0x004E23E0, 0x2578),
-    5: (0x004E0000, 0x23C8),
+    # Exact rev-8203R selector mapping recovered from the upload action:
+    # system 6 -> 82XX_256_SPI blob
+    # system 7 -> 8202L_128_SPI blob
+    # selector 8 is a legacy/internal path not exposed by the visible UI.
+    6: (0x004E71E0, 0x1D88),
+    7: (0x004E23E0, 0x2578),
+    8: (0x004E0000, 0x23C8),
 }
+# Visible system configurations 0..5, including the target profile 2,
+# use the common loader image.
 DEFAULT_LOADER_IMAGE = (0x004E4960, 0x2878)
 
 ROM_LOADER_BASE = 0x00019000
@@ -408,8 +414,11 @@ class SPHERomLoader:
         for address in (0x18FFC, 0x18FF8, 0x18FF4, 0x18FF0):
             self.write32(address, 0)
 
-        variant = 1 if self.profile.system_config == 6 else (
-            2 if self.profile.system_config == 7 else 0
+        variant = (
+            1 if self.profile.system_config == 6
+            else 2 if self.profile.system_config == 7
+            else 3 if self.profile.system_config == 8
+            else 0
         )
         self.write32(ROM_LOADER_PARAM_VARIANT, variant)
         self.write32(ROM_LOADER_PARAM_BAUD, 0xE100)
