@@ -41,9 +41,12 @@ BAUD_DIVISOR = {
     230400: 0x1D,
 }
 
-TARGET_PROFILE_INDEX = 2
-TARGET_PROFILE_NAME = "8202 Non Share Mode"
+TARGET_PROFILE_INDEX = 7
+TARGET_PROFILE_NAME = "8202L_128_SPI"
+TARGET_IMAGE_SDRAM_PROFILE_INDEX = 2
+TARGET_IMAGE_SDRAM_PROFILE_NAME = "8202 Non Share Mode"
 TARGET_SDRAM_WIDTH = 16
+TARGET_FLASH_MODE = 2
 TARGET_FLASH_SIZE = 0x100000
 TARGET_STOCK_SHA256 = "67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e"
 
@@ -334,8 +337,7 @@ class RomLoader:
         self.exchange_byte(ord("C"), ord("C"))
         for address in (0x18FFC, 0x18FF8, 0x18FF4, 0x18FF0):
             self.write32(address, 0)
-        # Target system profile index 2 maps to zero here.
-        self.write32(0x18FEC, 0)
+        # Physical target uses SPI NOR.  STK profile 7 selects helper mode 2;\n        # profile 2 would select the separate 29/39-series parallel-NOR path.\n        self.write32(0x18FEC, TARGET_FLASH_MODE)
         self.write32(0x18FE8, 0xE100)
 
     def stream_words(self, data: bytes, start_offset: int = 4) -> None:
@@ -637,8 +639,7 @@ def main() -> int:
         stub = extract_target_stub(args.stk)
         read_stub = patch_target_stub_for_read(stub)
         print(f"stk_sha256={STK_EXE_SHA256}")
-        print(f"profile_index={TARGET_PROFILE_INDEX}")
-        print(f"profile={TARGET_PROFILE_NAME}")
+        print(f"romloader_profile_index={TARGET_PROFILE_INDEX}")\n        print(f"romloader_profile={TARGET_PROFILE_NAME}")\n        print(f"image_sdram_profile_index={TARGET_IMAGE_SDRAM_PROFILE_INDEX}")\n        print(f"image_sdram_profile={TARGET_IMAGE_SDRAM_PROFILE_NAME}")\n        print(f"flash_mode={TARGET_FLASH_MODE}")
         print(f"sdram_width={TARGET_SDRAM_WIDTH}")
         print(f"embedded_stub_va=0x{TARGET_STUB_VA:08x}")
         print(f"ram_stub_address=0x{RAM_STUB_ADDRESS:08x}")
