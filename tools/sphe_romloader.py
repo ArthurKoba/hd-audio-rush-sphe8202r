@@ -43,7 +43,6 @@ BAUD_DIVISOR = {
 TARGET_PROFILE_INDEX = 2
 TARGET_PROFILE_NAME = "8202 Non Share Mode"
 TARGET_SDRAM_WIDTH = 16
-TARGET_FLASH_SIZE = 0x100000
 
 # rev-8203R embedded RAM-loader used by target profile 2.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
@@ -137,58 +136,25 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     return bytes(work)
 
 
-def patch_target_stub_for_full_flash_read(stub: bytes) -> bytes:
+def patch_target_stub_for_write(stub: bytes) -> bytes:
     """
-    Extend the exact vendor read patch into a physical 1 MiB target dump.
-
-    The vendor read route scans 0x400-byte SPI blocks until the accumulated
-    16-bit sum matches the checksum stored at flash +0x20, with a 2 MiB cap.
-    On this target that identifies the encoded firmware-container extent, not
-    the complete P25D80SH device.
-
-    For recovery we keep the vendor SPI/UART routines but:
-    - change the RAM/read end from 0x8021E000 (2 MiB cap) to
-      0x8011E000 (exactly 1 MiB from 0x8001E000);
-    - make the checksum-mismatch loop unconditional until that end.
-
-    This is a project-specific extension, not behavior attributed to STK.
+    Apply the exact rev-8203R write-firmware patches for target profile 2.
     """
-    work = bytearray(patch_target_stub_for_read(stub))
+    work = bytearray(stub)
 
     expected = {
-        0x2750: 0x3C068022,  # lui a2,0x8022
-        0x2768: 0x1611FFFB,  # bne s0,s1,loop
+        0x14E4: 0x0C006AFB,
+        0x165C: 0x0C006AFB,
+        0x1770: 0x0C006616,
     }
     for off, value in expected.items():
         actual = u32le(work[off:off + 4])
         if actual != value:
             raise ProtocolError(
-                f"full-read patch mismatch at +0x{off:x}: "
+                f"canonical write-helper mismatch at +0x{off:x}: "
                 f"0x{actual:08x} != 0x{value:08x}"
             )
 
-    work[0x2750:0x2754] = p32(0x3C068012)  # lui a2,0x8012
-    work[0x2768:0x276C] = p32(0x1000FFFB)  # b loop unconditionally
-    return bytes(work)
-
-
-def patch_target_stub_for_write(stub: bytes) -> bytes:
-    """
-    Apply the exact rev-8203R write-firmware patches for target profile 2.
-
-    This helper exists for protocol completeness; no flash-write command is
-    currently exposed by the CLI.
-    """
-    work = bytearray(stub)
-
-    def put32(off: int, value: int) -> None:
-        if off < 0 or off + 4 > len(work):
-            raise ProtocolError(f"stub patch outside image at +0x{off:x}")
-        work[off:off + 4] = p32(value)
-
-    put32(0x14E4, 0x0C006AFB)
-    put32(0x165C, 0x0C006AFB)
-    put32(0x1770, 0x0C006616)
     work[0x1B2D] = 0x20
     work[0x1B2E] = ord("u")
     return bytes(work)
@@ -443,31 +409,40 @@ class RomLoader:
 
         return bytes(output[:size])
 
-    def read_vendor_extent(self, stub: bytes) -> bytes:
+    def read_firmware(self, stub: bytes) -> bytes:
         """
-        Run the exact STK read patch.  The returned length is checksum-bounded
-        and may be shorter than the physical SPI device.
+        Initialize target Boot ROM, upload read-mode RAM stub, start it and
+        return the firmware image received from the stub.
         """
         self.initialize_session(patch_target_stub_for_read(stub))
         self.start_uploaded_stub()
         return self.receive_firmware_image()
 
-    def read_full_flash(self, stub: bytes) -> bytes:
+
+    def restore_stock_flash(self, stub: bytes, image: bytes) -> str:
         """
-        Read the complete physical 1 MiB P25D80SH using the recovered vendor
-        SPI/UART routines plus the project-specific fixed-length read patch.
+        Execute the exact vendor write helper with the preserved stock image.
+
+        The helper validates the image checksum before programming, performs a
+        full SPI chip erase, then programs sequential 32-bit words from offset
+        zero.  Generic modified-image writing remains intentionally unexposed.
         """
-        self.initialize_session(
-            patch_target_stub_for_full_flash_read(stub)
-        )
-        self.start_uploaded_stub()
-        image = self.receive_firmware_image()
         if len(image) != TARGET_FLASH_SIZE:
             raise ProtocolError(
-                f"full flash read returned 0x{len(image):x} bytes; "
-                f"expected 0x{TARGET_FLASH_SIZE:x}"
+                f"stock restore image must be exactly 0x{TARGET_FLASH_SIZE:x} "
+                f"bytes; got 0x{len(image):x}"
             )
-        return image
+        digest = hashlib.sha256(image).hexdigest()
+        if digest != TARGET_STOCK_SHA256:
+            raise ProtocolError(
+                "restore-stock refuses non-canonical image: "
+                f"sha256={digest}"
+            )
+
+        self.initialize_session(patch_target_stub_for_write(stub))
+        self.upload_image_to_ram(image)
+        self.start_uploaded_stub()
+        return self.monitor_until_nul(30.0)
 
 
     def run_ram_image(
@@ -571,6 +546,20 @@ def main() -> int:
         help="optional expected SHA-256 for immediate readback verification",
     )
 
+    restore_stock = sub.add_parser("restore-stock")
+    add_serial_args(restore_stock)
+    restore_stock.add_argument(
+        "image",
+        type=pathlib.Path,
+        nargs="?",
+        default=pathlib.Path("firmware/P25D80SH@SOP8.BIN"),
+    )
+    restore_stock.add_argument(
+        "--confirm-chip-erase",
+        action="store_true",
+        help="required: acknowledge that the vendor helper erases the full SPI chip",
+    )
+
     run_ram = sub.add_parser("run-ram")
     add_serial_args(run_ram)
     run_ram.add_argument("image", type=pathlib.Path)
@@ -617,7 +606,7 @@ def main() -> int:
 
         if args.command == "read-flash":
             stub = extract_target_stub(args.stk)
-            image = rl.read_full_flash(stub)
+            image = rl.read_firmware(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             digest = hashlib.sha256(image).hexdigest()
@@ -631,6 +620,20 @@ def main() -> int:
                     "readback SHA-256 mismatch: "
                     f"{digest} != {args.expect_sha256}"
                 )
+            return 0
+
+        if args.command == "restore-stock":
+            if not args.confirm_chip_erase:
+                raise ProtocolError(
+                    "restore-stock requires --confirm-chip-erase"
+                )
+            image = args.image.read_bytes()
+            stub = extract_target_stub(args.stk)
+            rl.restore_stock_flash(stub, image)
+            print(
+                "stock restore helper reached its NUL terminator; "
+                "power-cycle/reset and verify the image before any further write"
+            )
             return 0
 
         if args.command == "run-ram":
