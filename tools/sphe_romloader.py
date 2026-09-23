@@ -45,7 +45,7 @@ TARGET_SDRAM_WIDTH = 16
 
 # rev-8203R embedded RAM-loader used by target profile 2.
 STK_EXE_MEMBER = "STK Sunplus Tool Kit 0.2.3 (rev 8203R) English.exe"
-TARGET_STUB_VA = 0x004E4960
+TARGET_STUB_VA = 0x004E5960
 TARGET_STUB_SIZE = 0x2878
 
 RAM_STUB_ADDRESS = 0x00019000
@@ -102,9 +102,23 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     """
     Apply the exact rev-8203R read-firmware patches for target profile 2.
 
-    Offsets are relative to embedded target stub VA 0x004E4960.
+    Offsets are relative to embedded target stub VA 0x004E5960.
     """
     work = bytearray(stub)
+
+    expected = {
+        0x14E4: 0x0C006AFB,
+        0x165C: 0x0C006AFB,
+        0x1770: 0x0C006616,
+        0x27E0: 0x0C006E06,
+    }
+    for off, value in expected.items():
+        actual = u32le(work[off:off + 4])
+        if actual != value:
+            raise ProtocolError(
+                f"canonical rev-8203R helper mismatch at +0x{off:x}: "
+                f"0x{actual:08x} != 0x{value:08x}"
+            )
 
     def put32(off: int, value: int) -> None:
         if off < 0 or off + 4 > len(work):
