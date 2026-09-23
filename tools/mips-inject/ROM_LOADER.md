@@ -3,11 +3,20 @@
 `tools/sphe_romloader.py` is a headless reconstruction of the UART loader
 path used by STK 0.2.3 rev-8203R.
 
-Current target profile:
-- system configuration: `8202 Non Share Mode` (selector 2);
+Current target split:
+- firmware/image SDRAM descriptor: `8202 Non Share Mode` (selector 2);
+- RomLoader flash-interface profile: `8202L_128_SPI` (selector 7);
 - SDRAM width: 16 bit;
+- helper flash mode word: `2` (SPI path);
 - UART: 8N1;
 - baud: 57600 / 115200 / 230400.
+
+The distinction is material.  Selectors 2 and 7 use the same recovered
+16-bit system/SDRAM register script, but STK maps them to different helper
+mode words: selector 2 -> `0x18FEC=0` and enters the separate memory-mapped
+29/39-series flash probe, while selector 7 -> `0x18FEC=2` and selects the
+SPI path used by the physical P25D80SH board.  Do not derive the RomLoader
+flash-interface profile directly from the firmware SDRAM descriptor.
 
 The tool extracts the required target RAM-loader directly from the preserved
 STK ZIP at runtime. No duplicate loader binary is stored in the repository.
