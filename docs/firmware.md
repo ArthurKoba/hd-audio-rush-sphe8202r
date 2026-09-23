@@ -584,3 +584,81 @@ Firmware work is not complete merely because dumps decompile or a checksum helpe
 We need to prove repeatable extraction/dump, coherent address and call models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
 
 Only after that should the project implement new product behavior.
+
+
+### First compiler-probe image — structural validation
+
+A first behavior-preserving AP1 compiler probe has now been assembled and
+validated through the complete recovered rev-8203R container path.
+
+The replaced action is `ApplySurroundModeIndex @ 0x80702D0C`. The stock
+contract is:
+
+`DispatchAudioHardwareAction(5, index & 0xff, 0)`.
+
+The replacement is compiled from C as MIPS32-LE/o32/soft-float, with no PIC,
+no ABICALLS and `-G0`. The linker resolves
+`DispatchAudioHardwareAction = 0x806FFD1C`, producing a direct MIPS `jal`.
+The compiled body is 36 bytes; the remaining eight bytes of the stock 44-byte
+wrapper window are filled with the original unreachable epilogue words so the
+next action address is unchanged.
+
+Recovered/validated packed sizes:
+- stock AP1 physical packed slot: **`0x5407A`**;
+- zlib 1.3.1 recompression of unmodified AP1 with the recovered vendor
+  parameters: `0x5406A`;
+- compiler-probe AP1 stream: **`0x54078`**;
+- unused bytes remaining in the stock AP1 slot after Z_STREAM_END: **2**.
+
+Because the modified stream fits the original slot, the first probe uses the
+new `--fixed-slot` repack mode:
+- all 27 module offsets stay byte-for-byte unchanged;
+- decoded logical extent remains `0xBC508`;
+- encoded container extent remains `0xBC800`;
+- the two remaining AP1 slot bytes stay stock and are ignored after
+  Z_STREAM_END by the recovered target inflater;
+- opaque encoded bytes `0xBC508..0xBC7FF` remain stock;
+- all physical flash bytes after `0xBC800` remain stock.
+
+A complete in-memory 1 MiB reconstruction of this exact image was reopened
+through the target mode-4 path and produced:
+- outer checksum valid, new `+0x20 = 0x02F0D18D`;
+- inner decoded checksum valid, new `+0x40 = 0xD27D470A`;
+- modified AP1 re-extracted byte-for-byte exactly;
+- two unused bytes remained in the AP1 packed slot, as intended;
+- the other 26 packed payload segments were byte-for-byte unchanged;
+- opaque encoded tail preserved;
+- post-container flash region preserved;
+- candidate full-flash SHA-256:
+  **`e421234c6ae3f2aa37ab2d9bbf7e12270cca6fe24542d4a748d9258540b313f0`**.
+
+This is **static/reopen validation**, not boot or hardware acceptance.
+
+### AP1 extension-gap static audit
+
+The candidate extension interval after stock AP1 and before the WMA load base is
+`0x807228A0..0x8073EFFF`. A conservative future extension had previously been
+tested only through `0x8072302C`.
+
+A focused static reference audit across AP1, CDROM, drv_other and WMA found no
+confirmed executable or data reference into
+`0x8072302C..0x8073EFFF`.
+
+Details:
+- AP1: no direct flow references, data references, aligned raw pointers or
+  adjacent `LUI + ADDIU/ORI` absolute-address constructions into the interval;
+- CDROM: none of the same classes;
+- drv_other: no executable/data references and no adjacent address-construction
+  pair. One aligned dword equal to `0x8072F132` occurs inside an unreferenced
+  high-entropy data region and has neither source nor target references; it is
+  not treated as a pointer;
+- WMA initially appeared to contain three relative branches into
+  `0x8072xxxx`, but all three source addresses lie outside any real function
+  in the ASF GUID/table region between `ParseAsfWmaContainerMetadata` and the
+  next actual MIPS function. They are data words misread as branch
+  instructions, not executable edges. No adjacent absolute-address
+  construction into the interval was found.
+
+This materially strengthens the case for later AP1 extension, but does not
+prove absence of dynamically calculated scratch/heap/overlay use. Therefore
+the first hardware test remains the in-place fixed-slot compiler probe.
