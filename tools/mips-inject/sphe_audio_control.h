@@ -57,12 +57,12 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode);
  */
 bool sphe_control_set_tuner_spdif(bool spdif);
 
-void sphe_control_set_master_volume(uint8_t level);
+bool sphe_control_set_master_volume(uint8_t level);
 void sphe_control_set_master_mute(bool muted);
 
 bool sphe_control_set_surround(enum sphe_surround_mode mode);
 bool sphe_control_set_eq_preset(enum sphe_eq_selection selection);
-void sphe_control_set_user_eq7(const uint8_t coefficients[7]);
+bool sphe_control_set_user_eq7(const uint8_t coefficients[7]);
 
 bool sphe_control_set_speaker_state(
     enum sphe_speaker_channel channel,
@@ -78,10 +78,10 @@ bool sphe_control_set_echo(uint8_t index);
 bool sphe_control_set_mic1(uint8_t index);
 bool sphe_control_set_mic2(uint8_t index);
 
-void sphe_control_set_spdif_output(enum sphe_spdif_output_option option);
+bool sphe_control_set_spdif_output(enum sphe_spdif_output_option option);
 bool sphe_control_set_downsample(enum sphe_downsample_mode mode);
-void sphe_control_set_downmix(enum sphe_downmix_option option);
-void sphe_control_set_gm5(enum sphe_gm5_option option);
+bool sphe_control_set_downmix(enum sphe_downmix_option option);
+bool sphe_control_set_gm5(enum sphe_gm5_option option);
 void sphe_control_apply_dynamic_range(void);
 
 #endif

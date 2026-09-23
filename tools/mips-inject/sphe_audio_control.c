@@ -35,37 +35,6 @@
 #define SPHE_STATE_ECHO_SLOT            0x8000681DU
 #define SPHE_STATE_MIC1_SLOT            0x8000681EU
 
-typedef void (*stock_void_fn)(void);
-
-/*
- * These two stock actions mirror the current live indices into their
- * associated control-state slots before applying them.
- */
-static inline void stock_apply_current_echo(void)
-{
-    ((stock_void_fn)(uintptr_t)0x8077CA14U)();
-}
-
-static inline void stock_apply_current_mic1(void)
-{
-    ((stock_void_fn)(uintptr_t)0x8077CA44U)();
-}
-
-static inline void stock_apply_external_mode(void)
-{
-    ((stock_void_fn)(uintptr_t)0x806FED88U)();
-}
-
-static inline void stock_save_external_mode(void)
-{
-    ((stock_void_fn)(uintptr_t)0x8071DB1CU)();
-}
-
-static inline void stock_prepare_external_transition(void)
-{
-    ((stock_void_fn)(uintptr_t)0x806FABA0U)();
-}
-
 
 bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 {
@@ -77,8 +46,8 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
     }
 
     REG8(SPHE_STATE_EXTERNAL_MODE) = next;
-    stock_apply_external_mode();
-    stock_save_external_mode();
+    sphe_apply_external_input_mode_code();
+    sphe_save_external_input_mode_code();
 
     if (previous == next) {
         return true;
@@ -89,7 +58,7 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
      * side of the change: entering mode 3 or leaving previous mode 3.
      */
     if (next == 3U || previous == 3U) {
-        stock_prepare_external_transition();
+        sphe_prepare_external_input_transition();
     }
 
     if (next == 3U) {
@@ -123,7 +92,7 @@ bool sphe_control_set_tuner_spdif(bool spdif)
         return true;
     }
 
-    stock_prepare_external_transition();
+    sphe_prepare_external_input_transition();
     REG8(SPHE_STATE_EXTERNAL_INPUT) = desired_selector;
     REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
     return true;
@@ -159,8 +128,12 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HW_MODE);
 }
 
-void sphe_control_set_master_volume(uint8_t level)
+bool sphe_control_set_master_volume(uint8_t level)
 {
+    if (level > 15U) {
+        return false;
+    }
+
     REG8(SPHE_STATE_MASTER_VOLUME) = level;
 
     /*
@@ -168,8 +141,9 @@ void sphe_control_set_master_volume(uint8_t level)
      * saved live level here lets the stock unmute route restore the new value.
      */
     if (REG8(SPHE_STATE_MASTER_MUTE) == 0U) {
-        sphe_set_master_volume(level);
+        sphe_apply_master_volume_level(level);
     }
+    return true;
 }
 
 void sphe_control_set_master_mute(bool muted)
@@ -187,7 +161,7 @@ bool sphe_control_set_surround(enum sphe_surround_mode mode)
     }
 
     REG8(SPHE_STATE_SURROUND_SELECTION) = (uint8_t)mode + 2U;
-    sphe_set_surround_index((uint8_t)mode);
+    sphe_apply_surround_index((uint8_t)mode);
     return true;
 }
 
@@ -207,13 +181,13 @@ bool sphe_control_set_eq_preset(enum sphe_eq_selection selection)
     return true;
 }
 
-void sphe_control_set_user_eq7(const uint8_t coefficients[7])
+bool sphe_control_set_user_eq7(const uint8_t coefficients[7])
 {
     volatile uint8_t *dst =
         (volatile uint8_t *)(uintptr_t)SPHE_STATE_USER_EQ7;
 
     if (coefficients == NULL) {
-        return;
+        return false;
     }
 
     for (unsigned i = 0; i < 7U; ++i) {
@@ -222,6 +196,7 @@ void sphe_control_set_user_eq7(const uint8_t coefficients[7])
 
     REG8(SPHE_STATE_EQ_SELECTION) = SPHE_EQ_USER;
     sphe_reapply_eq_and_surround();
+    return true;
 }
 
 bool sphe_control_set_speaker_state(
@@ -275,7 +250,7 @@ bool sphe_control_set_speaker_delay(
         return false;
     }
 
-    sphe_set_speaker_delay((uint8_t)channel, (uint16_t)delay);
+    sphe_apply_speaker_delay((uint8_t)channel, (uint16_t)delay);
     return true;
 }
 
@@ -287,7 +262,7 @@ bool sphe_control_set_echo(uint8_t index)
 
     REG8(SPHE_STATE_ECHO) = index;
     REG8(SPHE_STATE_ECHO_SLOT) = index + 2U;
-    stock_apply_current_echo();
+    sphe_reapply_current_echo();
     return true;
 }
 
@@ -299,7 +274,7 @@ bool sphe_control_set_mic1(uint8_t index)
 
     REG8(SPHE_STATE_MIC1) = index;
     REG8(SPHE_STATE_MIC1_SLOT) = index + 2U;
-    stock_apply_current_mic1();
+    sphe_reapply_current_mic1();
     return true;
 }
 
@@ -314,13 +289,20 @@ bool sphe_control_set_mic2(uint8_t index)
      * route in the loaded code.  Keep this deliberately live-only.
      */
     REG8(SPHE_STATE_MIC2) = index;
-    sphe_set_mic2_selection(index);
+    sphe_apply_mic2_selection(index);
     return true;
 }
 
-void sphe_control_set_spdif_output(enum sphe_spdif_output_option option)
+bool sphe_control_set_spdif_output(enum sphe_spdif_output_option option)
 {
+    if (option != SPHE_SPDIF_OFF &&
+        option != SPHE_SPDIF_RAW &&
+        option != SPHE_SPDIF_PCM) {
+        return false;
+    }
+
     sphe_apply_spdif_output_option(option);
+    return true;
 }
 
 bool sphe_control_set_downsample(enum sphe_downsample_mode mode)
@@ -329,18 +311,33 @@ bool sphe_control_set_downsample(enum sphe_downsample_mode mode)
         return false;
     }
 
-    sphe_set_downsample_mode((uint8_t)mode);
+    sphe_apply_downsample_mode((uint8_t)mode);
     return true;
 }
 
-void sphe_control_set_downmix(enum sphe_downmix_option option)
+bool sphe_control_set_downmix(enum sphe_downmix_option option)
 {
+    if (option != SPHE_DOWNMIX_STEREO &&
+        option != SPHE_DOWNMIX_OFF &&
+        option != SPHE_DOWNMIX_LT_RT &&
+        option != SPHE_DOWNMIX_VSS) {
+        return false;
+    }
+
     sphe_apply_downmix_option(option);
+    return true;
 }
 
-void sphe_control_set_gm5(enum sphe_gm5_option option)
+bool sphe_control_set_gm5(enum sphe_gm5_option option)
 {
+    if (option != SPHE_GM5_OFF &&
+        option != SPHE_GM5_MODE1 &&
+        option != SPHE_GM5_MODE2) {
+        return false;
+    }
+
     sphe_apply_gm5_option(option);
+    return true;
 }
 
 void sphe_control_apply_dynamic_range(void)
