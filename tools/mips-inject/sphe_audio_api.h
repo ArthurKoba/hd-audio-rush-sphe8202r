@@ -292,4 +292,56 @@ sphe_apply_subwoofer_hardware_state(uint8_t state)
     );
 }
 
+
+/*
+ * Recovered ROM/RAM-loader UART TX contract.
+ *
+ * The stock SPHE RAM loader uses the runtime system base 0xBFFE8000 and:
+ *   +0x900 = UART data
+ *   +0x904 bit 0 = TX-ready
+ *
+ * This gives a minimal diagnostic channel for injected/custom AP1 code without
+ * depending on the old DVD/UI printf stack.
+ */
+
+#define SPHE_SYS_BASE          0xBFFE8000U
+#define SPHE_UART_DATA_REG     (*(volatile uint32_t *)(SPHE_SYS_BASE + 0x0900U))
+#define SPHE_UART_STATUS_REG   (*(volatile uint32_t *)(SPHE_SYS_BASE + 0x0904U))
+#define SPHE_UART_TX_READY     0x00000001U
+
+static inline void
+sphe_uart_putc(char ch)
+{
+    while ((SPHE_UART_STATUS_REG & SPHE_UART_TX_READY) == 0U) {
+    }
+    SPHE_UART_DATA_REG = (uint8_t)ch;
+}
+
+static inline void
+sphe_uart_puts(const char *text)
+{
+    while (*text != '\0') {
+        const char ch = *text++;
+        sphe_uart_putc(ch);
+        if (ch == '\n') {
+            sphe_uart_putc('\r');
+        }
+    }
+}
+
+static inline void
+sphe_uart_put_hex_nibble(uint8_t value)
+{
+    value &= 0x0FU;
+    sphe_uart_putc((char)(value < 10U ? ('0' + value) : ('A' + value - 10U)));
+}
+
+static inline void
+sphe_uart_put_hex32(uint32_t value)
+{
+    for (int shift = 28; shift >= 0; shift -= 4) {
+        sphe_uart_put_hex_nibble((uint8_t)(value >> (uint32_t)shift));
+    }
+}
+
 #endif
