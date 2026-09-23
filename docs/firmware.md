@@ -879,3 +879,127 @@ This is an implementation-level UART contract. The exact physical header/pin use
 Flash write is intentionally not exposed yet.
 
 A debugger is a later layer. The monitor already provides useful memory read/write primitives, but register access, breakpoint insertion, single-step behavior and a safe exception/debug transport are still **UNKNOWN**. Do not call the current monitor a debugger or GDB stub.
+
+
+## UART ROM-loader and RAM debug contract — 2026-09-23
+
+The Sunplus side has a recoverable UART ROM-loader path inside the preserved STK rev-8203R tool. This section records the current **implementation proof**; execution/board proof still requires the physical SPHE UART connection.
+
+### Serial transport
+
+`OpenRomLoaderSerialPort` configures ordinary synchronous serial I/O:
+- 8 data bits, no parity, 1 stop bit;
+- baud selector 0 -> 57600;
+- selector 1 -> 115200;
+- selector 2 -> 230400;
+- read timeouts correspond to 100 ms interval, 100 ms/byte multiplier and 500 ms constant;
+- write timeout is 10 ms/byte plus 1000 ms constant;
+- RX/TX queues are purged before the session.
+
+The Boot ROM synchronization begins with one-byte `A/A` echo. STK then programs the UART divisor through ROM-loader memory writes:
+- `0x1FFE8918 <- 0`;
+- `0x1FFE8914 <- 0x74 / 0x3A / 0x1D` for 57600 / 115200 / 230400.
+
+### Basic ROM commands
+
+The direct 32-bit memory-write command is:
+
+`'W' + address_le32 + value_le32`
+
+for 9 transmitted bytes. One-byte response `'W'` acknowledges success.
+
+The direct 32-bit memory-read command is:
+
+`'R' + address_le32`
+
+for 5 transmitted bytes. The response is 5 bytes:
+
+`'R' + value_le32`.
+
+The lower-case streaming command is:
+
+`'w' + dword`
+
+and is acknowledged by one-byte `'w'`. STK uses it after one explicit `W32` at the start address to stream consecutive dwords.
+
+### Target system profile
+
+The target image maps to:
+- STK System Configuration: **8202 Non Share Mode**;
+- system profile index: **2**;
+- SDRAM bus: **16 bits**;
+- SDRAM bus index: **0**.
+
+The corresponding target initialization sequence through `W32` is:
+
+- `0x1FFE8070 <- 0x581F`;
+- `0x1FFE8010 <- 0xFFFF`;
+- `0x1FFE8014 <- 0x0010`;
+- `0x1FFE8018 <- 0x0006`;
+- `0x1FFE8300 <- 0x013D`;
+- `0x1FFE8304 <- 0x19A7`;
+- `0x1FFE8308 <- 0x0033`;
+- `0x1FFE8310 <- 1`;
+- `0x1FFE8330 <- 0x34C3`;
+- `0x1FFE8314 <- 0x0541`;
+- `0x1FFE830C <- 1`;
+- `0x1FFE834C <- 0x1AB7`.
+
+After this sequence STK performs a `C/C` echo before uploading a RAM stub.
+
+### RAM-stub loading and execution
+
+For target profile index 2, rev-8203R uses an embedded 0x2878-byte MIPS stub. The load contract is:
+- control/header words at `0x18FE8..0x18FFC`;
+- first stub word through `W32(0x00019000, first_word)`;
+- remaining words through the acknowledged lower-case `w` stream.
+
+The vendor stub is linked to execute at virtual `0x80019000`. Its entry sets:
+- `s6 = 0xBFFE8000`;
+- `sp = 0x80001000`;
+- `gp = 0x800013E4`.
+
+`StartUploadedRomStub` switches execution to RAM by:
+1. `S/S` echo;
+2. writing MIPS instruction `0x08006400` at address `0x00000000`, i.e. `j 0x80019000`;
+3. clearing words at addresses 4 and 8;
+4. reading `0x1FFE8048`;
+5. writing `0x203F` to `0x1FFE8048`;
+6. writing zero to `0x1FFE8008`.
+
+This gives a non-flash path for executing custom RAM diagnostics.
+
+### Firmware upload/readback staging
+
+The STK write path stages an image in RAM:
+- `0x0001DFFC <- image_size`;
+- first dword at `0x0001E000`;
+- remainder through the acknowledged `w+dword` stream.
+
+The read path uses a separately patched vendor RAM stub. After its console completion marker it sends a 32-bit little-endian image size (STK rejects sizes above `0x200000`), then transfers 16-byte blocks. The host echoes the first byte of the received size field and then the first byte of each 16-byte block as the per-block acknowledgement.
+
+A flash-write command is intentionally not exposed by the project headless tool until recovery/rollback is proven.
+
+### Runtime UART logging
+
+The RAM stub and AP1 use the same UART MMIO contract:
+- `0xBFFE8900` — UART data;
+- `0xBFFE8904 bit 0` — TX ready;
+- `0xBFFE8904 bit 1` — RX byte available.
+
+A blocking TX primitive waits for status bit 0 and writes the byte to `0xBFFE8900`. Vendor string output is NUL-terminated and emits CR after LF. The ROM-loader host treats a transmitted NUL byte as a RAM-stub completion marker.
+
+The stock AP1 also consumes RX bytes from this UART. It contains a binary frame parser beginning with `55 AA`; the frame has a 16-bit big-endian length and a final XOR checksum byte. The current image uses this parser for a narrow existing runtime control, so new diagnostic text should not silently replace its RX protocol.
+
+### Headless tooling
+
+`tools/sphe8202r_romloader.py` is the first headless implementation of the recovered target contract. It currently provides:
+- `profile`;
+- `probe`;
+- `read32`;
+- explicitly gated `write32`;
+- target read-stub extraction from the preserved STK ZIP;
+- `read-firmware`;
+- `run-ram` with ASCII/NUL console monitoring.
+
+`tools/mips-inject/sphe_uart_debug.h` and the RAM smoke-test files provide a first custom-code logging path. The smoke test is intended to be loaded and executed in RAM only; it does not write flash.
