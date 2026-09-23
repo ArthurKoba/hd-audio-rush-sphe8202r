@@ -83,4 +83,4 @@ after `0xBC800` remain byte-for-byte stock.
 
 This still does not establish successful boot or hardware behavior.
 
-RAM-only ROM-loader execution diagnostics are documented in `RAM_DIAG.md`.
+RAM-only ROM-loader execution diagnostics are documented in `RAM_EXEC.md`.
