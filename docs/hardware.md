@@ -109,3 +109,29 @@ Do not currently claim:
 - HCF4052B family: STMicroelectronics dual 4-channel analog multiplexer/demultiplexer.
 - 74HC04D: Nexperia hex inverter — https://www.nexperia.com/product/74HC04D
 - NJM4558/4558 family: dual operational amplifier — https://www.nisshinbo-microdevices.co.jp/en/products/operational-amplifier/spec/?product=njm4558
+
+
+### SPHE8202R UART / ROM-loader reference
+
+The Sunplus demo-board reference schematic exposes a dedicated four-pin `CN12 UART`:
+- pin 1 = `P+5V`;
+- pin 2 = `V_V_SYNC`;
+- pin 3 = `V_H_SYNC`;
+- pin 4 = `GND`.
+
+Its GPIO list identifies:
+- package pin 22: `HSYNC(1) / RX(1)`;
+- package pin 23: `VSYNC(1) / TX(1)`.
+
+Therefore the reference-board UART mapping is:
+- CN12 pin 2 -> SPHE `TX(1)` through the `V_V_SYNC` multiplexed pin, package pin 23;
+- CN12 pin 3 -> SPHE `RX(1)` through the `V_H_SYNC` multiplexed pin, package pin 22;
+- CN12 pin 4 -> ground;
+- CN12 pin 1 is a +5 V supply and must not be connected directly to a 3.3 V USB-UART signal input.
+
+This is **reference-design evidence**, not continuity proof for PCB
+`SPHE8202RD_SPDIF_V02`. The service UART already observed on the product board
+routes to the secondary JieLi controller, so it must not be assumed to be the
+SPHE ROM-loader UART. The next target-board measurement is continuity from
+SPHE package pins 22/23 to any unpopulated header/test pads and verification of
+idle voltage before connection.
