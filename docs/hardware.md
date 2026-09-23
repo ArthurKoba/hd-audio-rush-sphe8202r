@@ -135,3 +135,31 @@ routes to the secondary JieLi controller, so it must not be assumed to be the
 SPHE ROM-loader UART. The next target-board measurement is continuity from
 SPHE package pins 22/23 to any unpopulated header/test pads and verification of
 idle voltage before connection.
+
+
+### SPHE8202R bootstrap / ROM-loader entry
+
+The SPHE8202R-128 reference schematic and independent service practice now agree on the chip-level ROM-loader UART/strap mapping:
+
+- physical package pin 1 = `VFD_CLK`; service practice uses this CLK pin as the bootstrap strap and holds it at GND during reset/power-up to enter boot-trap mode;
+- physical package pin 11 = GPIO22 = `V_H_SYNC / RX(1)`;
+- physical package pin 12 = GPIO23 = `V_V_SYNC / TX(1)`.
+
+The demo-board `CN12 UART` routes UART1 as:
+- connector pin 1 = +5 V supply;
+- connector pin 2 = TX1 / `V_V_SYNC`;
+- connector pin 3 = RX1 / `V_H_SYNC`;
+- connector pin 4 = GND.
+
+Evidence state:
+- **CONFIRMED reference/chip mapping:** package pin identities and demo-board routing from the SPHE8202R reference schematic;
+- **LIKELY bootstrap contract:** independent SPHE8202R-128 service reports use physical pin 1 / CLK-to-GND to enter boot-trap, consistent with the schematic's pin-1 `VFD_CLK` identity;
+- **UNKNOWN target-board access:** the HD Audio Rush PCB has not yet been continuity-mapped from SPHE pins 1/11/12 to accessible pads.
+
+Safe first target-board measurement is therefore continuity only:
+1. locate SPHE package pin 1 and find any accessible pad/test point on that net;
+2. locate pins 11/12 and identify accessible UART1 RX/TX pads;
+3. confirm ground and I/O voltage before connecting an adapter;
+4. use a 3.3 V TTL USB-UART for RX/TX; do not apply RS-232 levels and do not infer 5 V UART signaling from the demo connector's +5 V supply pin.
+
+Do not strap pin 1 or power-cycle the target until continuity/pin orientation is independently confirmed on the actual PCB.
