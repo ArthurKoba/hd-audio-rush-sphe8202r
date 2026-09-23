@@ -344,4 +344,45 @@ sphe_uart_put_hex32(uint32_t value)
     }
 }
 
+
+/*
+ * ROM-loader-compatible UART logging.
+ *
+ * Recovered from the canonical rev-8203R RAM stub:
+ *   s6 = 0xBFFE8000
+ *   TX/data register = s6 + 0x900 = 0xBFFE8900
+ *   commit/service entry = 0x80033F38(1)
+ *
+ * The stock puts route emits CR after LF.  sphe_romloader.py monitor consumes
+ * exactly this text channel.
+ */
+
+typedef void (*sphe_rom_service_u32_fn)(uint32_t);
+
+static inline void
+sphe_uart_putc(char ch)
+{
+    *(volatile uint32_t *)(uintptr_t)0xBFFE8900U =
+        (uint32_t)(uint8_t)ch;
+    ((sphe_rom_service_u32_fn)(uintptr_t)0x80033F38U)(1U);
+}
+
+static inline void
+sphe_uart_puts(const char *text)
+{
+    while (*text != '\0') {
+        char ch = *text++;
+        sphe_uart_putc(ch);
+        if (ch == '\n') {
+            sphe_uart_putc('\r');
+        }
+    }
+}
+
+static inline void
+sphe_uart_log_done(void)
+{
+    sphe_uart_putc('\0');
+}
+
 #endif
