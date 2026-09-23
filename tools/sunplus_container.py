@@ -334,13 +334,10 @@ def unpack_packed_segment(segment: bytes) -> Unpacked:
     if not dec.eof:
         raise ContainerError("raw DEFLATE stream did not terminate")
 
-    # rev-8203R stores raw DEFLATE only.  The one intentional suffix is the
-    # eight zero bytes in STK's 10-byte encoding of an empty module.
+    # The target inflater accepts Z_STREAM_END without requiring avail_in == 0.
+    # Fixed-slot replacement may therefore leave opaque bytes after the new
+    # stream. Preserve/report them instead of rejecting a target-valid slot.
     extra = dec.unused_data
-    if extra and not (data == b"" and extra == b"\\x00" * 8):
-        raise ContainerError(
-            f"unexpected bytes after raw DEFLATE stream: {len(extra)}"
-        )
     return Unpacked(data=data, size=len(data), extra=extra)
 
 
@@ -400,6 +397,46 @@ def build_decoded(
 
     put_u32le(decoded, 0x40, sum16le(decoded, 0x50, len(decoded)))
     return bytes(decoded), tuple(offsets)
+
+
+def build_decoded_fixed_slots(
+    state: ImageState, replacements: dict[int, bytes]
+) -> tuple[bytes, tuple[int, ...]]:
+    """Replace modules without moving any stock payload boundary."""
+    decoded = bytearray(state.decoded[: state.logical_extent])
+
+    for index, data in replacements.items():
+        if index < 0 or index >= STK_VISIBLE_COUNT:
+            raise ContainerError(f"replacement slot {index} is not exposed")
+
+        stock_segment = state.segments[index]
+        if index == SPECIAL_RAW_SLOT:
+            if len(data) != len(stock_segment):
+                raise ContainerError(
+                    "fixed-slot special raw replacement must preserve length"
+                )
+            packed = data
+        else:
+            packed = pack_packed_segment(data)
+
+        if len(packed) > len(stock_segment):
+            raise ContainerError(
+                f"slot {index} ({MODULE_NAMES[index]}) needs "
+                f"0x{len(packed):x} bytes but stock slot is "
+                f"0x{len(stock_segment):x}"
+            )
+
+        start = PAYLOAD_START + state.offsets[index]
+        decoded[start : start + len(packed)] = packed
+        # The rest of the physical slot deliberately remains stock. The
+        # recovered target inflater ignores it after Z_STREAM_END.
+
+    put_u32le(
+        decoded,
+        0x40,
+        sum16le(decoded, 0x50, state.logical_extent),
+    )
+    return bytes(decoded), state.offsets
 
 
 def encode_preserving_stock_suffix(
@@ -671,6 +708,7 @@ def command_repack(
     path: pathlib.Path,
     output: pathlib.Path,
     replacement_args: Sequence[str],
+    fixed_slot: bool,
 ) -> int:
     raw = path.read_bytes()
     state = open_image(raw)
@@ -682,12 +720,16 @@ def command_repack(
     }
     expected.update(replacements)
 
-    decoded, offsets = build_decoded(state, replacements)
+    if fixed_slot:
+        decoded, offsets = build_decoded_fixed_slots(state, replacements)
+    else:
+        decoded, offsets = build_decoded(state, replacements)
     rebuilt, new_extent = encode_preserving_stock_suffix(state, decoded)
     reopened = validate_repacked(rebuilt, expected)
 
     output.write_bytes(rebuilt)
 
+    print(f"repack_mode={'fixed-slot' if fixed_slot else 'relocating'}")
     print(f"stock_encoded_extent=0x{state.encoded_extent:x}")
     print(f"new_encoded_extent=0x{new_extent:x}")
     print(f"new_logical_extent=0x{reopened.logical_extent:x}")
@@ -747,6 +789,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="NAME=FILE",
         help="replace one visible module; may be repeated",
     )
+    repack_p.add_argument(
+        "--fixed-slot",
+        action="store_true",
+        help=(
+            "keep all stock payload offsets and logical extent unchanged; "
+            "replacement streams must fit their existing slots"
+        ),
+    )
 
     args = p.parse_args(argv)
     try:
@@ -767,7 +817,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return command_roundtrip(args.image, args.output)
         if args.command == "repack":
             return command_repack(
-                args.image, args.output, args.replace
+                args.image,
+                args.output,
+                args.replace,
+                args.fixed_slot,
             )
     except (OSError, ContainerError, zlib.error) as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -59,3 +59,26 @@ interface.
 Persistence is also kept explicit: MIC1 uses the recovered stock save route;
 MIC2 is currently live-only; other direct live-state setters should not be
 described as persistent until their save contracts are independently proven.
+
+
+## Full fixed-slot firmware candidate
+
+`build-firmware-probe.sh` chains the compiled wrapper into the recovered
+rev-8203R repacker without moving any payload boundary:
+
+```sh
+./build-firmware-probe.sh
+```
+
+The direct-JAL wrapper compresses to `0x54078` bytes inside the stock AP1
+slot of `0x5407A`, leaving two stock bytes after Z_STREAM_END. The target
+inflater explicitly accepts stream end without requiring all slot input to be
+consumed.
+
+A full 1 MiB in-memory reconstruction of this exact candidate has already
+passed static/reopen validation: both container checksums validate, the
+modified AP1 re-extracts exactly, all other 26 packed segments remain
+unchanged, and both the opaque `0xBC508..0xBC7FF` tail and the physical region
+after `0xBC800` remain byte-for-byte stock.
+
+This still does not establish successful boot or hardware behavior.
