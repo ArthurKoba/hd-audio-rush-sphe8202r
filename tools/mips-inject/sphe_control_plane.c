@@ -66,3 +66,37 @@ sphe_handle_control_command(const struct sphe_control_command *cmd)
         return -3;
     }
 }
+
+
+void
+sphe_read_control_status(struct sphe_control_status *status)
+{
+    if (status == (struct sphe_control_status *)0) {
+        return;
+    }
+
+    status->master_volume =
+        *(volatile uint8_t *)(uintptr_t)0x80003332U;
+    status->master_mute =
+        *(volatile uint8_t *)(uintptr_t)0x800032B5U;
+    status->external_subsource =
+        *(volatile uint8_t *)(uintptr_t)0x800032FAU;
+    status->source_state =
+        *(volatile uint8_t *)(uintptr_t)0x800032A5U;
+
+    status->surround_selection =
+        *(volatile uint8_t *)(uintptr_t)0x80002B0CU;
+    status->eq_selection =
+        *(volatile uint8_t *)(uintptr_t)0x80002B0DU;
+    status->echo_level =
+        *(volatile uint8_t *)(uintptr_t)0x8000333AU;
+    status->mic1_level =
+        *(volatile uint8_t *)(uintptr_t)0x80003297U;
+
+    status->downsample_mask =
+        *(volatile uint16_t *)(uintptr_t)0x80003244U;
+    status->speaker_topology =
+        *(volatile uint16_t *)(uintptr_t)0x80003050U;
+    status->decoder_state =
+        *(volatile uint32_t *)(uintptr_t)0x80003198U;
+}
