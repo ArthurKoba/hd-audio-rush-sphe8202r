@@ -294,27 +294,36 @@ sphe_apply_subwoofer_hardware_state(uint8_t state)
 
 
 /*
- * Recovered ROM/RAM-loader UART TX contract.
+ * Recovered ROM-loader UART TX contract.
  *
- * The stock SPHE RAM loader uses the runtime system base 0xBFFE8000 and:
- *   +0x900 = UART data
- *   +0x904 bit 0 = TX-ready
+ * Instruction-level evidence from the canonical rev-8203R target helper:
+ *   s6 = 0xBFFE8000
+ *   RomLoaderConsolePutc stores the character at s6+0x900
+ *     => MMIO 0xBFFE8900
+ *   the store is followed by a local software delay loop;
+ *   RomLoaderConsolePuts emits CR after LF.
  *
- * This gives a minimal diagnostic channel for injected/custom AP1 code without
- * depending on the old DVD/UI printf stack.
+ * No UART status-register ready bits and no external ROM service call are
+ * required by this recovered TX path. RX/status semantics remain UNKNOWN.
  */
 
-#define SPHE_SYS_BASE          0xBFFE8000U
-#define SPHE_UART_DATA_REG     (*(volatile uint32_t *)(SPHE_SYS_BASE + 0x0900U))
-#define SPHE_UART_STATUS_REG   (*(volatile uint32_t *)(SPHE_SYS_BASE + 0x0904U))
-#define SPHE_UART_TX_READY     0x00000001U
+#define SPHE_UART_DATA_REG \
+    (*(volatile uint32_t *)(uintptr_t)0xBFFE8900U)
+
+static inline void
+sphe_uart_tx_delay(void)
+{
+    volatile uint32_t i;
+    for (i = 0; i < 0xFFFFU; ++i) {
+        __asm__ volatile("" ::: "memory");
+    }
+}
 
 static inline void
 sphe_uart_putc(char ch)
 {
-    while ((SPHE_UART_STATUS_REG & SPHE_UART_TX_READY) == 0U) {
-    }
-    SPHE_UART_DATA_REG = (uint8_t)ch;
+    SPHE_UART_DATA_REG = (uint32_t)(uint8_t)ch;
+    sphe_uart_tx_delay();
 }
 
 static inline void
@@ -333,55 +342,26 @@ static inline void
 sphe_uart_put_hex_nibble(uint8_t value)
 {
     value &= 0x0FU;
-    sphe_uart_putc((char)(value < 10U ? ('0' + value) : ('A' + value - 10U)));
+    sphe_uart_putc(
+        (char)(value < 10U ? ('0' + value) : ('A' + value - 10U))
+    );
 }
 
 static inline void
 sphe_uart_put_hex32(uint32_t value)
 {
-    for (int shift = 28; shift >= 0; shift -= 4) {
-        sphe_uart_put_hex_nibble((uint8_t)(value >> (uint32_t)shift));
-    }
-}
-
-
-/*
- * ROM-loader-compatible UART logging.
- *
- * Recovered from the canonical rev-8203R RAM stub:
- *   s6 = 0xBFFE8000
- *   TX/data register = s6 + 0x900 = 0xBFFE8900
- *   commit/service entry = 0x80033F38(1)
- *
- * The stock puts route emits CR after LF.  sphe_romloader.py monitor consumes
- * exactly this text channel.
- */
-
-typedef void (*sphe_rom_service_u32_fn)(uint32_t);
-
-static inline void
-sphe_uart_putc(char ch)
-{
-    *(volatile uint32_t *)(uintptr_t)0xBFFE8900U =
-        (uint32_t)(uint8_t)ch;
-    ((sphe_rom_service_u32_fn)(uintptr_t)0x80033F38U)(1U);
-}
-
-static inline void
-sphe_uart_puts(const char *text)
-{
-    while (*text != '\0') {
-        char ch = *text++;
-        sphe_uart_putc(ch);
-        if (ch == '\n') {
-            sphe_uart_putc('\r');
-        }
+    int shift;
+    for (shift = 28; shift >= 0; shift -= 4) {
+        sphe_uart_put_hex_nibble(
+            (uint8_t)(value >> (uint32_t)shift)
+        );
     }
 }
 
 static inline void
 sphe_uart_log_done(void)
 {
+    /* NUL terminates the STK-compatible text-status record. */
     sphe_uart_putc('\0');
 }
 
