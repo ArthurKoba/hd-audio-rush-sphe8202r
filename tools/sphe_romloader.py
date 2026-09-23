@@ -4,7 +4,8 @@ Headless UART ROM-loader client for the target SPHE8202R board.
 
 STATUS:
 - protocol recovered from STK 0.2.3 rev-8203R;
-- target image SDRAM descriptor: 8202 Non Share Mode, 16-bit;\n- target RomLoader flash profile: 8202L_128_SPI (SPI helper mode 2);
+- target image SDRAM descriptor: 8202 Non Share Mode, 16-bit;
+- target RomLoader flash profile: 8202L_128_SPI (SPI helper mode 2);
 - default commands are RAM/session operations only;
 - generic modified-image flash writing is deliberately not exposed;
 - stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
