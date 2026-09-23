@@ -1,5 +1,5 @@
 OUTPUT_ARCH(mips)
-ENTRY(romloader_diag_main)
+ENTRY(romloader_diag_entry)
 
 PHDRS
 {
@@ -12,6 +12,7 @@ SECTIONS
 
   .text : ALIGN(4)
   {
+    KEEP(*(.text.entry))
     *(.text .text.*)
   } :load
 
