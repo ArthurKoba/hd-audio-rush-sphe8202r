@@ -997,13 +997,15 @@ The stock AP1 also consumes RX bytes from this UART. It contains a binary frame 
 
 ### Headless tooling
 
-`tools/sphe8202r_romloader.py` is the first headless implementation of the recovered target contract. It currently provides:
-- `profile`;
-- `probe`;
-- `read32`;
-- explicitly gated `write32`;
-- target read-stub extraction from the preserved STK ZIP;
-- `read-firmware`;
-- `run-ram` with ASCII/NUL console monitoring.
+`tools/sphe_romloader.py` is the current headless implementation of the recovered target contract. Its user-facing commands include:
+- `info` for the verified target profile/helper metadata;
+- `probe` for non-destructive Boot-ROM/session initialization;
+- `write32` for the confirmed low-level ROM-monitor write primitive;
+- `upload-ram` for RAM staging without execution;
+- `read-flash` for the recovered read-only flash path using the READ-patched stock helper;
+- `run-ram` for flash-independent custom RAM execution with an interactive UART monitor;
+- `monitor` for attaching to the recovered UART console stream.
 
-`tools/mips-inject/sphe_uart_debug.h` and the RAM smoke-test files provide a first custom-code logging path. The smoke test is intended to be loaded and executed in RAM only; it does not write flash.
+Pre-start `read32` is deliberately not exposed because canonical rev-8203R currently proves `R + address_le32` only in the post-`S` transition sequence.
+
+`tools/mips-inject/sphe_rom_uart.h` provides the recovered UART MMIO contract. `ram_diag_start.S`, `ram_diag.c`, `ram_diag.ld` and `build-ram-diag.sh` provide the first standalone RAM diagnostic image. It is intended to execute from RAM only and does not erase or program SPI flash.
