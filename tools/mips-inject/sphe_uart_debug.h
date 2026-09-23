@@ -9,8 +9,34 @@
  * s6 is initialized to 0xBFFE8000 by the vendor stub, but these helpers use
  * absolute MMIO addresses so they do not depend on the original $s6 state.
  */
-#define SPHE_UART_DATA   (*(volatile uint32_t *)0xBFFE8900u)
-#define SPHE_UART_STATUS (*(volatile uint32_t *)0xBFFE8904u)
+#define SPHE_UART_DATA     (*(volatile uint32_t *)0xBFFE8900u)
+#define SPHE_UART_STATUS   (*(volatile uint32_t *)0xBFFE8904u)
+#define SPHE_UART_DIVISOR  (*(volatile uint32_t *)0xBFFE8914u)
+#define SPHE_UART_CONTROL  (*(volatile uint32_t *)0xBFFE8918u)
+
+enum sphe_debug_baud {
+    SPHE_DEBUG_BAUD_57600  = 0x74,
+    SPHE_DEBUG_BAUD_115200 = 0x3A,
+    SPHE_DEBUG_BAUD_230400 = 0x1D,
+};
+
+static inline void sphe_debug_uart_init(enum sphe_debug_baud divisor)
+{
+    SPHE_UART_CONTROL = 0;
+    SPHE_UART_DIVISOR = (uint32_t)divisor;
+}
+
+static inline int sphe_debug_rx_ready(void)
+{
+    return (SPHE_UART_STATUS & 2u) != 0u;
+}
+
+static inline uint8_t sphe_debug_getc(void)
+{
+    while (!sphe_debug_rx_ready()) {
+    }
+    return (uint8_t)(SPHE_UART_DATA & 0xffu);
+}
 
 static inline void sphe_debug_putc(uint8_t ch)
 {
