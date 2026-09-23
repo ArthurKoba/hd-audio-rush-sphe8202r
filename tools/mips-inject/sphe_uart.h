@@ -18,7 +18,7 @@
  *   bit 1 = RX byte available
  *
  * Two vendor TX behaviors exist:
- *   - console putc: write DATA, then software delay;
+ *   - console putc: write DATA, then call ROM/runtime entry 0x80033F38(1);
  *   - stream putc: wait STATUS.bit0, then write DATA.
  *
  * The helpers below use the ready-polled path because it is the stronger
