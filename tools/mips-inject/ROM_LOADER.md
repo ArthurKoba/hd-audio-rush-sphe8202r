@@ -155,3 +155,22 @@ of the recommended first hardware session.
 For a flash-independent custom-code test, build the RAM log probe described in
 `RAM_EXEC.md` and use `run-ram`; it executes at `0x80019000` and does not
 erase or program SPI flash.
+
+
+## Factory serial-open compatibility details
+
+The factory transport intentionally mirrors several STK behaviors that are
+easy to “improve” accidentally:
+
+- selected port text is limited to 15 characters before Win32 open;
+- serial-open success depends only on a valid synchronous `CreateFileW`
+  handle;
+- configuration helper BOOL returns are ignored after the handle opens;
+- status timeout uses integer seconds and expires only when
+  `elapsed > limit`;
+- every successfully received status byte resets the inactivity origin,
+  including bytes ignored by the printable-status parser;
+- NUL completion and UI cancellation use the same stop flag.
+
+Portable `--transport pyserial` remains an extension and is not the reference
+for one-to-one factory timing/error behavior.
