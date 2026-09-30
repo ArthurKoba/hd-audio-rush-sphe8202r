@@ -50,9 +50,16 @@ requires an explicit full-chip-erase acknowledgement.  Do not use it until
 two independent full reads and repeatable boot-trap entry have been proven on
 the target.
 
-The factory-equivalent transport requires Windows and uses direct synchronous
-Win32 serial I/O. `pyserial` is optional and is used only when
-`--transport pyserial` is selected as a portable non-factory extension.
+`--transport auto` is the default. On Windows it selects the recovered
+synchronous Win32 reference transport. On Linux/POSIX it selects pyserial and
+can use USB serial adapters or native UART devices such as `/dev/ttyUSB0`,
+`/dev/ttyACM0`, or `/dev/ttyS0`. Use `--transport factory` to force the
+Win32 reference path and `--transport pyserial` to force the portable path.
+
+The portable backend preserves the recovered packet/exact-length semantics and
+uses the recovered size-dependent timeout values as closely as pyserial
+permits. Exact Win32 COMMTIMEOUTS behavior remains specific to the factory
+backend.
 
 
 ## Reference UART pins
@@ -172,5 +179,17 @@ easy to “improve” accidentally:
   including bytes ignored by the printable-status parser;
 - NUL completion and UI cancellation use the same stop flag.
 
-Portable `--transport pyserial` remains an extension and is not the reference
-for one-to-one factory timing/error behavior.
+Portable pyserial operation is supported for Linux/POSIX use, while the
+Win32 backend remains the one-to-one timing/error reference for recovered
+COMMTIMEOUTS behavior.
+
+
+### Linux example
+
+The same commands work through the default `auto` transport with a Linux
+serial device, for example a USB UART adapter or SoC UART exposed under
+`/dev/tty*`. `pyserial` must be installed for this backend.
+
+The repository does not run hardware operations in CI. Automated checks are
+intended to stay limited to fast offline syntax/import and `info` integrity
+validation.

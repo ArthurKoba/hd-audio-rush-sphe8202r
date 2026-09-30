@@ -548,3 +548,31 @@ baseline. The live canonical project now additionally confirms:
 
 These refinements are implementation-level evidence. They do not change the
 separate board-proof gate for physical UART, repeated readback or recovery.
+
+
+### Portable host tooling — 2026-09-30
+
+The canonical headless ROM-loader is now platform-selectable:
+
+- `--transport auto` is default;
+- Windows auto-selects the exact recovered synchronous Win32 backend;
+- Linux/POSIX auto-selects pyserial and supports USB serial adapters or native
+  UART device paths;
+- the portable backend preserves protocol/exact-length semantics and follows
+  the recovered size-dependent timeout model as closely as pyserial permits;
+- exact COMMTIMEOUTS/error behavior remains a Windows reference distinction,
+  not a claim about POSIX kernel serial semantics.
+
+The obsolete duplicate `tools/sunplus_romloader.py` was removed to avoid two
+conflicting target/profile implementations.
+
+No broad test suite is being introduced at this stage. The intended automated
+gate is only a fast cross-platform smoke: Python compilation/import plus the
+offline `info` integrity path. Physical UART and recovery remain separate
+board-proof gates.
+
+Current tooling blocker: the active GitHub App can write repository contents
+but GitHub denies writes under `.github/workflows/` because the installation
+does not expose workflow-write permission. The CI workflow itself therefore
+cannot be committed through the current Koba GitHub authority until that
+permission is granted.
