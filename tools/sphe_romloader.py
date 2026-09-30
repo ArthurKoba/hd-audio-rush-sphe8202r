@@ -575,6 +575,7 @@ class RomLoader:
 
     def stream_words(self, data: bytes, start_offset: int = 4) -> None:
         padded = data + b"\x00" * ((-len(data)) & 3)
+        self._transfer_cancelled = False
         for off in range(start_offset, len(padded), 4):
             self.write_exact(b"w" + padded[off:off + 4])
             _, ack = self.read_exact(1)
@@ -582,6 +583,8 @@ class RomLoader:
                 raise ProtocolError(
                     f"stream ACK mismatch at +0x{off:x}: {ack!r}"
                 )
+            if self._transfer_cancelled:
+                raise ProtocolError("ROM-loader transfer cancelled")
 
     def upload_stub(self, stub: bytes) -> None:
         if len(stub) < 4:

@@ -542,7 +542,9 @@ baseline. The live canonical project now additionally confirms:
   bytes, and times out only when elapsed seconds is strictly greater than the
   supplied limit;
 - `SetRomLoaderTransferCancelled` sets the same stop flag used by NUL
-  completion; the readback route clears that flag before its data-block loop.
+  completion; the readback route clears that flag before its data-block loop;
+- both RAM-helper upload and firmware staging streamed upload loops also stop
+  on the shared cancel flag after each acknowledged 4-byte transfer step.
 
 These refinements are implementation-level evidence. They do not change the
 separate board-proof gate for physical UART, repeated readback or recovery.
