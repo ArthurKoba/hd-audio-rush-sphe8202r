@@ -149,3 +149,30 @@ docs/
 ```
 
 The GitHub issues are the task backlog; avoid creating extra planning documents for the same work.
+
+
+## ROM-loader host support
+
+The canonical headless client is `tools/sphe_romloader.py`. The older
+`tools/sunplus_romloader.py` duplicate was removed because it encoded an
+obsolete target/profile model.
+
+Host transport is platform-selectable:
+
+- `--transport auto` is the default;
+- on Windows, `auto` selects the recovered synchronous Win32 transport;
+- on Linux and other POSIX hosts, `auto` selects the pyserial transport and
+  accepts normal serial device paths such as `/dev/ttyUSB0`,
+  `/dev/ttyACM0`, `/dev/ttyS0`, or platform UART devices;
+- `--transport factory` forces the Windows reference transport;
+- `--transport pyserial` forces the portable transport on any supported host.
+
+The portable backend keeps the recovered protocol and exact-length wrapper
+semantics and applies the recovered size-dependent read/write timeout model as
+closely as pyserial permits. Windows COMMTIMEOUTS behavior remains the exact
+host-side timing reference.
+
+No broad unit-test suite is enabled at this stage. The intended CI smoke is
+deliberately small: Python syntax/import plus `sphe_romloader.py info`, which
+verifies the canonical STK identity, helper extraction and patch guards on
+Windows and Linux. Hardware tests remain manual acceptance work.
