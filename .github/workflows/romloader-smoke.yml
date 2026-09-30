@@ -1,0 +1,42 @@
+name: ROM-loader smoke
+
+on:
+  pull_request:
+    paths:
+      - "tools/sphe_romloader.py"
+      - "tools/sunplus_container.py"
+      - "tools/STK_0.2.3.zip"
+      - ".github/workflows/romloader-smoke.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/sphe_romloader.py"
+      - "tools/sunplus_container.py"
+      - "tools/STK_0.2.3.zip"
+      - ".github/workflows/romloader-smoke.yml"
+
+jobs:
+  smoke:
+    name: Python smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python tools
+        run: python -m py_compile tools/sphe_romloader.py tools/sunplus_container.py
+
+      - name: Validate canonical STK extraction and helper patches
+        run: python tools/sphe_romloader.py info
