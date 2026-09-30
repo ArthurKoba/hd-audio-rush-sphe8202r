@@ -525,3 +525,24 @@ Validation state:
 - Python source: implementation updated, hardware execution not yet proven;
 - physical UART entry, repeated readback and rollback remain board gates;
 - generic modified-image flashing remains gated.
+
+
+### Parallel-analysis reconciliation — 2026-09-30
+
+A second analysis pass refined, rather than invalidated, the factory ROM-loader
+baseline. The live canonical project now additionally confirms:
+
+- factory serial open truncates the selected port text to 15 characters before
+  widening it into a 16-WCHAR local buffer;
+- only the `CreateFileW` handle result determines open success;
+- `GetCommState`, `SetCommState`, `GetCommTimeouts`,
+  `SetCommTimeouts` and `PurgeComm` BOOL results are ignored;
+- `WaitForRomLoaderTextStatus` uses whole-second `time(NULL)` timestamps,
+  resets the inactivity origin after every successful byte including ignored
+  bytes, and times out only when elapsed seconds is strictly greater than the
+  supplied limit;
+- `SetRomLoaderTransferCancelled` sets the same stop flag used by NUL
+  completion; the readback route clears that flag before its data-block loop.
+
+These refinements are implementation-level evidence. They do not change the
+separate board-proof gate for physical UART, repeated readback or recovery.

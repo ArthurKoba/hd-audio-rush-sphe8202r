@@ -768,8 +768,18 @@ The STK Win32 transport uses:
 The recovered exact-length wrappers ignore the Win32 BOOL return and decide
 success only from `actual_count == requested_count`. Before each READ the
 first byte of the shared destination buffer is cleared; the remaining bytes
-are left intact. This matters for faithful failure/ACK behavior and is now
-mirrored by the factory transport path in `tools/sphe_romloader.py`.
+are left intact.
+
+Factory serial-open success depends only on `CreateFileW` returning a valid
+handle. The port string is limited to 15 characters before widening into the
+16-WCHAR local buffer. Return values from `GetCommState`, `SetCommState`,
+`GetCommTimeouts`, `SetCommTimeouts` and `PurgeComm` are ignored by STK.
+
+The status wait uses integer-second `time(NULL)` timestamps. Every successful
+one-byte read resets the inactivity origin even when the byte is ignored;
+timeout occurs only when `elapsed > limit`. NUL and UI cancellation share
+the same stop flag. These details are mirrored by the factory transport path
+in `tools/sphe_romloader.py`.
 
 ### ROM monitor packet contract
 

@@ -118,8 +118,11 @@ class FactoryWin32Serial:
         self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self._configure_api()
 
+        # STK copies at most 15 characters into a 16-WCHAR local buffer.
+        # Preserve that exact factory port-name limit.
+        factory_port = port[:15]
         handle = self._k32.CreateFileW(
-            port,
+            factory_port,
             self.GENERIC_READ | self.GENERIC_WRITE,
             0,
             None,
@@ -129,14 +132,10 @@ class FactoryWin32Serial:
         )
         if handle == ctypes.c_void_p(-1).value:
             err = ctypes.get_last_error()
-            raise OSError(err, f"CreateFileW failed for {port!r}")
+            raise OSError(err, f"CreateFileW failed for {factory_port!r}")
 
         self._handle = ctypes.c_void_p(handle)
-        try:
-            self._configure_port(baud)
-        except Exception:
-            self.close()
-            raise
+        self._configure_port(baud)
 
     def _configure_api(self) -> None:
         k32 = self._k32
@@ -192,43 +191,39 @@ class FactoryWin32Serial:
         k32.CloseHandle.restype = ctypes.c_int
 
     def _configure_port(self, baud: int) -> None:
+        """
+        Mirror STK's serial setup side effects.
+
+        The factory code ignores the BOOL return values of Get/SetCommState,
+        Get/SetCommTimeouts and PurgeComm. Only CreateFileW success controls
+        whether the serial-open action succeeds.
+        """
         dcb = _Win32Dcb()
         dcb.DCBlength = ctypes.sizeof(_Win32Dcb)
-        if not self._k32.GetCommState(self._handle, ctypes.byref(dcb)):
-            err = ctypes.get_last_error()
-            raise OSError(err, "GetCommState failed")
+        self._k32.GetCommState(self._handle, ctypes.byref(dcb))
 
         dcb.ByteSize = 8
         dcb.StopBits = 0
         dcb.Parity = 0
         dcb.BaudRate = baud
-        if not self._k32.SetCommState(self._handle, ctypes.byref(dcb)):
-            err = ctypes.get_last_error()
-            raise OSError(err, "SetCommState failed")
+        self._k32.SetCommState(self._handle, ctypes.byref(dcb))
 
         timeouts = _Win32CommTimeouts()
-        if not self._k32.GetCommTimeouts(
+        self._k32.GetCommTimeouts(
             self._handle,
             ctypes.byref(timeouts),
-        ):
-            err = ctypes.get_last_error()
-            raise OSError(err, "GetCommTimeouts failed")
+        )
 
         timeouts.ReadIntervalTimeout = 100
         timeouts.ReadTotalTimeoutMultiplier = 100
         timeouts.ReadTotalTimeoutConstant = 500
         timeouts.WriteTotalTimeoutMultiplier = 10
         timeouts.WriteTotalTimeoutConstant = 1000
-        if not self._k32.SetCommTimeouts(
+        self._k32.SetCommTimeouts(
             self._handle,
             ctypes.byref(timeouts),
-        ):
-            err = ctypes.get_last_error()
-            raise OSError(err, "SetCommTimeouts failed")
-
-        if not self._k32.PurgeComm(self._handle, self.PURGE_ALL):
-            err = ctypes.get_last_error()
-            raise OSError(err, "PurgeComm failed")
+        )
+        self._k32.PurgeComm(self._handle, self.PURGE_ALL)
 
     def write(self, data: bytes) -> int:
         buf = ctypes.create_string_buffer(data, len(data))
@@ -456,6 +451,7 @@ class RomLoader:
         # first byte before ReadFile and reports success through the actual
         # byte count; callers then inspect the shared buffer.
         self._io_buffer = bytearray(16)
+        self._transfer_cancelled = False
 
     def __enter__(self) -> "RomLoader":
         if self.transport == "factory":
@@ -629,33 +625,50 @@ class RomLoader:
         self.write32(0x1FFE8048, 0x0000203F)
         self.write32(0x1FFE8008, 0)
 
-    def monitor_until_nul(self, timeout_seconds: float = 5.0) -> str:
+    def cancel_transfer(self) -> None:
+        """Mirror the factory UI cancellation action."""
+        self._transfer_cancelled = True
+
+    def monitor_until_nul(self, timeout_seconds: int = 5) -> str:
         """
-        Collect the STK-compatible textual console until a zero terminator.
+        Mirror the factory status wait.
+
+        STK uses time(NULL) / difftime at whole-second resolution. The
+        inactivity timestamp is replaced after every successful one-byte read,
+        including ignored bytes. Timeout is strictly elapsed > limit, not >=.
+        NUL and UI cancellation share the same stop flag.
         """
-        ser = self._serial()
-        deadline = time.monotonic() + timeout_seconds
+        self._transfer_cancelled = False
+        last_activity = int(time.time())
         chars: list[str] = []
-        while time.monotonic() < deadline:
-            b = ser.read(1)
-            if not b:
-                continue
-            deadline = time.monotonic() + timeout_seconds
-            if b == b"\x00":
+
+        while True:
+            ok, reply = self.read_exact(1)
+            if ok:
+                last_activity = int(time.time())
+                value = reply[0]
+
+                if value == 0:
+                    self._transfer_cancelled = True
+                elif value == 0x0D:
+                    chars.append("\n")
+                elif 0x20 <= value <= 0x7A:
+                    chars.append(chr(value))
+                # LF/TAB and all other bytes are ignored, but a successful
+                # read still resets the inactivity timestamp.
+
+            if self._transfer_cancelled:
                 text = "".join(chars)
                 if text:
                     sys.stdout.write(text)
                     sys.stdout.flush()
                 return text
-            if b == b"\r":
-                chars.append("\n")
-            elif 0x20 <= b[0] <= 0x7A:
-                chars.append(b.decode("ascii", "replace"))
-            else:
-                # Factory status parser ignores LF, TAB and all other bytes
-                # outside the inclusive 0x20..0x7A text range.
-                continue
-        raise ProtocolError("timeout waiting for RAM-loader console terminator")
+
+            elapsed = int(time.time()) - last_activity
+            if elapsed > timeout_seconds:
+                raise ProtocolError(
+                    "timeout waiting for RAM-loader console terminator"
+                )
 
     def receive_firmware_image(self) -> bytes:
         """
@@ -678,12 +691,17 @@ class RomLoader:
 
         self.write_exact(size_bytes[:1])
 
+        # Factory receive route clears the shared stop/cancel flag before the
+        # block-transfer loop after the initial status phase.
+        self._transfer_cancelled = False
         output = bytearray()
         while len(output) < size:
             block_ok, block = self.read_exact(16)
             if not block_ok:
                 raise ProtocolError("short read while receiving firmware data")
             output += block
+            if self._transfer_cancelled:
+                raise ProtocolError("firmware readback cancelled")
             self.write_exact(block[:1])
 
         return bytes(output[:size])
