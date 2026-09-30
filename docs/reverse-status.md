@@ -460,7 +460,8 @@ Therefore generic modified-image flash write must remain unavailable until recov
 - ROM-monitor write primitive;
 - RAM-helper upload;
 - RAM execution;
-- full flash read;
+- factory logical firmware read;
+- separate project-specific full physical flash read;
 - stock-only recovery guarded by exact size/SHA and explicit erase acknowledgement;
 - UART monitor support.
 
@@ -478,7 +479,7 @@ Important validation distinction:
 2. Finish naming/documenting the remaining SPI-helper actions around readiness polling, program-profile selection, completion signaling and READ-mode path.
 3. Cross-check the Python helper selection/profile constants against those recovered helper routes; keep image-SDRAM and flash-interface selectors separate.
 4. Run only offline/source validation until hardware UART is connected: syntax/import checks, helper extraction hash checks, READ-patch checks and command construction tests.
-5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-flash` captures and compare both against the canonical 1 MiB dump.
+5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-full-flash` captures and compare both against the canonical 1 MiB dump. Factory `read-flash` remains the logical STK-equivalent route.
 6. Only after that consider `restore-stock`; generic modified-image flash stays gated.
 7. After ROM-loader/readback/recovery is board-proven, return to custom RAM logging and then debugger feasibility.
 
