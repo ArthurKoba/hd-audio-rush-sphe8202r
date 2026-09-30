@@ -1,5 +1,23 @@
 # Firmware
 
+## Active audio/DSP boundary — 2026-09-30
+
+Current work is intentionally constrained to the audio/runtime chain.
+
+Confirmed implementation-level route already includes external input state, S/PDIF/AUX selection, decoder state, master volume/mute, speaker topology and delays, GM5/downmix behavior, the internal audio-service command area, and the beginning of the embedded DSP loader/runtime contract.
+
+The current lower boundary is the 24-bit DSP image `srvdsp.bin`. Its executable words match the ADSP-21xx/218x instruction model. The Sunplus side selects its module descriptor from the runtime module table, derives DSP section boundaries, initializes DSP service slots, writes 24-bit DSP values through banked DSP-visible memory, and passes packed module data through a bitstream transfer engine before activation.
+
+Next implementation-proof targets:
+- identify exact DSP program/data/effect section ownership;
+- connect known audio-service control families to specific DSP parameters and entry behavior;
+- derive the usable DSP resource model needed for custom 5.1 processing;
+- then move to UART diagnostics and the secondary-controller/Bluetooth control contract.
+
+USB removable-media behavior is not an active target except where needed to determine whether the controller supports a future computer-facing device/dual-role mode.
+
+
+
 ## Raw SPI dump
 
 `firmware/P25D80SH@SOP8.BIN` is a **raw byte-for-byte dump** of the Puya P25D80SH SPI NOR from the target board.
@@ -40,19 +58,19 @@ CPU/code classification:
 
 Zero-length module slots are retained because STK produced an 18-slot set. Exact sizes and SHA-256 values are kept in the root `README.md`.
 
-## Ghidra and address model
+## analysis workspace and address model
 
 Canonical project: `sphe8202r_decoder_p25d80`. CPU programs live under `/modules_mipsle/`; the existing STK tool analysis lives at `/tools/stk.exe`. Earlier flat executable imports of the 1 MiB container have been removed.
 
-Correct workflow: preserve the container, use extracted CPU modules as `MIPS:LE:32:default`, establish placement and shared GP, and validate instruction flow before relying on decompilation.
+Correct workflow: preserve the container, use extracted CPU modules as `MIPS:LE:32:default`, establish placement and shared GP, and validate instruction flow before relying on high-level behavior inspection.
 
 ### Current map and reopened gate
 
-`reverse/modules.csv` now distinguishes the AP1 static candidate from completed analysis:
+`analysis/modules.csv` now distinguishes the AP1 static candidate from completed analysis:
 
 | Module | Working base | Validation state |
 |---|---|---|
-| ap1 | `0x8067B800` | Corrected base applied in canonical Ghidra; function-boundary and stale-reference cleanup still pending |
+| ap1 | `0x8067B800` | Corrected base applied in canonical analysis workspace; action node-boundary and stale-reference cleanup still pending |
 | wma | `0x8073F000` | Established base; stale direct-flow refs remain |
 | cdrom | `0x8074C800` | Established base; stale direct-flow refs remain |
 | drv_other | `0x80775800` | Established base; stale direct-flow refs remain |
@@ -61,24 +79,24 @@ The former claim that AP1 `0x8067B000` was confirmed is withdrawn. The old provi
 
 ### AP1 +0x800 contradiction: reproducible target evidence
 
-The 684,192 original AP1 bytes in Ghidra were hashed again and match the canonical module checksum in README. The following observations concern the unchanged bytes, not a patched firmware:
+The 684,192 original AP1 bytes in analysis workspace were hashed again and match the canonical module checksum in README. The following observations concern the unchanged bytes, not a modified in a controlled way firmware:
 
 | Evidence | File offset / instruction | Observation |
 |---|---|---|
-| Initial delay call | `ap1+0x78`, word `0x0C19EE00` | Encodes `jal 0x8067B800`, after loading `a0=10`; file offset zero is an `a0` countdown/delay leaf. Candidate base resolves the call to that leaf. |
+| Initial delay transition | `ap1+0x78`, word `0x0C19EE00` | Encodes `jal 0x8067B800`, after loading `a0=10`; file offset zero is an `a0` countdown/delay leaf. Candidate base resolves the transition to that leaf. |
 | Cross-module entry | `cdrom+0x38`, word `0x0C1C0691` | Encodes `jal 0x80701A44`. With candidate AP1 base, this maps to `ap1+0x86244`, a routine starting with `lhu a1,0x744(gp)`, stack allocation and saved registers. At the old base the same target lands inside unrelated-looking partial state/epilogue code. |
 | Absolute/relative join | `ap1+0x8632C` and `ap1+0x86350` | The absolute jump targets `0x80701AFC`; a nearby relative branch targets file offset `0x862FC`. Base `0x8067B800` makes both enter the same MMIO-update/return block. |
 | String pointer | pointer at `ap1+0x615D0`, string at `ap1+0x5EDC8` | The stored pointer agrees with `0x8067B800 + 0x5EDC8` for `SPDIF/OFF`, not the old base. RAW/PCM pointer tables provide additional supporting matches. |
 
-The cross-module entry offset is **`0x86244`**, correcting `0x85A44` in an earlier issue comment. Individual literal-pointer matches alone are not proof. Independent code evidence supports the candidate, but a corrected Ghidra model, remaining layout/loader checks and recovered function boundaries are still required.
+The cross-module entry offset is **`0x86244`**, correcting `0x85A44` in an earlier issue comment. Individual literal-pointer matches alone are not proof. Independent code evidence supports the candidate, but a corrected analysis workspace model, remaining layout/loader checks and recovered action boundaries are still required.
 
 Further raw-pointer checks:
 - corrected translation table base is `0x806DCD88` (file `+0x61588`) with language stride `0x404 = 257*4`; raw item `113` is `AUDIO OUT`, item `117` is `SPDIF/RAW`, item `119` is `SPDIF/PCM`;
 - file `+0x615D0` stores `0x806DA5C8`; with base `0x8067B800` this points exactly to `SPDIF/OFF` at file `+0x5EDC8`, while `0x8067B000` points into unrelated bytes;
 - `SPDIF/RAW`/`SPDIF/PCM` candidate addresses `0x806DA8AC/0x806DA8B8` are referenced repeatedly from localized pointer blocks at file offsets `+0x6175C/+0x61764`, `+0x61F64/+0x61F6C`, `+0x62368/+0x62370`, `+0x6276C/+0x62774`, and `+0x62B70/+0x62B78`;
-- the old Ghidra interpretation using file `+0x61180` (`0x806DA0AC/0x806DA0B8`) and outer file `+0x62964` is invalid under the candidate placement: those targets resolve into unrelated language-text data. Any prior RAW/PCM menu-setter conclusions based on that old address chain are withdrawn pending corrected placement/relocation analysis.
+- the old analysis workspace interpretation using file `+0x61180` (`0x806DA0AC/0x806DA0B8`) and outer file `+0x62964` is invalid under the candidate placement: those targets resolve into unrelated language-text data. Any prior RAW/PCM menu-setter conclusions based on that old address chain are withdrawn pending corrected placement/relocation analysis.
 
-AP1 is now rebased to `0x8067B800` in the canonical Ghidra project. This corrects placement but does not automatically repair pre-existing function boundaries or stale references; current symbols/callers still require evidence-level validation.
+AP1 is now rebased to `0x8067B800` in the canonical analysis project. This corrects placement but does not automatically repair pre-existing action boundaries or stale references; current symbols/inbound actions still require evidence-level validation.
 
 ### Stale direct-flow reference audit
 
@@ -95,15 +113,15 @@ Snapshot from 2026-09-21:
 | cdrom | 6,944 | 660 | 17 | `+0x0074C800` |
 | drv_other | 12,184 | 962 | 24 | `+0x00775800` |
 
-No missing flow references were found in that 2026-09-21 audit scope. All 43 wrong references in `wma/cdrom/drv_other` had source `DEFAULT`; their deltas match the low parts of their module bases, consistent with stale references after rebasing. The AP1 `0` row is now historical only: targeted raw checks on 2026-09-22 found at least four AP1 stored flow refs shifted by exactly `+0x800`, including `0x8071EC9C` raw `j 0x8071EC4C` vs stored `0x8071F44C`, `0x8071F548` raw `jal 0x806ED604` vs stored `0x806EDE04`, `0x8071F550` raw `j 0x8071F50C` vs stored `0x8071FD0C`, and `0x8067D514` raw `jal 0x806ED604` vs stored `0x806EDE04`. Therefore critical AP1 caller/decompiler edges must also be checked against raw instructions. No broad AP1 repair is claimed.
+No missing flow references were found in that 2026-09-21 audit scope. All 43 wrong references in `wma/cdrom/drv_other` had source `DEFAULT`; their deltas match the low parts of their module bases, consistent with stale references after rebasing. The AP1 `0` row is now historical only: targeted raw checks on 2026-09-22 found at least four AP1 stored flow refs shifted by exactly `+0x800`, including `0x8071EC9C` raw `j 0x8071EC4C` vs stored `0x8071F44C`, `0x8071F548` raw `jal 0x806ED604` vs stored `0x806EDE04`, `0x8071F550` raw `j 0x8071F50C` vs stored `0x8071FD0C`, and `0x8067D514` raw `jal 0x806ED604` vs stored `0x806EDE04`. Therefore critical AP1 inbound action/high-level behavior engine edges must also be checked against raw instructions. No broad AP1 repair is claimed.
 
 Examples:
 - CDROM `0x8074C838`: encoded target `0x80701A44`, stored target `0x80E4E244`.
 - CDROM `0x8074C850`: encoded target `0x807017A8`, stored target `0x80E4DFA8`.
-- CDROM `0x8074CB7C`: encoded target `0x8074C868`, stored target `0x80E99068`. This hides the initializer's call to `DetectCdromStreamType` from normal caller queries.
+- CDROM `0x8074CB7C`: encoded target `0x8074C868`, stored target `0x80E99068`. This hides the initializer's transition to `DetectCdromStreamType` from normal inbound action queries.
 - WMA `0x8073F090` and `0x8073F0A4`: encoded `memset` target `0x80783F64`, stored `0x80EC2F64`.
 
-`tools/ghidra/RepairMipsDirectFlow.java` preserves a guarded repair implementation at commit `3688a523`. It defaults to audit, checks exact module hashes/bases and expected mismatch counts, and proposes only reference/comment changes inside a transaction. It does not patch bytes, rebase or run broad analysis. Its application was blocked by the tool safety layer: **no compile/application validation or repaired-reference count is claimed**. Do not bypass the block or treat source presence as completion. A later authorized execution must repeat the audit because shared project state can change.
+`the bundled direct-link repair helper` preserves a guarded repair implementation at commit `3688a523`. It defaults to audit, checks exact module hashes/bases and expected mismatch counts, and proposes only reference/comment changes inside a transaction. It does not controlled modification bytes, rebase or run broad analysis. Its application was blocked by the tool safety layer: **no compile/application validation or repaired-reference count is claimed**. Do not alternate route the block or treat source presence as completion. A later authorized execution must repeat the audit because shared project state can change.
 
 ### Shared GP and helper contracts
 
@@ -111,7 +129,7 @@ The shared GP remains `$gp = 0x80002B00`, independently supported by WMA absolut
 - `0x800035D8 = gp + 0xAD8`;
 - `0x80003684 = gp + 0xB84`.
 
-AP1 instruction pair `0x806D96F8: lui gp,0x8801` / `0x806D96FC: lw gp,0x2200(gp)` proves the runtime GP restore word is at absolute `0x88012200`. The canonical Ghidra project currently also contains a stale auxiliary block `runtime_gp_slot` at `0x88012A00`, shifted by the AP1 rebase; an attempt to create a corrected replacement block was blocked by the tool safety layer. Treat `0x88012200` as the instruction-backed address and the shifted block as known-bad metadata.
+AP1 instruction pair `0x806D96F8: lui gp,0x8801` / `0x806D96FC: lw gp,0x2200(gp)` proves the runtime GP restore word is at absolute `0x88012200`. The canonical analysis project currently also contains a stale auxiliary block `runtime_gp_slot` at `0x88012A00`, shifted by the AP1 rebase; an attempt to create a corrected replacement block was blocked by the tool safety layer. Treat `0x88012200` as the instruction-backed address and the shifted block as known-bad metadata.
 
 Cross-module helpers identified in `drv_other.bin`:
 - `0x80783F08` — byte-wise `memcmp`;
@@ -139,18 +157,18 @@ The corrected translation table identifies descriptor options:
 - `0x75` -> `SPDIF/RAW`;
 - `0x77` -> `SPDIF/PCM`.
 
-`DispatchControlOption` at `0x80776210` masks the first argument as control ID and second as option ID. Its jump-table entry for control `0x71` calls `ApplySpdifOutputOption` at `0x807759E0` with that option ID. Instruction/decompiler behavior in `ApplySpdifOutputOption` is explicit: RAW `0x75` selects internal mode 2, PCM `0x77` selects internal mode 1, and OFF `0x12` follows the clear/reconfigure path. `IsSpdifPcmSelected` at `0x8077C21C` returns whether the currently selected descriptor option is `0x77`.
+`DispatchControlOption` at `0x80776210` masks the first argument as control ID and second as option ID. Its jump-table entry for control `0x71` invokes `ApplySpdifOutputOption` at `0x807759E0` with that option ID. Instruction/high-level behavior engine behavior in `ApplySpdifOutputOption` is explicit: RAW `0x75` selects internal mode 2, PCM `0x77` selects internal mode 1, and OFF `0x12` follows the clear/reconfigure path. `IsSpdifPcmSelected` at `0x8077C21C` returns whether the currently selected descriptor option is `0x77`.
 
 The descriptor's state-slot field is `0x0B`, mapping its current option index to `DAT_80006810[0x0B] = 0x8000681B`. `LoadControlSelectionsFromStateSlots` (`0x80777C0C`) copies indexed state slots into the generic selection table at `0x800066B0 + group*9 + slot`; `SaveControlSelectionsToStateSlots` (`0x80777C94`) performs the inverse copy. This closes the static state/persistence path for OFF/RAW/PCM selection. It does **not** by itself prove physical PCB routing or hardware-observed output behavior.
 
-The interactive commit path is also recovered. `HandleControlMenuInputEvent` routes menu-state 2 to `HandleControlMenuBrowseInput` and state 3 to `HandleControlMenuEditInput`. Browse-state code at `0x8077AD20..0x8077AD44` reads the current selection position from `0x800066B0 + group*9 + slot`, places it in `DAT_80002B2B`, and switches the UI into edit state 3. The edit commit at `0x8077B244..0x8077B270` reads descriptor byte `+0x0B` as the state-slot index, writes the edited position to both `DAT_80006810[stateIndex]` and the runtime selection table, then calls `ApplyCurrentControlSelection` (`0x80777578`) followed by `SaveCurrentControlSelection` (`0x807774EC`).
+The interactive commit path is also recovered. `HandleControlMenuInputEvent` routes menu-state 2 to `HandleControlMenuBrowseInput` and state 3 to `HandleControlMenuEditInput`. Browse-state code at `0x8077AD20..0x8077AD44` reads the current selection position from `0x800066B0 + group*9 + slot`, places it in `DAT_80002B2B`, and switches the UI into edit state 3. The edit commit at `0x8077B244..0x8077B270` reads descriptor byte `+0x0B` as the state-slot index, writes the edited position to both `DAT_80006810[stateIndex]` and the runtime selection table, then invokes `ApplyCurrentControlSelection` (`0x80777578`) followed by `SaveCurrentControlSelection` (`0x807774EC`).
 
-For descriptor type 3, `ApplyCurrentControlSelection` loads the control ID and selected option ID from the descriptor and calls `DispatchControlOption(controlId, optionId, 1)`. Therefore AUDIO OUT commits dispatch `0x71` with `0x12`, `0x75`, or `0x77` directly into `ApplySpdifOutputOption` with side effects enabled. `SaveCurrentControlSelection` persists the state byte through the generic NVRAM/config writer, while `SaveAllControlSelections` (`0x8077C0D0`) persists the full `0x41`-byte selection blob and its checksum path. This completes the static OFF/RAW/PCM getter/setter/persistence contract; hardware-observed S/PDIF behavior is still a separate acceptance level.
+For descriptor type 3, `ApplyCurrentControlSelection` loads the control ID and selected option ID from the descriptor and invokes `DispatchControlOption(controlId, optionId, 1)`. Therefore AUDIO OUT commits dispatch `0x71` with `0x12`, `0x75`, or `0x77` directly into `ApplySpdifOutputOption` with side effects enabled. `SaveCurrentControlSelection` persists the state byte through the generic NVRAM/config writer, while `SaveAllControlSelections` (`0x8077C0D0`) persists the full `0x41`-byte selection blob and its checksum path. This completes the static OFF/RAW/PCM getter/setter/persistence contract; hardware-observed S/PDIF behavior is still a separate acceptance level.
 
 
 AP1 contains `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`, `SPDIF IN`, audio setup/output, AC3, DTS, PCM and USB/SD strings. Prefer stable file offsets until the address model is repaired:
 
-| Anchor | AP1 file offset | Old Ghidra listing address, NOT validated runtime address |
+| Anchor | AP1 file offset | Old analysis workspace listing address, NOT validated runtime address |
 |---|---|---|
 | SPDIF/OFF | `0x5EDC8` | `0x806D9DC8` |
 | SPDIF/RAW | `0x5F0AC` | `0x806DA0AC` |
@@ -207,17 +225,17 @@ This closes the implementation-level source-to-decoder bridge needed by a minima
 
 Target-instruction checks now show that `gp+0x7A5 = 0x800032A5` is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.
 
-The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. Ghidra currently splits the logical action around `0x806FED18`; raw fallthrough is authoritative.
+The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. analysis workspace currently splits the logical action around `0x806FED18`; raw fallthrough is authoritative.
 
 Master volume and mute are a separate runtime-control route rather than ordinary setup-menu descriptors. `master_volume_level = gp+0x832 = 0x80003332`; `master_mute_flag = gp+0x7B5 = 0x800032B5`. `SetMasterVolumeLevel @ 0x8070129C` forwards action ID 2 into the common audio-action dispatcher, which reaches `ApplyMasterVolumeHardwareState @ 0x806FFBBC`. Mute is a separate flag, not merely volume zero: `ToggleMasterMute` sets/clears the flag, while unmute and several resume/reinit routes reapply `mute ? 0 : master_volume_level`. The hardware apply path indexes runtime table `0x88012CA0[level]`; exact level-to-coefficient bytes remain open because that runtime table is not mapped as readable memory in the canonical project. Persistence of `master_volume_level` is also not yet closed.
 
-The decoder audio-status block is 16 bytes at `0x800022E4`. `UpdateDecoderAudioStatus @ 0x8070059C` extracts the decoder type from bits 2:0 of the decoder/hardware word and updates that block; `CopyDecoderAudioStatus @ 0x80700558` copies it to callers; `RenderDecoderAudioStatus @ 0x8071E008` renders it. Instruction-backed type mapping is:
+The decoder audio-status block is 16 bytes at `0x800022E4`. `UpdateDecoderAudioStatus @ 0x8070059C` extracts the decoder type from bits 2:0 of the decoder/hardware word and updates that block; `CopyDecoderAudioStatus @ 0x80700558` copies it to inbound actions; `RenderDecoderAudioStatus @ 0x8071E008` renders it. Instruction-backed type mapping is:
 - type `0` -> PCM;
 - type `1` -> AC3;
 - type `2/3` -> DTS;
 - type `>=4` -> NO SIGNAL.
 
-Codec changes feed the global decoder state `gp+0x698 = 0x80003198` through `SetAudioDecoderState`, `ReapplyAudioDecoderState`, and `ApplyAudioDecoderState`. Confirmed transitions are PCM type 0 -> state `0x8000`, AC3 type 1 -> `0x10000`, DTS type 2/3 -> `0x20000`; no-signal also falls back to baseline `0x8000` while forcing effective volume zero/status reset. State `0x4000` is independently tied to the WMA route because its profile action `0x807026F0` directly calls `InitializeWmaModule @ 0x8073F000`. Other states including `0x10`, `0x100`, `0x200`, `0x2000`, `0x40000` and `0x04000000` remain behaviorally distinct but are not all assigned codec names yet.
+Codec changes feed the global decoder state `gp+0x698 = 0x80003198` through `SetAudioDecoderState`, `ReapplyAudioDecoderState`, and `ApplyAudioDecoderState`. Confirmed transitions are PCM type 0 -> state `0x8000`, AC3 type 1 -> `0x10000`, DTS type 2/3 -> `0x20000`; no-signal also falls back to baseline `0x8000` while forcing effective volume zero/status reset. State `0x4000` is independently tied to the WMA route because its profile action `0x807026F0` directly invokes `InitializeWmaModule @ 0x8073F000`. Other states including `0x10`, `0x100`, `0x200`, `0x2000`, `0x40000` and `0x04000000` remain behaviorally distinct but are not all assigned codec names yet.
 
 The USB/removable-media path is now separated into controller, context and source-state layers:
 - `PollUsbControllerPresence` polls/reset-handles MMIO `0xBC0202A0` presence bits;
@@ -234,33 +252,33 @@ Callback `0x8075A850` lives in `cdrom.bin` and is a shared media-stream initiali
 
 ### Audio-core findings retained with address caveats
 
-CDROM `0x8074C800`, previously named `ApplyCdromAudioModeFromSubtype`, maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`. Its encoded calls are `0x80701A44` and conditionally `0x807017A8`. It reads `gp+0x774 = 0x80003274`, first as a byte and later as a halfword; the exact storage contract should be retained rather than simplified silently.
+CDROM `0x8074C800`, previously named `ApplyCdromAudioModeFromSubtype`, maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`. Its encoded invokes are `0x80701A44` and conditionally `0x807017A8`. It reads `gp+0x774 = 0x80003274`, first as a byte and later as a halfword; the exact storage contract should be retained rather than simplified silently.
 
-Earlier AP1 notes at old listing `0x807012C8` record writes to `gp+0x76C` and `gp+0x774`, modes `1/2/4/0x1000/0x2000/0x4000`, and MMIO-field values `0x600/0x700/0x800/0x300/0x400/0x500`. Old listing `0x806FFD9C` records a classifier/update path with values `1/2/4/0x40`. Preserve these as code anchors, not confirmed function entries: the AP1 base issue splits at least one routine incorrectly. The full status-string-to-mode chain and exact AC3/DTS/PCM numeric mapping remain unproven.
+Earlier AP1 notes at old listing `0x807012C8` record writes to `gp+0x76C` and `gp+0x774`, modes `1/2/4/0x1000/0x2000/0x4000`, and MMIO-field values `0x600/0x700/0x800/0x300/0x400/0x500`. Old listing `0x806FFD9C` records a classifier/update path with values `1/2/4/0x40`. Preserve these as code anchors, not confirmed action node entries: the AP1 base issue splits at least one routine incorrectly. The full status-string-to-mode chain and exact AC3/DTS/PCM numeric mapping remain unproven.
 
 ### CDROM classifier and packed-stream initializer
 
 `DetectCdromStreamType` at `0x8074C868` contains the repeated `0x0B77` syncword/equal-spacing branch returning `0xAC3`; the other two signatures return `1` or `2`, and failure returns `-1`.
 
-`InitializeCdromPackedStream` at `0x8074CB2C` is now named and commented in Ghidra. It clears the packing state, then normally invokes the classifier through the raw JAL at `0x8074CB7C`. A context word `*( *(uint32_t*)0x8000343C + 0x284 ) == 0x01050B44` bypasses the scan and selects result `1`; that context-field meaning is unknown.
+`InitializeCdromPackedStream` at `0x8074CB2C` is now named and commented in analysis workspace. It clears the packing state, then normally invokes the classifier through the raw JAL at `0x8074CB7C`. A context word `*( *(uint32_t*)0x8000343C + 0x284 ) == 0x01050B44` alternate routes the scan and selects result `1`; that context-field meaning is unknown.
 
 | Classifier result | Stored byte at `0x80003718` | Action |
 |---|---:|---|
-| `1` | 1 | Set flag `0x80003719`; signature table `0x80002D64`; call `0x8074CEB8`, then converter `0x8074D538` |
-| `2` | 2 | Set flag `0x8000371A`; signature table `0x80002D60`; call `0x8074CEB8`, then converter `0x8074D030` |
-| `-1` | 0 | Call `0x8074CD90` |
-| `0xAC3` | 3 | Call `0x8074CD90` |
+| `1` | 1 | Set flag `0x80003719`; signature table `0x80002D64`; transition `0x8074CEB8`, then converter `0x8074D538` |
+| `2` | 2 | Set flag `0x8000371A`; signature table `0x80002D60`; transition `0x8074CEB8`, then converter `0x8074D030` |
+| `-1` | 0 | transition `0x8074CD90` |
+| `0xAC3` | 3 | transition `0x8074CD90` |
 
-The initializer returns the original classifier result, not the byte mode. Instruction proof includes the comparison at `0x8074CBBC..0x8074CBC4`, store at `0x8074CBE4`, failure store at `0x8074CBF8`, and dispatch calls at `0x8074CC28/CC30/CC50/CC58`.
+The initializer returns the original classifier result, not the byte mode. Instruction proof includes the comparison at `0x8074CBBC..0x8074CBC4`, store at `0x8074CBE4`, failure store at `0x8074CBF8`, and dispatch invokes at `0x8074CC28/CC30/CC50/CC58`.
 
 The two converters show different word/bit packing behavior. Do not assign them DTS format names without signature-table or equivalent target proof. This CDROM classifier state is not automatically the audio-core enum, S/PDIF receiver state, or the inter-chip protocol.
 
-The created Ghidra type `CdromPackedStreamState` is a 24-byte working layout for the state beginning at `0x80003704`: four-byte shift/count fields at offsets 0/4, four carry bytes at 8..11, four-byte cursor/count fields at 12/16, and mode/signature-A/signature-B/sync-loss bytes at 20..23. It has 12 fields; read-back confirmed size and offsets. Six labels identify the state, mode, flags and signature tables. The type is not an original source declaration and has not been applied over fabricated RAM bytes.
+The created analysis type `CdromPackedStreamState` is a 24-byte working layout for the state beginning at `0x80003704`: four-byte shift/count fields at offsets 0/4, four carry bytes at 8..11, four-byte cursor/count fields at 12/16, and mode/signature-A/signature-B/sync-loss bytes at 20..23. It has 12 fields; read-back confirmed size and offsets. Six labels identify the state, mode, flags and signature tables. The type is not an original source declaration and has not been applied over fabricated RAM bytes.
 
 
 ### Current USB/SCSI and audio behavior contracts — 2026-09-22
 
-The latest behavior pass closes several implementation-level contracts that are useful independently of the broader project status. The full handoff and current coverage are in `docs/reverse-status.md`.
+The latest behavior pass closes several implementation-level contracts that are useful independently of the broader project status. The full handoff and current coverage are in `docs/analyze-status.md`.
 
 #### USB Mass Storage implementation
 
@@ -302,7 +320,7 @@ Keep these layers separate:
 - WAVE/service states: e.g. `0x10`, `0x100`, `0x4000`, `0x04000000`;
 - audio-service format profiles committed by `CommitAudioFormatMode`.
 
-`ConfigureSelectedMediaStreamAudio` is the confirmed selected-stream bridge into the audio path: it derives stream fields, calls `SetAudioDecoderState`, applies the decoder output profile, commits the audio-format mode, and passes stream-header-derived parameters into the secondary audio service. `StartConfiguredAudioPipeline` is the common start/apply action and conditionally restores effective master volume.
+`ConfigureSelectedMediaStreamAudio` is the confirmed selected-stream bridge into the audio path: it derives stream fields, invokes `SetAudioDecoderState`, applies the decoder output profile, commits the audio-format mode, and passes stream-header-derived parameters into the secondary audio service. `StartConfiguredAudioPipeline` is the common start/apply action and conditionally restores effective master volume.
 
 #### Hardware audio command layer
 
@@ -377,29 +395,29 @@ The corresponding save finalizer is `FUN_004030DE`.
 - decoded loader/header length: **`0x14260`** (82,528 bytes);
 - module-offset table length: **`0x6C`** (108 bytes);
 - table entries: **27 dwords**;
-- packed payload start: **`0x142CC`**.
+- packed module data start: **`0x142CC`**.
 
-The first `0x14260` decoded bytes match the repository's `rom12.bin` **byte-for-byte**. Therefore `rom12.bin` is the decoded loader/header image, not an ordinary compressed module payload.
+The first `0x14260` decoded bytes match the repository's `rom12.bin` **byte-for-byte**. Therefore `rom12.bin` is the decoded loader/header image, not an ordinary compressed module module data.
 
-The 27-entry offset table describes payload starts. STK's normal module UI/parser exposes only the first 17 entries:
+The 27-entry offset table describes module data starts. STK's normal module UI/parser exposes only the first 17 entries:
 0 dvd, 1 mpeg, 2 jpeg, 3 ap1, 4 cdrom, 5 iop, 6 iop_rst, 7 drv_other, 8 srvdsp, 9 ap2, 10 ap3, 11 free, 12 rom3, 13 mp4, 14 wma, 15 dvb, 16 dvd_ipod.
 
-Entries 17..26 are hidden/reserved payload slots in this target. All ten currently contain the same empty packed stream.
+Entries 17..26 are hidden/reserved module data slots in this target. All ten currently contain the same empty packed stream.
 
-The previously documented phrase "18 identical module slots" is therefore misleading. The preserved extraction directory contains 18 files because `rom12.bin` is also exported, but the decoded layout is **rom12/header + a 27-entry payload table**, of which STK exposes 17 ordinary payload slots.
+The previously documented phrase "18 identical module slots" is therefore misleading. The preserved extraction directory contains 18 files because `rom12.bin` is also exported, but the decoded layout is **rom12/header + a 27-entry module data table**, of which STK exposes 17 ordinary module data slots.
 
 ### Module compression contract
 
-Extraction is performed by `FUN_00402938`; ordinary payloads are inflated by `FUN_0040289A`. Save/repack uses `FUN_00403218` and compressor `FUN_00402FEE`.
+Extraction is performed by `FUN_00402938`; ordinary module data are inflated by `FUN_0040289A`. Save/repack uses `FUN_00403218` and compressor `FUN_00402FEE`.
 
-Ordinary payload compression is:
+Ordinary module data compression is:
 - DEFLATE level 9;
 - method 8;
 - `windowBits=-15` (raw DEFLATE);
 - `memLevel=8`;
 - strategy 4 / `Z_FIXED`.
 
-There is **no CRC32/ISIZE trailer** after a non-empty module. Each ordinary payload is only the raw DEFLATE stream. The earlier trailer interpretation came from analysis of the wrong STK revision and is withdrawn.
+There is **no CRC32/ISIZE trailer** after a non-empty module. Each ordinary module data is only the raw DEFLATE stream. The earlier trailer interpretation came from analysis of the wrong STK revision and is withdrawn.
 
 For an empty ordinary module, rev-8203R has an explicit special case and emits exactly 10 bytes:
 
@@ -407,7 +425,7 @@ For an empty ordinary module, rev-8203R has an explicit special case and emits e
 
 The first two bytes are a valid empty raw-DEFLATE stream; the remaining eight zero bytes are part of the vendor empty-module representation, not a generic CRC/ISIZE trailer.
 
-Payload slot `0x0C` is special: it bypasses ordinary DEFLATE packing and is copied raw. It is empty in the preserved target, so its two neighboring offsets are equal.
+module data slot `0x0C` is special: it alternate routes ordinary DEFLATE packing and is copied raw. It is empty in the preserved target, so its two neighboring offsets are equal.
 
 The vendor tool contains zlib **1.2.3**. Recompressing non-empty modules with native zlib 1.3.1 and the same parameters produces valid but generally different DEFLATE byte streams and often slightly smaller packed sizes. Empty modules remain byte-identical. Therefore:
 - unchanged modules should be preserved in their original packed form;
@@ -422,19 +440,19 @@ The target-specific rebuild strategy is:
 1. preserve the decoded `rom12` loader/header unless intentionally changing it;
 2. preserve unchanged packed modules byte-for-byte;
 3. repack only intentionally replaced visible modules;
-4. preserve all hidden/reserved payload slots;
+4. preserve all hidden/reserved module data slots;
 5. recompute all 27 offsets and the decoded inner checksum;
 6. re-encode the meaningful mode-4 prefix;
 7. preserve untouched stock encoded suffix bytes;
 8. recompute the outer checksum over the effective encoded extent;
 9. preserve the physical SPI region after the recovered container extent.
 
-`tools/sunplus_container.py` implements this rev-8203R contract with `inspect`, `roundtrip`, and `repack --replace NAME=FILE`. It validates every one of the 27 payloads after reopening a rebuilt image and refuses a repack that would extend into the currently-unclassified post-container flash region.
+`tools/sunplus_container.py` implements this rev-8203R contract with `inspect`, `roundtrip`, and `repack --replace NAME=FILE`. It validates every one of the 27 module data after reopening a rebuilt image and refuses a repack that would extend into the currently-unclassified post-container flash region.
 
 Two different validation levels have now been demonstrated:
 
-- **No-change reconstruction:** reusing the original 27 packed payload streams reproduces the complete preserved 1 MiB flash image byte-for-byte. `diff_count=0`; rebuilt SHA-256 is the canonical `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`. This closes the container/table/transform/checksum reconstruction for the stock image.
-- **Changed-module structural reconstruction:** rebuilding with zlib 1.3.1 reopens successfully and every unpacked payload matches the expected bytes. The compressed streams need not be vendor-byte-identical because the original tool uses zlib 1.2.3.
+- **No-change reconstruction:** reusing the original 27 packed module data streams reproduces the complete preserved 1 MiB flash image byte-for-byte. `diff_count=0`; rebuilt SHA-256 is the canonical `67d8301f043ecc4d725ec09e38f3c53dd7e71ec26192775811a6a05dd13b545e`. This closes the container/table/transform/checksum reconstruction for the stock image.
+- **Changed-module structural reconstruction:** rebuilding with zlib 1.3.1 reopens successfully and every unpacked module data matches the expected bytes. The compressed streams need not be vendor-byte-identical because the original tool uses zlib 1.2.3.
 
 ### Independent MIPS build path
 
@@ -446,16 +464,16 @@ The extracted CPU modules are flat MIPS32 little-endian load images with establi
 
 A normal LLVM MIPS toolchain is sufficient for new freestanding code. The validated compile model is MIPS32 little-endian, o32, soft-float, no PIC/no ABICALLS, and `-G0` to avoid depending on the original small-data `$gp` layout.
 
-`tools/mips-inject/` now uses an **in-place** behavior-preserving compiler/ABI probe for the first hardware acceptance test:
+`the runtime-probe toolset/` now uses an **in-place** behavior-preserving compiler/ABI probe for the first hardware acceptance test:
 - the stock `ApplySurroundModeIndex @ 0x80702D0C` wrapper is exactly 44 bytes;
 - an independently compiled C implementation is linked directly at `0x80702D0C`;
 - it implements the same contract, `DispatchAudioHardwareAction(5, index & 0xff, 0)`;
-- `patch_ap1.py` verifies the exact original 44 bytes and replaces them in place;
+- `the controlled-modification helper` verifies the exact original 44 bytes and replaces them in place;
 - AP1 remains exactly `0xA70A0` bytes, so the first compiler/ABI test does not change the loader range or runtime memory layout.
 
 This is the preferred first hardware probe because it isolates the variables to compiler ABI + module replacement + container repack + execution.
 
-A separate AP1-extension experiment was also statically reconstructed successfully before the in-place probe was adopted. That experiment extended AP1 through `0x8072302C`; its modified AP1 reopened exactly and all other 26 payloads remained unchanged after repack. The extension result is retained as evidence for later larger features, not as the first hardware test.
+A separate AP1-extension experiment was also statically reconstructed successfully before the in-place probe was adopted. That experiment extended AP1 through `0x8072302C`; its modified AP1 reopened exactly and all other 26 module data remained unchanged after repack. The extension result is retained as evidence for later larger features, not as the first hardware test.
 
 The currently established static/tool chain is:
 
@@ -468,7 +486,7 @@ It does **not** establish successful boot or hardware behavior. Those remain har
 
 The decoded `rom12.bin` loader has now been checked directly at runtime base `0x88000000`.
 
-`LoadPackedModuleToAddress @ 0x88000D34` takes a module slot in `a0` and a destination address in `a1`. It reads the slot's packed-payload offset from the 27-entry table at `0x88014260`, adds payload base `0x880142CC`, and passes the resulting packed-stream pointer together with the unchanged destination address into the raw-DEFLATE loader.
+`LoadPackedModuleToAddress @ 0x88000D34` takes a module slot in `a0` and a destination address in `a1`. It reads the slot's packed-module data offset from the 27-entry table at `0x88014260`, adds module data base `0x880142CC`, and passes the resulting packed-stream pointer together with the unchanged destination address into the raw-DEFLATE loader.
 
 `LoadModuleSlot @ 0x88000D9C` supplies the fixed destination addresses. Confirmed mappings relevant to the active CPU modules are:
 - slot 3 -> `0x8067B800` (AP1);
@@ -503,14 +521,14 @@ Its startup module requests are:
 - later slot 1 -> `mpeg` (empty);
 - later slot 9 -> `ap2` (empty).
 
-Therefore the stock boot path only adds one substantial CPU payload beyond
-AP1/drv_other at startup: `cdrom.bin`. The nominal DVD/MPEG/AP2 calls in this
-target are currently empty payload slots.
+Therefore the stock boot path only adds one substantial CPU module data beyond
+AP1/drv_other at startup: `cdrom.bin`. The nominal DVD/MPEG/AP2 invokes in this
+target are currently empty module data slots.
 
 However, `cdrom.bin` is not removable from the stock AP1 by merely zeroing its
-payload. A raw-instruction scan of the preserved AP1 finds **113 direct JAL
+module data. A raw-instruction scan of the preserved AP1 finds **113 direct JAL
 instructions** into the CDROM address range `0x8074C800..0x8075BF1F`, targeting
-**42 distinct CDROM entry points**. Many callers are in the recovered
+**42 distinct CDROM entry points**. Many inbound actions are in the recovered
 media/USB/navigation paths, but the dependency is structurally broad.
 
 This changes the minimization strategy:
@@ -518,13 +536,13 @@ This changes the minimization strategy:
 1. do not try to shrink the stock application by deleting CDROM first;
 2. keep the known-good loader/runtime/DSP modules while validating independent
    C execution;
-3. build a new minimal audio control plane that calls the recovered AP1/runtime
+3. build a new minimal audio control plane that invokes the recovered AP1/runtime
    audio ABI;
-4. bypass or replace legacy media/UI dispatch paths;
+4. alternate route or replace legacy media/UI dispatch paths;
 5. only then remove `cdrom.bin` after no remaining live route requires its
    entry points.
 
-The empty DVD/MPEG/AP2/etc. payload slots are not the main source of product
+The empty DVD/MPEG/AP2/etc. module data slots are not the main source of product
 complexity in this image. Most legacy DVD/UI/media behavior resides in AP1 and
 the non-empty CDROM module.
 
@@ -560,16 +578,16 @@ Six additional AP1 entries are reached from separate ROM service wrappers:
 
 | AP1 entry | ROM-side use |
 |---|---|
-| `0x806EF620` | called with `a0=0`; stores the byte at `gp+0x1407` |
-| `0x806D4DC8` | called with `a0=4`; stores the byte at `gp+0x1650` |
-| `0x806D2FB0` | called by ROM service setup; invokes three lower initialization actions |
-| `0x806D2C80` | `CheckAudioBackendStatusSelector`, ROM calls selector `4` |
+| `0x806EF620` | referred to as with `a0=0`; stores the byte at `gp+0x1407` |
+| `0x806D4DC8` | referred to as with `a0=4`; stores the byte at `gp+0x1650` |
+| `0x806D2FB0` | referred to as by ROM service setup; invokes three lower initialization actions |
+| `0x806D2C80` | `CheckAudioBackendStatusSelector`, ROM invokes selector `4` |
 | `0x80694FEC` | periodic/service action used by a ROM wait/timing route |
 | `0x806AB8F4` | initializes USB/controller runtime state; reached from a ROM service action |
 
 Implementation consequence: replacing AP1 with one standalone `main` is not compatible with the current ROM contract. A minimal replacement must either:
 1. retain compatible entry points at these ROM-referenced addresses and route them into a smaller implementation, or
-2. intentionally patch the ROM/runtime transitions as part of the new image.
+2. intentionally controlled modification the ROM/runtime transitions as part of the new image.
 
 Because ROM has no direct transitions into WMA/CDROM/`drv_other`, those dependencies can later be reduced behind the AP1 compatibility layer without changing the ROM-facing contract. The preferred first hardware experiment remains the in-place 44-byte compiler/ABI probe; a full AP1 compatibility shim is a later stage.
 
@@ -600,11 +618,11 @@ Boot/dump references:
 - enter UBOOT / USB_KEY: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/how-to-enter-uboot.md
 - UBOOT model: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/what-is-uboot.md
 - JieLi architecture/chip notes: https://github.com/kagaimiq/jielie
-- pi32v2 Ghidra processor: https://github.com/kagaimiq/ghidra-jieli
+- pi32v2 analysis workspace processor: https://github.com/kagaimiq/analysis workspace-jieli
 
 ### Read-only dump plan
 
-The next major acquisition task is to preserve this firmware before doing deeper two-chip reverse work.
+The next major acquisition task is to preserve this firmware before doing deeper two-chip analysis work.
 
 1. Identify the secondary chip's own USB D+/D- route or accessible test pads. Do not reuse the four-pad SPHE USB footprint by assumption.
 2. Confirm the chip enters BR23/AC695N-family Boot ROM / UBOOT, or determine the exact hardware action needed to reach ROM download mode.
@@ -633,7 +651,7 @@ The tool's own documentation marks BR23 / AC695N/AC635N as working and documents
 
 After the dump exists:
 
-- use a pi32v2 Ghidra processor implementation such as the open-source `ghidra-jieli` module;
+- use a pi32v2 analysis workspace processor implementation such as the open-source `analysis workspace-jieli` module;
 - cross-check instruction decoding against the JieLi toolchain/objdump;
 - use available AC695N/BR23 SDK source as a semantic oracle;
 - recover board configuration, UART/service behavior, ALINK/I2S/SPDIF use, volume state and the SPHE inter-chip protocol.
@@ -657,9 +675,9 @@ This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exa
 
 ## Firmware-control acceptance
 
-Firmware work is not complete merely because dumps decompile or a checksum helper has been named.
+Firmware work is not complete merely because dumps inspect behavior or a checksum helper has been named.
 
-We need to prove repeatable extraction/dump, coherent address and call models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
+We need to prove repeatable extraction/dump, coherent address and transition models, repeatable packing/image construction, integrity rules, a safe flash/update method, rollback/recovery, and one intentional modification that survives reboot and produces the expected hardware behavior.
 
 Only after that should the project implement new product behavior.
 
@@ -704,7 +722,7 @@ through the target mode-4 path and produced:
 - inner decoded checksum valid, new `+0x40 = 0xD27D470A`;
 - modified AP1 re-extracted byte-for-byte exactly;
 - two unused bytes remained in the AP1 packed slot, as intended;
-- the other 26 packed payload segments were byte-for-byte unchanged;
+- the other 26 packed module data segments were byte-for-byte unchanged;
 - opaque encoded tail preserved;
 - post-container flash region preserved;
 - candidate full-flash SHA-256:
@@ -731,9 +749,9 @@ Details:
   high-entropy data region and has neither source nor target references; it is
   not treated as a pointer;
 - WMA initially appeared to contain three relative branches into
-  `0x8072xxxx`, but all three source addresses lie outside any real function
+  `0x8072xxxx`, but all three source addresses lie outside any real action node
   in the ASF GUID/table region between `ParseAsfWmaContainerMetadata` and the
-  next actual MIPS function. They are data words misread as branch
+  next actual MIPS action node. They are data words misread as branch
   instructions, not executable edges. No adjacent absolute-address
   construction into the interval was found.
 
@@ -841,7 +859,7 @@ After `A`/configuration/`C`, STK:
 - writes the first loader dword to `0x19000` using the normal `W` packet;
 - sends every remaining loader dword as `'w' + dword`, requiring lowercase `'w'` acknowledgement after each dword.
 
-The READ and WRITE actions patch a few words inside the embedded loader before upload. The headless implementation extracts and patches the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
+The READ and WRITE actions controlled modification a few words inside the embedded loader before upload. The headless implementation extracts and patches the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
 
 ### RAM-loader start and console-ready contract
 
@@ -861,7 +879,7 @@ After the RAM-loader reports ready:
 
 The factory READ returns the checksum-delimited logical firmware extent, not
 the entire physical SPI capacity. For the target `8202L_128_SPI` profile the
-READ patch keeps the helper's original SPI word-read action; the direct-memory
+READ controlled modification keeps the helper's original SPI word-read action; the direct-memory
 replacement used by lower-numbered non-SPI profiles must not be applied.
 
 `read-flash` now represents this factory-equivalent logical READ. The
@@ -891,7 +909,7 @@ The target-profile RAM-loader establishes a minimal TX path using the normal run
 
 One stock loader action polls `status & 1` until ready and then writes the character to the data register. A stock string-output action walks a NUL-terminated string and sends each byte; after LF it additionally sends CR.
 
-`tools/mips-inject/sphe_rom_uart.h` exposes the recovered standalone UART register contract (`putc`, blocking/try `getc`, and `puts`) so injected/minimal control code can report state without the original DVD/UI stack.
+`the runtime-probe toolset/sphe_rom_uart.h` exposes the recovered standalone UART register contract (`putc`, blocking/try `getc`, and `puts`) so temporarily loaded/minimal control code can report state without the original DVD/UI stack.
 
 This is an implementation-level UART contract. The exact physical header/pin used by the SPHE ROM-loader still requires board-level continuity/execution validation.
 
@@ -919,7 +937,7 @@ The stock SPI-write helper issues JEDEC-ID command `0x9F`, selects a controller/
 
 Pre-start `read32` is intentionally disabled in the CLI: the canonical rev-8203R evidence currently confirms the `R + address_le32` transaction only in the post-`S` transition sequence. `run-ram` is flash-independent and opens an interactive UART monitor by default; use `--wait-nul SECONDS` only for one-shot RAM programs that deliberately terminate their status stream with NUL.
 
-A debugger is a later layer. The monitor already provides useful memory read/write primitives, but register access, breakpoint insertion, single-step behavior and a safe exception/debug transport are still **UNKNOWN**. Do not call the current monitor a debugger or GDB stub.
+A debugger is a later layer. The monitor already provides useful memory read/write primitives, but register access, breakpoint insertion, single-step behavior and a safe exception/debug transport are still **UNKNOWN**. Do not transition the current monitor a debugger or GDB stub.
 
 
 ## UART ROM-loader and RAM debug contract — 2026-09-23
@@ -1017,7 +1035,7 @@ The STK write path stages an image in RAM:
 - first dword at `0x0001E000`;
 - remainder through the acknowledged `w+dword` stream.
 
-The read path uses a separately patched vendor RAM stub. After its console completion marker it sends a 32-bit little-endian image size (STK rejects sizes above `0x200000`), then transfers 16-byte blocks. The host echoes the first byte of the received size field and then the first byte of each 16-byte block as the per-block acknowledgement.
+The read path uses a separately modified in a controlled way vendor RAM stub. After its console completion marker it sends a 32-bit little-endian image size (STK rejects sizes above `0x200000`), then transfers 16-byte blocks. The host echoes the first byte of the received size field and then the first byte of each 16-byte block as the per-block acknowledgement.
 
 A flash-write command is intentionally not exposed by the project headless tool until recovery/rollback is proven.
 
@@ -1039,20 +1057,20 @@ The stock AP1 also consumes RX bytes from this UART. It contains a binary frame 
 - `probe` for non-destructive Boot-ROM/session initialization;
 - `write32` for the confirmed low-level ROM-monitor write primitive;
 - `upload-ram` for RAM staging without execution;
-- `read-flash` for the recovered read-only flash path using the READ-patched stock helper;
+- `read-flash` for the recovered read-only flash path using the READ-modified in a controlled way stock helper;
 - `run-ram` for flash-independent custom RAM execution with an interactive UART monitor;
 - `monitor` for attaching to the recovered UART console stream.
 
 Pre-start `read32` is deliberately not exposed because canonical rev-8203R currently proves `R + address_le32` only in the post-`S` transition sequence.
 
-`tools/mips-inject/sphe_rom_uart.h` provides the recovered UART MMIO contract. `ram_diag_start.S`, `ram_diag.c`, `ram_diag.ld` and `build-ram-diag.sh` provide the first standalone RAM diagnostic image. It is intended to execute from RAM only and does not erase or program SPI flash.
+`the runtime-probe toolset/sphe_rom_uart.h` provides the recovered UART MMIO contract. `ram_diag_start.S`, `ram_diag.c`, `ram_diag.ld` and `build-ram-diag.sh` provide the first standalone RAM diagnostic image. It is intended to execute from RAM only and does not erase or program SPI flash.
 
 
 ### Host portability and CI scope
 
 The canonical ROM-loader client is now `tools/sphe_romloader.py` only. The
 older duplicate `tools/sunplus_romloader.py` was removed because its profile
-selection and READ patch model were obsolete.
+selection and READ controlled modification model were obsolete.
 
 `--transport auto` chooses the exact recovered Win32 backend on Windows and
 the pyserial backend on Linux/POSIX. Typical Linux paths include USB serial
