@@ -576,3 +576,59 @@ but GitHub denies writes under `.github/workflows/` because the installation
 does not expose workflow-write permission. The CI workflow itself therefore
 cannot be committed through the current Koba GitHub authority until that
 permission is granted.
+
+
+### Audio spatial/input control milestone — 2026-09-30
+
+Fresh canonical semantic naming coverage across the main firmware modules is
+**209 / 4143 = 5.04%**. This is naming coverage, not feature coverage.
+
+Confirmed audio/control progress:
+
+- `HandleGm5ControlOption` is now named and documented. AUDIO SETUP control
+  `0x9E` has three translated options:
+  - `0x7B = OFF`
+  - `0x9F = MODE 1`
+  - `0xA0 = MODE 2`
+- `ApplyPackedAudioModeControl` was recovered as a missing AP1 action node.
+  Its input high nibble selects a field inside the packed runtime audio-mode
+  word; the low nibble updates that field. Families `0x10..0x60` modify
+  distinct packed fields, then commit through audio hardware action `0x0E`.
+- GM5 applies the following packed-mode sequences:
+  - OFF -> `0x10`, then `0x23`
+  - MODE 1 -> `0x11`, then `0x23`
+  - MODE 2 -> `0x11`, then `0x22`
+- DOWNMIX control `0xF5` has translated options:
+  - `LT/RT` -> internal mode 8
+  - `STEREO` -> internal mode 7
+  - `VSS` -> internal mode 9
+  - `OFF` uses a separate restore/reapply branch rather than being equivalent
+    to VSS despite adjacent mode-9 logic.
+- A runtime preset route was recovered that switches between:
+  - GM5 MODE 2 + DOWNMIX OFF
+  - GM5 OFF + DOWNMIX STEREO
+  then reapplies decoder/audio state.
+- `HandleSpatialAudioPresetTrigger` was recovered as a previously missing AP1
+  action node. It selects between external-input mode stepping and the
+  GM5/stereo spatial preset route according to runtime state.
+- External-input mode is a validated 0..3 code:
+  - modes 0..2 select the S/PDIF-input path;
+  - mode 3 selects AUXIN.
+- `ApplyExternalInputHardwareMode`,
+  `WriteExternalInputModeCode`, and
+  `ApplyExternalInputSourceTransition` are now named. Together with
+  `PollExternalInputModeCode` they define the software-side external-input
+  read/write/apply contract.
+
+Analysis-quality correction:
+- a previously used high-level path around decoder output-profile application
+  was proven to contain stale stored flow targets shifted into a data table.
+  Raw low-level operations are authoritative in that region. No broad repair
+  was applied; the affected route was followed through valid raw targets only.
+
+Next audio priorities:
+1. tie the spatial preset trigger to its exact user/runtime event semantics;
+2. continue source -> decoder/DSP -> hardware-output routing;
+3. recover remaining standalone audio action 4 / action 0x0A step controls;
+4. map packed audio-mode fields to concrete DSP behavior where evidence exists;
+5. preserve board-level output routing as a separate execution/hardware proof.
