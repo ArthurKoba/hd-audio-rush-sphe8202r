@@ -757,12 +757,19 @@ The rev-8203R STK serial action opens the selected port as synchronous **8N1** a
 The firmware-side baud divider written by the ROM monitor is respectively `0x74 / 0x3A / 0x1D` at `0x1FFE8914`, after clearing `0x1FFE8918`.
 
 The STK Win32 transport uses:
+- synchronous `CreateFileW` / `ReadFile` / `WriteFile` I/O;
 - read interval timeout 100 ms;
-- read multiplier 100;
+- read multiplier 100 ms/byte;
 - read constant 500 ms;
-- write multiplier 10;
+- write multiplier 10 ms/byte;
 - write constant 1000 ms;
 - purge mask `0x0F` before a session.
+
+The recovered exact-length wrappers ignore the Win32 BOOL return and decide
+success only from `actual_count == requested_count`. Before each READ the
+first byte of the shared destination buffer is cleared; the remaining bytes
+are left intact. This matters for faithful failure/ACK behavior and is now
+mirrored by the factory transport path in `tools/sphe_romloader.py`.
 
 ### ROM monitor packet contract
 
@@ -842,7 +849,17 @@ After the RAM-loader reports ready:
 - flash data is transferred in 16-byte blocks;
 - the host returns the first byte of the current shared transfer buffer after each block, matching the vendor flow-control behavior.
 
-The resulting bytes are returned as the firmware dump. The intended acceptance procedure is still two independent reads plus byte-for-byte/SHA-256 comparison before any write experiment.
+The factory READ returns the checksum-delimited logical firmware extent, not
+the entire physical SPI capacity. For the target `8202L_128_SPI` profile the
+READ patch keeps the helper's original SPI word-read action; the direct-memory
+replacement used by lower-numbered non-SPI profiles must not be applied.
+
+`read-flash` now represents this factory-equivalent logical READ. The
+project-specific full-physical 1 MiB operation is exposed separately as
+`read-full-flash` and must not be treated as part of the factory baseline.
+
+The intended first-board acceptance remains two independent reads plus
+byte-for-byte/SHA-256 comparison before any write experiment.
 
 ### WRITE staging path (recovered, not enabled)
 
@@ -874,9 +891,15 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - verifies the exact rev-8203R STK executable SHA-256;
 - can read the executable directly or from `tools/STK_0.2.3.zip`;
 - reconstructs the STK system/SDRAM profile scripts;
-- extracts and READ-patches the appropriate stock RAM-loader;
+- extracts and applies the profile-correct READ patches to the stock RAM-loader;
 - implements a non-destructive `probe` command for Boot-ROM/session initialization;
-- implements the recovered read-only `read-flash` path.
+- implements factory-equivalent logical `read-flash`;
+- keeps full-physical `read-full-flash` explicitly separate as a project extension;
+- defaults hardware commands to a synchronous Win32 factory transport that
+  reproduces the recovered DCB, COMMTIMEOUTS, PurgeComm and actual-count
+  semantics;
+- retains `--transport pyserial` only as an explicitly non-factory portable
+  extension.
 
 Generic modified-image flash write is intentionally not exposed. The headless tool now contains a stock-only recovery route that accepts only the canonical 1 MiB image and requires explicit chip-erase acknowledgement; it still must not be treated as safe until recovery/rollback is board-proven.
 
