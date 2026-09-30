@@ -10,7 +10,8 @@ STATUS:
 - generic modified-image flash writing is deliberately not exposed;
 - stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
 
-Requires: pyserial
+Factory transport: Windows synchronous Win32 serial I/O.
+Optional portable extension: pyserial.
 
 Recovered target UART:
 - 8N1
