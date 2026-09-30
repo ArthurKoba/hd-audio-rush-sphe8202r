@@ -89,9 +89,9 @@ Recommended first session:
 5. power/reset the board into boot-trap;
 6. start with 115200; if communication is unstable, retry 57600;
 7. run `probe` first;
-8. run `read-flash`;
-9. perform a second complete `read-flash`;
-10. compare the two reads byte-for-byte and against the preserved canonical 1 MiB dump.
+8. run `read-full-flash` for the preservation capture;
+9. perform a second complete `read-full-flash`;
+10. compare the two physical reads byte-for-byte and against the preserved canonical 1 MiB dump; use `read-flash` separately when validating the factory logical-read behavior.
 
 Example:
 
