@@ -10,8 +10,10 @@ STATUS:
 - generic modified-image flash writing is deliberately not exposed;
 - stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
 
-Factory transport: Windows synchronous Win32 serial I/O.
-Optional portable extension: pyserial.
+Transport:
+- Windows: exact recovered synchronous Win32 serial I/O is available;
+- Linux/macOS/other POSIX hosts: pyserial provides the portable UART backend;
+- --transport auto selects the native backend for the host.
 
 Recovered target UART:
 - 8N1
@@ -256,6 +258,63 @@ class FactoryWin32Serial:
             self._handle = None
 
 
+class PortableSerial:
+    """
+    Cross-platform UART transport for Linux/macOS/Windows via pyserial.
+
+    Protocol bytes and exact-length wrapper semantics stay in RomLoader.
+    The timeout values mirror the recovered STK COMMTIMEOUTS totals as closely
+    as pyserial permits: 100 ms inter-byte, 100 ms/byte + 500 ms total read,
+    and 10 ms/byte + 1000 ms total write. POSIX serial timing is not a Win32
+    COMMTIMEOUTS implementation, so the Windows factory backend remains the
+    bit-for-bit reference for host timing/error behavior.
+    """
+
+    def __init__(self, port: str, baud: int, timeout_override: float = 0.0):
+        if serial is None:
+            raise ProtocolError(
+                "portable serial transport requires pyserial: "
+                "python -m pip install pyserial"
+            )
+        self._timeout_override = timeout_override
+        self._serial = serial.Serial(
+            port=port,
+            baudrate=baud,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            timeout=self._read_timeout(1),
+            write_timeout=self._write_timeout(1),
+            inter_byte_timeout=0.1,
+        )
+        self._serial.reset_input_buffer()
+        self._serial.reset_output_buffer()
+
+    def _read_timeout(self, size: int) -> float:
+        if self._timeout_override > 0:
+            return self._timeout_override
+        return 0.5 + 0.1 * max(1, size)
+
+    def _write_timeout(self, size: int) -> float:
+        if self._timeout_override > 0:
+            return self._timeout_override
+        return 1.0 + 0.01 * max(1, size)
+
+    def write(self, data: bytes) -> int:
+        self._serial.write_timeout = self._write_timeout(len(data))
+        written = self._serial.write(data)
+        self._serial.flush()
+        return written
+
+    def read(self, size: int) -> bytes:
+        self._serial.timeout = self._read_timeout(size)
+        self._serial.inter_byte_timeout = 0.1
+        return self._serial.read(size)
+
+    def close(self) -> None:
+        self._serial.close()
+
+
 def u32le(data: bytes) -> int:
     if len(data) != 4:
         raise ValueError("u32le requires exactly four bytes")
@@ -435,17 +494,18 @@ class RomLoader:
         self,
         port: str,
         baud: int,
-        timeout: float = 1.5,
-        transport: str = "factory",
+        timeout: float = 0.0,
+        transport: str = "auto",
     ):
         if baud not in BAUD_DIVISOR:
             raise ValueError(f"unsupported baud: {baud}")
-        if transport not in ("factory", "pyserial"):
+        if transport not in ("auto", "factory", "pyserial"):
             raise ValueError(f"unsupported transport: {transport}")
         self.port = port
         self.baud = baud
         self.timeout = timeout
         self.transport = transport
+        self.active_transport = ""
         self.ser = None
         # STK uses one shared I/O buffer. SerialReadExact clears only its
         # first byte before ReadFile and reports success through the actual
@@ -454,24 +514,19 @@ class RomLoader:
         self._transfer_cancelled = False
 
     def __enter__(self) -> "RomLoader":
-        if self.transport == "factory":
+        selected = self.transport
+        if selected == "auto":
+            selected = "factory" if sys.platform == "win32" else "pyserial"
+        self.active_transport = selected
+
+        if selected == "factory":
             self.ser = FactoryWin32Serial(self.port, self.baud)
         else:
-            if serial is None:
-                raise ProtocolError(
-                    "pyserial transport requires: pip install pyserial"
-                )
-            self.ser = serial.Serial(
+            self.ser = PortableSerial(
                 self.port,
                 self.baud,
-                bytesize=serial.EIGHTBITS,
-                parity=serial.PARITY_NONE,
-                stopbits=serial.STOPBITS_ONE,
-                timeout=self.timeout,
-                write_timeout=self.timeout,
+                timeout_override=self.timeout,
             )
-            self.ser.reset_input_buffer()
-            self.ser.reset_output_buffer()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -479,7 +534,7 @@ class RomLoader:
             self.ser.close()
             self.ser = None
 
-    def _serial(self) -> serial.Serial:
+    def _serial(self):
         if self.ser is None:
             raise ProtocolError("serial port is not open")
         return self.ser
@@ -494,8 +549,6 @@ class RomLoader:
         """
         ser = self._serial()
         n = ser.write(data)
-        if self.transport == "pyserial":
-            ser.flush()
         return n == len(data)
 
     def read_exact(self, n: int) -> tuple[bool, bytes]:
@@ -823,18 +876,22 @@ def add_serial_args(
     )
     p.add_argument(
         "--transport",
-        choices=("factory", "pyserial"),
-        default="factory",
+        choices=("auto", "factory", "pyserial"),
+        default="auto",
         help=(
-            "factory = recovered synchronous Win32 STK transport; "
-            "pyserial = portable non-factory extension"
+            "auto = exact Win32 factory backend on Windows, portable pyserial "
+            "backend elsewhere; factory = force Win32 reference transport; "
+            "pyserial = force cross-platform serial backend"
         ),
     )
     p.add_argument(
         "--timeout",
         type=float,
-        default=1.5,
-        help="pyserial extension timeout; ignored by factory transport",
+        default=0.0,
+        help=(
+            "portable-backend timeout override in seconds; 0 uses the "
+            "recovered size-dependent factory timeout model"
+        ),
     )
     if with_stk:
         p.add_argument(
