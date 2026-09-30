@@ -905,11 +905,13 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - implements a non-destructive `probe` command for Boot-ROM/session initialization;
 - implements factory-equivalent logical `read-flash`;
 - keeps full-physical `read-full-flash` explicitly separate as a project extension;
-- defaults hardware commands to a synchronous Win32 factory transport that
-  reproduces the recovered DCB, COMMTIMEOUTS, PurgeComm and actual-count
-  semantics;
-- retains `--transport pyserial` only as an explicitly non-factory portable
-  extension.
+- defaults `--transport auto`: exact synchronous Win32 factory transport on
+  Windows, cross-platform pyserial transport on Linux/POSIX hosts;
+- keeps `--transport factory` as the exact recovered Win32 DCB,
+  COMMTIMEOUTS, PurgeComm and actual-count reference;
+- keeps the protocol/action semantics shared across both host backends; the
+  portable backend approximates the recovered size-dependent timeout policy
+  where POSIX serial APIs cannot reproduce Win32 COMMTIMEOUTS exactly.
 
 Generic modified-image flash write is intentionally not exposed. The headless tool now contains a stock-only recovery route that accepts only the canonical 1 MiB image and requires explicit chip-erase acknowledgement; it still must not be treated as safe until recovery/rollback is board-proven.
 
@@ -1044,3 +1046,21 @@ The stock AP1 also consumes RX bytes from this UART. It contains a binary frame 
 Pre-start `read32` is deliberately not exposed because canonical rev-8203R currently proves `R + address_le32` only in the post-`S` transition sequence.
 
 `tools/mips-inject/sphe_rom_uart.h` provides the recovered UART MMIO contract. `ram_diag_start.S`, `ram_diag.c`, `ram_diag.ld` and `build-ram-diag.sh` provide the first standalone RAM diagnostic image. It is intended to execute from RAM only and does not erase or program SPI flash.
+
+
+### Host portability and CI scope
+
+The canonical ROM-loader client is now `tools/sphe_romloader.py` only. The
+older duplicate `tools/sunplus_romloader.py` was removed because its profile
+selection and READ patch model were obsolete.
+
+`--transport auto` chooses the exact recovered Win32 backend on Windows and
+the pyserial backend on Linux/POSIX. Typical Linux paths include USB serial
+adapters and native UART devices under `/dev/tty*`; no Windows-only API is
+required for the portable route.
+
+The project intentionally does not carry a broad/slow ROM-loader unit-test
+suite yet. The desired CI gate is limited to syntax/import and the fast
+`sphe_romloader.py info` offline integrity path on Windows and Linux. Hardware
+session, flash readback and recovery remain board acceptance and must not be
+folded into CI.
