@@ -27,13 +27,16 @@ Safe initial operations:
 python3 tools/sphe_romloader.py info
 
 python3 tools/sphe_romloader.py probe \
-  --port /dev/ttyUSB0 --baud 115200
+  --port COM3 --baud 115200
 
 python3 tools/sphe_romloader.py read-flash \
-  --port /dev/ttyUSB0 --baud 115200 dump-1.bin
+  --port COM3 --baud 115200 dump-logical.bin
+
+python3 tools/sphe_romloader.py read-full-flash \
+  --port COM3 --baud 115200 dump-physical.bin
 
 python3 tools/sphe_romloader.py monitor \
-  --port /dev/ttyUSB0 --baud 115200
+  --port COM3 --baud 115200
 ```
 
 `upload-ram` transfers an image into the recovered RAM staging area at
@@ -47,7 +50,9 @@ requires an explicit full-chip-erase acknowledgement.  Do not use it until
 two independent full reads and repeatable boot-trap entry have been proven on
 the target.
 
-Requires Python 3 and `pyserial`.
+The factory-equivalent transport requires Windows and uses direct synchronous
+Win32 serial I/O. `pyserial` is optional and is used only when
+`--transport pyserial` is selected as a portable non-factory extension.
 
 
 ## Reference UART pins
@@ -92,13 +97,13 @@ Example:
 
 ```sh
 python3 tools/sphe_romloader.py probe \
-  --port /dev/ttyUSB0 --baud 115200
+  --port COM3 --baud 115200
 
-python3 tools/sphe_romloader.py read-flash \
-  --port /dev/ttyUSB0 --baud 115200 dump-1.bin
+python3 tools/sphe_romloader.py read-full-flash \
+  --port COM3 --baud 115200 dump-1.bin
 
-python3 tools/sphe_romloader.py read-flash \
-  --port /dev/ttyUSB0 --baud 115200 dump-2.bin
+python3 tools/sphe_romloader.py read-full-flash \
+  --port COM3 --baud 115200 dump-2.bin
 ```
 
 Only after the read/boot-trap recovery path has been hardware-proven, stock
@@ -106,7 +111,7 @@ rollback is available as:
 
 ```sh
 python3 tools/sphe_romloader.py restore-stock \
-  --port /dev/ttyUSB0 --baud 115200 \
+  --port COM3 --baud 115200 \
   --confirm-chip-erase \
   firmware/P25D80SH@SOP8.BIN
 ```
@@ -115,12 +120,16 @@ python3 tools/sphe_romloader.py restore-stock \
 preserved canonical dump.
 
 The vendor read patch is instruction-backed to jump around the erase/program
-route.  Vendor STK normally stops that read when its running 16-bit checksum
-matches flash word `+0x20`, which identifies the encoded container extent
-rather than the physical SPI size.  The project's `read-flash` command adds
-two target-specific instructions: it forces the end address to exactly
-`0x8011E000` (1 MiB from staging base `0x8001E000`) and loops until that
-end.  A result of any size other than `0x100000` is rejected.
+route. For the target `8202L_128_SPI` profile it must preserve the helper's
+SPI word-read action; the direct-memory replacement is only for lower-numbered
+non-SPI profiles.
+
+Factory `read-flash` stops when the helper's running 16-bit checksum matches
+flash word `+0x20`, yielding the logical encoded-container extent. The
+project-specific full physical acquisition is intentionally separate:
+
+`read-full-flash` extends the same SPI/UART route to the known 1 MiB physical
+P25D80SH end and rejects any result whose size is not `0x100000`.
 
 No generic `write-flash` command is exposed.  The recovered vendor write
 helper performs a full chip erase before programming sequential words from
