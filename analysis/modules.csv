@@ -6,5 +6,5 @@ cdrom.bin,63264,MIPS32_LE,0x8074C800,confirmed
 wma.bin,51308,MIPS32_LE,0x8073F000,confirmed
 jpeg.bin,38816,data_tables,,confirmed_not_linear_mips
 iop.bin,1424,microcode_unknown,,provisional
-srvdsp.bin,1128,microcode_unknown,,provisional
+srvdsp.bin,1128,ADSP21XX_24BIT_COMPATIBLE,PM:0x1800,confirmed_376_word_fixed_pm_service_segment
 iop_rst.bin,712,microcode_unknown,,provisional

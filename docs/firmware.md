@@ -2,11 +2,34 @@
 
 ## Active audio/DSP boundary — 2026-09-30
 
+## DSP profile separation and fixed-PM placement — 2026-09-30
+
+A new instruction/data pass corrects an earlier conflation between two unrelated index spaces.
+
+- The AP1 decoder-profile table is indexed by the position of the first set bit in the current decoder state. Its fallback index value `8` is a decoder-profile index only.
+- The firmware container also has an ordinary module slot numbered `8` for `srvdsp`. These two index values are **not the same contract** and must not be linked without independent evidence.
+- Two dynamic decoder-profile descriptors in the audio path point to separate raw-DEFLATE streams embedded in `drv_other.bin`. Their unpacked sizes are 30,296 and 31,466 bytes; neither image equals or contains `srvdsp.bin`.
+- The runtime transfer engine around `0x88001D9C/0x88001E8C` is confirmed as a raw-DEFLATE decoder by its exact DEFLATE length-base, length-extra, distance-base and distance-extra tables.
+- The CDROM packed-stream classifier is now closed for DTS packing variants: classifier results `1/2` are the 16-bit and 14-bit DTS packing paths; the 14-bit converter removes two packing bits per word, while the 16-bit converter normalizes word byte order. The separate `0xAC3` result remains the AC3 path.
+- The DTS packed path writes event/state code `0x16` and commits decoder state `0x2000`; the AC3 path uses event/state code `0x1A`.
+- Descriptor profile A is used by the DTS event path and is therefore a strong DTS-profile candidate, but the exact decoder-state-table entry is still being proven. Keep this association as **LIKELY**, not CONFIRMED.
+
+`srvdsp.bin` is independently characterized from its own 24-bit words:
+
+- size: 1,128 bytes = 376 words;
+- words 0..31 form a 32-entry jump/vector table;
+- the first nine vectors point to local handlers whose target-minus-file-word-index is consistently `0x1800`;
+- therefore the required DSP program-memory placement is **PM `0x1800`**, with the image occupying PM `0x1800..0x1977`;
+- this lies in the fixed program-memory region for an ADSP-21xx/218x-style memory model and should be referred to as a **fixed-PM service segment**, not as an ADSP hardware-overlay page.
+
+The next active boundary is to identify how the container slot-8 service segment is transferred into PM `0x1800`, then map dynamic decoder profiles and known GM5/downmix/service controls onto specific DSP program/data state.
+
+
 Current work is intentionally constrained to the audio/runtime chain.
 
 Confirmed implementation-level route already includes external input state, S/PDIF/AUX selection, decoder state, master volume/mute, speaker topology and delays, GM5/downmix behavior, the internal audio-service command area, and the beginning of the embedded DSP loader/runtime contract.
 
-The current lower boundary is the 24-bit DSP image `srvdsp.bin`. Its executable words match the ADSP-21xx/218x instruction model. The Sunplus side selects its module descriptor from the runtime module table, derives DSP section boundaries, initializes DSP service slots, writes 24-bit DSP values through banked DSP-visible memory, and passes packed module data through a bitstream transfer engine before activation.
+The current lower boundary contains two separate DSP-related mechanisms: the fixed-PM service segment `srvdsp.bin`, and dynamic decoder-profile images unpacked from `drv_other.bin`. They are no longer treated as one loader contract.
 
 Next implementation-proof targets:
 - identify exact DSP program/data/effect section ownership;
