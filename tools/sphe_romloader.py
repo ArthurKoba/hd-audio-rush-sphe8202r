@@ -139,7 +139,10 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     put32(0x1770, 0x08006DC0)
     work[0x1B2D] = 0x0A
     work[0x1B2E] = 0x00
-    put32(0x27E0, 0x8C920000)
+
+    # Factory target profile 8202L_128_SPI keeps the helper's SPI word-read
+    # action at +0x27E0.  The direct-memory replacement used by lower-numbered
+    # non-SPI profiles must not be applied to this target.
     return bytes(work)
 
 
@@ -178,7 +181,7 @@ def patch_target_stub_for_full_flash_read(stub: bytes) -> bytes:
 
 def patch_target_stub_for_write(stub: bytes) -> bytes:
     """
-    Apply the exact rev-8203R write-firmware patches for target profile 2.
+    Apply the exact rev-8203R write-firmware patches for target profile 7.
     """
     work = bytearray(stub)
 
@@ -415,12 +418,12 @@ class RomLoader:
                 return text
             if b == b"\r":
                 chars.append("\n")
-            elif b == b"\n":
-                # STK's target puts() emits LF then CR; its UI uses CR as
-                # the visible newline and ignores LF.
-                continue
-            elif 0x20 <= b[0] <= 0x7E or b == b"\t":
+            elif 0x20 <= b[0] <= 0x7A:
                 chars.append(b.decode("ascii", "replace"))
+            else:
+                # Factory status parser ignores LF, TAB and all other bytes
+                # outside the inclusive 0x20..0x7A text range.
+                continue
         raise ProtocolError("timeout waiting for RAM-loader console terminator")
 
     def receive_firmware_image(self) -> bytes:
@@ -595,10 +598,25 @@ def main() -> int:
     add_serial_args(upload)
     upload.add_argument("image", type=pathlib.Path)
 
-    read_flash = sub.add_parser("read-flash")
+    read_flash = sub.add_parser(
+        "read-flash",
+        help="factory-equivalent logical firmware READ",
+    )
     add_serial_args(read_flash, with_stk=True)
     read_flash.add_argument("output", type=pathlib.Path)
     read_flash.add_argument(
+        "--expect-sha256",
+        default=None,
+        help="optional expected SHA-256 for immediate readback verification",
+    )
+
+    read_full_flash = sub.add_parser(
+        "read-full-flash",
+        help="project extension: read the full physical 1 MiB SPI flash",
+    )
+    add_serial_args(read_full_flash, with_stk=True)
+    read_full_flash.add_argument("output", type=pathlib.Path)
+    read_full_flash.add_argument(
         "--expect-sha256",
         default=None,
         help="optional expected SHA-256 for immediate readback verification",
@@ -671,9 +689,12 @@ def main() -> int:
             rl.monitor(args.stop_on_nul)
             return 0
 
-        if args.command == "read-flash":
+        if args.command in ("read-flash", "read-full-flash"):
             stub = extract_target_stub(args.stk)
-            image = rl.read_full_flash(stub)
+            if args.command == "read-flash":
+                image = rl.read_firmware(stub)
+            else:
+                image = rl.read_full_flash(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             digest = hashlib.sha256(image).hexdigest()
