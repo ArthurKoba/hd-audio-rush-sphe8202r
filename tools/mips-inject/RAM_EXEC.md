@@ -10,7 +10,7 @@ can execute a small custom freestanding image.
 Build:
 
 ```sh
-cd tools/mips-inject
+cd tools/mips-load
 ./build-ram-log-probe.sh
 ```
 

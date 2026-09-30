@@ -1,18 +1,18 @@
 # HD Audio Rush 5.1 / SPHE8202R
 
-Reverse engineering of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SPDIF_V02`.
+Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SPDIF_V02`.
 
-The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and reverse-engineering notes.
+The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
 ## Project objective
 
-The goal is **control-complete reverse engineering** of the whole board, not merely disassembling one firmware image.
+The goal is **control-complete behavior analysis** of the whole board, not merely inspecting low-level behavior one firmware image.
 
-The project is complete when we can preserve firmware from both processors, explain the important hardware and inter-chip contracts, rebuild or patch each firmware through a known path, recover after a bad firmware experiment, flash modified firmware safely, and programmatically control the useful system functions without treating either processor as an unexplained black box.
+The project is complete when we can preserve firmware from both processors, explain the important hardware and inter-chip contracts, rebuild or controlled modification each firmware through a known path, recover after a bad firmware experiment, flash modified firmware safely, and programmatically control the useful system action nodes without treating either processor as an unexplained black box.
 
-For this project, "fully reversed" does **not** mean every internal function must be renamed. It means the boot/update paths, hardware contracts, audio routing, control state, inter-chip protocol and firmware modification path are understood well enough to make intentional changes and validate them on hardware.
+For this project, "behavior-complete" does **not** mean every internal action node must be given a semantic name. It means the boot/update paths, hardware contracts, audio routing, control state, inter-chip protocol and firmware modification path are understood well enough to make intentional changes and validate them on hardware.
 
-Before claiming reverse-complete, all of the following must be true:
+Before claiming behavior-complete, all of the following must be true:
 
 - Sunplus raw dump preserved and its container/module layout understood;
 - secondary-controller firmware dumped and preserved;
@@ -25,29 +25,29 @@ Before claiming reverse-complete, all of the following must be true:
 - at least one intentional firmware modification is flashed and hardware-validated;
 - a documented control path exists for source/mode, volume/mute, status and any later USB/Bluetooth extensions.
 
-USB Audio Class, new Bluetooth behavior and similar additions are post-reverse features, not prerequisites for understanding the original board.
+USB Audio Class, new Bluetooth behavior and similar additions are post-analysis features, not prerequisites for understanding the original board.
 
 ## Analysis toolchain decision
 
-**Ghidra stays. SCORE7 does not belong to this project's dependency set.**
+**analysis workspace stays. SCORE7 does not belong to this project's dependency set.**
 
-- The extracted Sunplus application modules are coherent **MIPS32 little-endian**, so normal Ghidra MIPS support is the correct path for `ap1.bin`, `drv_other.bin`, `cdrom.bin` and `wma.bin`.
+- The extracted Sunplus application modules are coherent **MIPS32 little-endian**, so normal analysis workspace MIPS support is the correct path for `ap1.bin`, `drv_other.bin`, `cdrom.bin` and `wma.bin`.
 - The custom SCORE7 backend came from the early, incorrect assumption that the packed 1 MiB Sunplus container itself was SCORE7 code. Correct STK extraction disproved that assumption for the primary modules.
 - No current target binary on this board has been proven to require SCORE7. Auxiliary `iop` / DSP images remain unidentified and must not be labelled SCORE7 without evidence.
-- SCORE7 is useful general Ghidra work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
-- The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 Ghidra processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
+- SCORE7 is useful general analysis workspace work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
+- The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 analysis workspace processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
 
-## Work order
+## Current work order
 
-1. **Acquire the missing secondary-controller dump.** Until both firmware domains are preserved, the whole-system model is incomplete. This does not block independent Sunplus work.
-2. **Finish the physical board map.** Determine SDRAM identity, USB/UART pin ownership, TOSLINK path, six-channel analog path and the SPHE <-> secondary-controller buses.
-3. **Reverse the Sunplus control surfaces, not random functions.** First resolve the reopened AP1 address-model gate and stale Ghidra call references, then trace S/PDIF, AC3/DTS, USB, volume/mute, board init and inter-chip calls. Shared GP is established, but the current analysis is not yet a clean call model.
-4. **Reverse the secondary firmware.** Match the dump to BR23/AC695N SDK code, identify its audio/control responsibilities and inter-chip protocol.
-5. **Recover packing, flashing and rollback for both sides.**
-6. **Implement a minimal control plane and a controlled firmware modification.**
-7. Only then add new features such as USB audio, alternate Bluetooth behavior or a richer external control interface.
+The active scope is the useful audio/runtime behavior of the board, not exhaustive naming of unrelated legacy media code.
 
-The current issue #9 focus is Sunplus-only. The issue tracker is the task backlog; umbrella issue #15 defines the end-to-end reverse/reflash/recovery/control acceptance.
+1. **Complete the Sunplus audio route.** Recover S/PDIF/AUX input, codec state, decoder routing, DSP program/data layout, 5.1 processing, volume/mute, speaker topology, channel delay and six-channel output ownership.
+2. **Recover UART diagnostics.** Establish the main-SoC UART behavior needed for runtime logs, test commands and controlled observation of the audio route.
+3. **Recover the secondary-controller link.** Preserve its firmware, determine the SPHE <-> secondary-controller transport and framing, then map Bluetooth/control events and status exchange.
+4. **Check USB capability only at the architectural boundary.** Determine whether the Sunplus USB block can operate in device/dual-role mode for a computer-facing audio or diagnostic interface. If it is host-only, deep removable-media behavior is not an active priority.
+5. **Keep firmware rebuild, recovery and controlled modification reproducible** for both firmware domains.
+
+Legacy DVD/CD/UI behavior is analyzed only when it is on a live route required by audio, startup, diagnostics or inter-chip control.
 
 ## Hardware platform
 
@@ -116,18 +116,18 @@ STK identifies the dump as:
 STK displays `SPHE8203R` while the physical package is marked `SPHE8202R`; this remains an explicit contradiction.
 
 The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Working module map:
-- `ap1.bin` -> `0x8067B800`, corrected base applied in canonical Ghidra; remaining function-boundary/reference cleanup is tracked separately;
+- `ap1.bin` -> `0x8067B800`, corrected base applied in canonical analysis workspace; remaining action node-boundary/reference cleanup is tracked separately;
 - `wma.bin` -> `0x8073F000` established;
 - `cdrom.bin` -> `0x8074C800` established;
 - `drv_other.bin` -> `0x80775800` established.
 
 The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In `wma.bin`, independent absolute/gp-relative pairs resolve both `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84` to the same GP.
 
-A 2026-09-21 raw-instruction audit found 43 stale Ghidra direct-flow references in the three non-AP1 modules. The encoded targets and stored xrefs disagree; a repair source is saved but its application was blocked and is not claimed complete. Separately, AP1 initial-delay calls, absolute/relative branch joins and string pointers contradict its old base. See `docs/firmware.md` before using existing function addresses or caller lists.
+A 2026-09-21 raw-instruction audit found 43 stale stored direct action links in the three non-AP1 modules. The encoded targets and stored links disagree; a repair source is saved but its application was blocked and is not claimed complete. Separately, AP1 initial-delay invokes, absolute/relative branch joins and string pointers contradict its old base. See `docs/firmware.md` before using existing action node addresses or inbound action lists.
 
-The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in Ghidra. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open.
+The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in analysis workspace. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open.
 
-The canonical Ghidra project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed.
+The canonical analysis project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed.
 
 ## Layout
 
@@ -137,15 +137,15 @@ firmware/
   modules/
 tools/
   STK_0.2.3.zip
-  ghidra/RepairMipsDirectFlow.java
+  analysis workspace/RepairMipsDirectFlow.java
 evidence/
   ac695n-boot-excerpt.log
-reverse/
+analysis/
   modules.csv
 docs/
   hardware.md
   firmware.md
-  reverse-status.md
+  analyze-status.md
 ```
 
 The GitHub issues are the task backlog; avoid creating extra planning documents for the same work.
@@ -174,5 +174,5 @@ host-side timing reference.
 
 No broad unit-test suite is enabled at this stage. The intended CI smoke is
 deliberately small: Python syntax/import plus `sphe_romloader.py info`, which
-verifies the canonical STK identity, helper extraction and patch guards on
+verifies the canonical STK identity, helper extraction and controlled modification guards on
 Windows and Linux. Hardware tests remain manual acceptance work.

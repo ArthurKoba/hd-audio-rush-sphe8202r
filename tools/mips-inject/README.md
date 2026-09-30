@@ -16,13 +16,13 @@ The replacement is independently compiled from C using:
 - `-G0`, avoiding dependence on the original small-data `$gp` layout.
 
 The linker binds `DispatchAudioHardwareAction = 0x806FFD1C`, so the generated
-function uses a direct MIPS `jal` rather than an indirect absolute-call
-sequence. The compiled function is 36 bytes. The build script appends the two
+action node uses a direct MIPS `jal` rather than an indirect absolute-transition
+sequence. The compiled action node is 36 bytes. The build script appends the two
 stock epilogue instructions as unreachable 8-byte padding, preserving the exact
 44-byte wrapper window.
 
 With zlib 1.3.1 using the recovered vendor parameters (raw DEFLATE, level 9,
-`windowBits=-15`, `memLevel=8`, `Z_FIXED`), the patched AP1 compresses to
+`windowBits=-15`, `memLevel=8`, `Z_FIXED`), the modified in a controlled way AP1 compresses to
 `0x54078` bytes versus the stock AP1 packed slot size `0x5407A`. Therefore
 the first probe can keep every module offset and the decoded container extent
 unchanged; the two remaining packed-slot bytes can be preserved from stock.
@@ -31,11 +31,11 @@ Run:
 
 ```sh
 ./build-surround-probe.sh
-python3 patch_ap1.py ../../firmware/modules/ap1.bin \
+python3 the controlled-modification helper ../../firmware/modules/ap1.bin \
   build/surround_probe.bin build/ap1.compiler-probe.bin
 ```
 
-The patcher verifies the exact original 44 bytes and keeps AP1 at `0xA70A0`
+The controlled-modification helper verifies the exact original 44 bytes and keeps AP1 at `0xA70A0`
 bytes. The resulting AP1 still has to pass full Sunplus container repack/reopen
 validation before hardware use.
 
@@ -43,7 +43,7 @@ validation before hardware use.
 ## Minimal audio control plane
 
 `sphe_audio_control.h/.c` is the transport-neutral compatibility layer for
-the intended minimal firmware direction. It bypasses the legacy DVD/UI control
+the intended minimal firmware direction. It alternate routes the legacy DVD/UI control
 screens while reusing the stock initialized audio runtime.
 
 The current layer exposes stateful control for master volume/mute, S/PDIF
@@ -64,7 +64,7 @@ described as persistent until their save contracts are independently proven.
 ## Full fixed-slot firmware candidate
 
 `build-firmware-probe.sh` chains the compiled wrapper into the recovered
-rev-8203R repacker without moving any payload boundary:
+rev-8203R repacker without moving any module data boundary:
 
 ```sh
 ./build-firmware-probe.sh

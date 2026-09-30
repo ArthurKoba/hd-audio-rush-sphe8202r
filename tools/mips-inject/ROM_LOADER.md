@@ -126,7 +126,7 @@ python3 tools/sphe_romloader.py restore-stock \
 `restore-stock` refuses any image whose size or SHA-256 differs from the
 preserved canonical dump.
 
-The vendor read patch is instruction-backed to jump around the erase/program
+The vendor read controlled modification is instruction-backed to jump around the erase/program
 route. For the target `8202L_128_SPI` profile it must preserve the helper's
 SPI word-read action; the direct-memory replacement is only for lower-numbered
 non-SPI profiles.
@@ -150,7 +150,7 @@ The same UART remains usable as a textual console after the ROM-loader/system-sw
 - TX-ready bit: 0;
 - RX-ready bit: 1.
 
-`tools/mips-inject/sphe_uart.h` provides freestanding `putc`, `puts`, RX helpers and hexadecimal logging for custom MIPS code without libc.
+`the runtime-probe toolset/sphe_uart.h` provides freestanding `putc`, `puts`, RX helpers and hexadecimal logging for custom MIPS code without libc.
 
 
 The low-level `R + address_le32` read transaction is confirmed in the
