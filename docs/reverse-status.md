@@ -460,7 +460,8 @@ Therefore generic modified-image flash write must remain unavailable until recov
 - ROM-monitor write primitive;
 - RAM-helper upload;
 - RAM execution;
-- full flash read;
+- factory logical firmware read;
+- separate project-specific full physical flash read;
 - stock-only recovery guarded by exact size/SHA and explicit erase acknowledgement;
 - UART monitor support.
 
@@ -478,8 +479,49 @@ Important validation distinction:
 2. Finish naming/documenting the remaining SPI-helper actions around readiness polling, program-profile selection, completion signaling and READ-mode path.
 3. Cross-check the Python helper selection/profile constants against those recovered helper routes; keep image-SDRAM and flash-interface selectors separate.
 4. Run only offline/source validation until hardware UART is connected: syntax/import checks, helper extraction hash checks, READ-patch checks and command construction tests.
-5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-flash` captures and compare both against the canonical 1 MiB dump.
+5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-full-flash` captures and compare both against the canonical 1 MiB dump. Factory `read-flash` remains the logical STK-equivalent route.
 6. Only after that consider `restore-stock`; generic modified-image flash stays gated.
 7. After ROM-loader/readback/recovery is board-proven, return to custom RAM logging and then debugger feasibility.
 
 Approximate useful STK behavior coverage at handoff: **about 67%** of the project-relevant STK behavior lane. This denominator is the useful ROM-loader/container/control behavior needed by this project, not total executable nodes or GUI/library code.
+
+
+## Factory ROM-loader baseline convergence — 2026-09-30
+
+The project-relevant STK/ROM-loader behavior lane is now treated as
+**behavior-complete for the current factory baseline**. This is implementation
+evidence, not board acceptance.
+
+Newly closed factory details:
+- `OpenRomLoaderSerialPort` uses synchronous Win32 serial I/O, 8N1, exact
+  baud choices, recovered COMMTIMEOUTS and `PurgeComm(0x0F)`;
+- `SerialReadExact` clears only the first byte of the shared destination,
+  ignores the Win32 BOOL result and reports success only when the actual byte
+  count equals the requested count;
+- `SerialWriteExact` likewise ignores the Win32 BOOL result and reports
+  success only from the actual byte count;
+- `WaitForRomLoaderTextStatus` accepts text bytes only in inclusive range
+  `0x20..0x7A`, uses CR as the line transition, NUL as stop/completion and an
+  inactivity timeout reset by every successful byte;
+- for target profile `8202L_128_SPI`, factory READ preserves the helper's SPI
+  word-read action. The direct-memory replacement belongs only to
+  lower-numbered non-SPI profiles;
+- factory READ returns the checksum-delimited logical firmware extent. Full
+  physical 1 MiB acquisition is a project extension, not the factory route.
+
+`tools/sphe_romloader.py` on the current factory-baseline branch now reflects
+those distinctions:
+- `read-flash` = factory logical READ;
+- `read-full-flash` = explicit project extension;
+- hardware commands default to the recovered synchronous Win32 transport;
+- `--transport pyserial` remains available only as an explicitly
+  non-factory portable extension;
+- shared-buffer/short-I/O behavior is mirrored instead of converting every
+  short operation into an immediate low-level exception.
+
+Validation state:
+- STK behavior contract: implementation proof complete for the project-relevant
+  ROM-loader lane;
+- Python source: implementation updated, hardware execution not yet proven;
+- physical UART entry, repeated readback and rollback remain board gates;
+- generic modified-image flashing remains gated.

@@ -10,7 +10,8 @@ STATUS:
 - generic modified-image flash writing is deliberately not exposed;
 - stock-only recovery is gated by exact size/SHA and explicit chip-erase confirmation.
 
-Requires: pyserial
+Factory transport: Windows synchronous Win32 serial I/O.
+Optional portable extension: pyserial.
 
 Recovered target UART:
 - 8N1
@@ -23,6 +24,7 @@ Recovered target UART:
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import pathlib
 import struct
@@ -32,8 +34,8 @@ import zipfile
 
 try:
     import serial
-except ImportError as exc:
-    raise SystemExit("pyserial is required: pip install pyserial") from exc
+except ImportError:
+    serial = None
 
 
 BAUD_DIVISOR = {
@@ -66,6 +68,197 @@ RAM_EXEC_MAX_SIZE = IMAGE_SIZE_ADDRESS - RAM_STUB_ADDRESS
 
 class ProtocolError(RuntimeError):
     pass
+
+
+class _Win32Dcb(ctypes.Structure):
+    _fields_ = [
+        ("DCBlength", ctypes.c_uint32),
+        ("BaudRate", ctypes.c_uint32),
+        ("Flags", ctypes.c_uint32),
+        ("wReserved", ctypes.c_uint16),
+        ("XonLim", ctypes.c_uint16),
+        ("XoffLim", ctypes.c_uint16),
+        ("ByteSize", ctypes.c_ubyte),
+        ("Parity", ctypes.c_ubyte),
+        ("StopBits", ctypes.c_ubyte),
+        ("XonChar", ctypes.c_char),
+        ("XoffChar", ctypes.c_char),
+        ("ErrorChar", ctypes.c_char),
+        ("EofChar", ctypes.c_char),
+        ("EvtChar", ctypes.c_char),
+        ("wReserved1", ctypes.c_uint16),
+    ]
+
+
+class _Win32CommTimeouts(ctypes.Structure):
+    _fields_ = [
+        ("ReadIntervalTimeout", ctypes.c_uint32),
+        ("ReadTotalTimeoutMultiplier", ctypes.c_uint32),
+        ("ReadTotalTimeoutConstant", ctypes.c_uint32),
+        ("WriteTotalTimeoutMultiplier", ctypes.c_uint32),
+        ("WriteTotalTimeoutConstant", ctypes.c_uint32),
+    ]
+
+
+class FactoryWin32Serial:
+    """Synchronous serial transport matching the recovered STK Win32 setup."""
+
+    GENERIC_READ = 0x80000000
+    GENERIC_WRITE = 0x40000000
+    OPEN_EXISTING = 3
+    PURGE_ALL = 0x0F
+
+    def __init__(self, port: str, baud: int):
+        if sys.platform != "win32":
+            raise ProtocolError(
+                "factory transport requires Windows; "
+                "use --transport pyserial only as a non-factory extension"
+            )
+
+        self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._configure_api()
+
+        handle = self._k32.CreateFileW(
+            port,
+            self.GENERIC_READ | self.GENERIC_WRITE,
+            0,
+            None,
+            self.OPEN_EXISTING,
+            0,
+            None,
+        )
+        if handle == ctypes.c_void_p(-1).value:
+            err = ctypes.get_last_error()
+            raise OSError(err, f"CreateFileW failed for {port!r}")
+
+        self._handle = ctypes.c_void_p(handle)
+        try:
+            self._configure_port(baud)
+        except Exception:
+            self.close()
+            raise
+
+    def _configure_api(self) -> None:
+        k32 = self._k32
+        k32.CreateFileW.argtypes = [
+            ctypes.c_wchar_p,
+            ctypes.c_uint32,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+        ]
+        k32.CreateFileW.restype = ctypes.c_void_p
+        k32.GetCommState.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32Dcb),
+        ]
+        k32.GetCommState.restype = ctypes.c_int
+        k32.SetCommState.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32Dcb),
+        ]
+        k32.SetCommState.restype = ctypes.c_int
+        k32.GetCommTimeouts.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32CommTimeouts),
+        ]
+        k32.GetCommTimeouts.restype = ctypes.c_int
+        k32.SetCommTimeouts.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32CommTimeouts),
+        ]
+        k32.SetCommTimeouts.restype = ctypes.c_int
+        k32.PurgeComm.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        k32.PurgeComm.restype = ctypes.c_int
+        k32.ReadFile.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_void_p,
+        ]
+        k32.ReadFile.restype = ctypes.c_int
+        k32.WriteFile.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_void_p,
+        ]
+        k32.WriteFile.restype = ctypes.c_int
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle.restype = ctypes.c_int
+
+    def _configure_port(self, baud: int) -> None:
+        dcb = _Win32Dcb()
+        dcb.DCBlength = ctypes.sizeof(_Win32Dcb)
+        if not self._k32.GetCommState(self._handle, ctypes.byref(dcb)):
+            err = ctypes.get_last_error()
+            raise OSError(err, "GetCommState failed")
+
+        dcb.ByteSize = 8
+        dcb.StopBits = 0
+        dcb.Parity = 0
+        dcb.BaudRate = baud
+        if not self._k32.SetCommState(self._handle, ctypes.byref(dcb)):
+            err = ctypes.get_last_error()
+            raise OSError(err, "SetCommState failed")
+
+        timeouts = _Win32CommTimeouts()
+        if not self._k32.GetCommTimeouts(
+            self._handle,
+            ctypes.byref(timeouts),
+        ):
+            err = ctypes.get_last_error()
+            raise OSError(err, "GetCommTimeouts failed")
+
+        timeouts.ReadIntervalTimeout = 100
+        timeouts.ReadTotalTimeoutMultiplier = 100
+        timeouts.ReadTotalTimeoutConstant = 500
+        timeouts.WriteTotalTimeoutMultiplier = 10
+        timeouts.WriteTotalTimeoutConstant = 1000
+        if not self._k32.SetCommTimeouts(
+            self._handle,
+            ctypes.byref(timeouts),
+        ):
+            err = ctypes.get_last_error()
+            raise OSError(err, "SetCommTimeouts failed")
+
+        if not self._k32.PurgeComm(self._handle, self.PURGE_ALL):
+            err = ctypes.get_last_error()
+            raise OSError(err, "PurgeComm failed")
+
+    def write(self, data: bytes) -> int:
+        buf = ctypes.create_string_buffer(data, len(data))
+        actual = ctypes.c_uint32(0)
+        self._k32.WriteFile(
+            self._handle,
+            buf,
+            len(data),
+            ctypes.byref(actual),
+            None,
+        )
+        return int(actual.value)
+
+    def read(self, size: int) -> bytes:
+        buf = ctypes.create_string_buffer(size)
+        actual = ctypes.c_uint32(0)
+        self._k32.ReadFile(
+            self._handle,
+            buf,
+            size,
+            ctypes.byref(actual),
+            None,
+        )
+        return bytes(buf.raw[:actual.value])
+
+    def close(self) -> None:
+        handle = getattr(self, "_handle", None)
+        if handle is not None:
+            self._k32.CloseHandle(handle)
+            self._handle = None
 
 
 def u32le(data: bytes) -> int:
@@ -139,7 +332,10 @@ def patch_target_stub_for_read(stub: bytes) -> bytes:
     put32(0x1770, 0x08006DC0)
     work[0x1B2D] = 0x0A
     work[0x1B2E] = 0x00
-    put32(0x27E0, 0x8C920000)
+
+    # Factory target profile 8202L_128_SPI keeps the helper's SPI word-read
+    # action at +0x27E0.  The direct-memory replacement used by lower-numbered
+    # non-SPI profiles must not be applied to this target.
     return bytes(work)
 
 
@@ -178,7 +374,7 @@ def patch_target_stub_for_full_flash_read(stub: bytes) -> bytes:
 
 def patch_target_stub_for_write(stub: bytes) -> bytes:
     """
-    Apply the exact rev-8203R write-firmware patches for target profile 2.
+    Apply the exact rev-8203R write-firmware patches for target profile 7.
     """
     work = bytearray(stub)
 
@@ -240,26 +436,46 @@ def extract_target_stub(stk_source: pathlib.Path) -> bytes:
 
 
 class RomLoader:
-    def __init__(self, port: str, baud: int, timeout: float = 1.5):
+    def __init__(
+        self,
+        port: str,
+        baud: int,
+        timeout: float = 1.5,
+        transport: str = "factory",
+    ):
         if baud not in BAUD_DIVISOR:
             raise ValueError(f"unsupported baud: {baud}")
+        if transport not in ("factory", "pyserial"):
+            raise ValueError(f"unsupported transport: {transport}")
         self.port = port
         self.baud = baud
         self.timeout = timeout
-        self.ser: serial.Serial | None = None
+        self.transport = transport
+        self.ser = None
+        # STK uses one shared I/O buffer. SerialReadExact clears only its
+        # first byte before ReadFile and reports success through the actual
+        # byte count; callers then inspect the shared buffer.
+        self._io_buffer = bytearray(16)
 
     def __enter__(self) -> "RomLoader":
-        self.ser = serial.Serial(
-            self.port,
-            self.baud,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=self.timeout,
-            write_timeout=self.timeout,
-        )
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        if self.transport == "factory":
+            self.ser = FactoryWin32Serial(self.port, self.baud)
+        else:
+            if serial is None:
+                raise ProtocolError(
+                    "pyserial transport requires: pip install pyserial"
+                )
+            self.ser = serial.Serial(
+                self.port,
+                self.baud,
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=self.timeout,
+                write_timeout=self.timeout,
+            )
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -272,23 +488,41 @@ class RomLoader:
             raise ProtocolError("serial port is not open")
         return self.ser
 
-    def write_exact(self, data: bytes) -> None:
+    def write_exact(self, data: bytes) -> bool:
+        """
+        Factory SerialWriteExact semantics.
+
+        The Win32 BOOL result is not part of the wrapper contract; success is
+        only actual_count == requested_count.  Callers decide how to handle a
+        false result.
+        """
         ser = self._serial()
         n = ser.write(data)
-        ser.flush()
-        if n != len(data):
-            raise ProtocolError(f"short UART write: {n}/{len(data)}")
+        if self.transport == "pyserial":
+            ser.flush()
+        return n == len(data)
 
-    def read_exact(self, n: int) -> bytes:
+    def read_exact(self, n: int) -> tuple[bool, bytes]:
+        """
+        Factory SerialReadExact semantics.
+
+        Clear the first byte of the shared destination before I/O, preserve
+        the rest of the shared buffer, and report success only when the actual
+        byte count equals the requested count.
+        """
+        if n < 1 or n > len(self._io_buffer):
+            raise ValueError("factory serial read size must be 1..16 bytes")
         ser = self._serial()
+        self._io_buffer[0] = 0
         data = ser.read(n)
-        if len(data) != n:
-            raise ProtocolError(f"UART timeout/short read: {len(data)}/{n}")
-        return data
+        actual = len(data)
+        self._io_buffer[:actual] = data
+        return actual == n, bytes(self._io_buffer[:n])
 
     def exchange_byte(self, value: int, expected: int | None = None) -> int:
         self.write_exact(bytes([value]))
-        got = self.read_exact(1)[0]
+        _, reply = self.read_exact(1)
+        got = reply[0]
         if expected is not None and got != expected:
             raise ProtocolError(
                 f"unexpected ACK 0x{got:02x}, expected 0x{expected:02x}"
@@ -297,13 +531,13 @@ class RomLoader:
 
     def write32(self, address: int, value: int) -> None:
         self.write_exact(b"W" + p32(address) + p32(value))
-        ack = self.read_exact(1)
+        _, ack = self.read_exact(1)
         if ack != b"W":
             raise ProtocolError(f"write32 ACK mismatch: {ack!r}")
 
     def read32(self, address: int) -> int:
         self.write_exact(b"R" + p32(address))
-        reply = self.read_exact(5)
+        _, reply = self.read_exact(5)
         if reply[:1] != b"R":
             raise ProtocolError(f"read32 ACK mismatch: {reply!r}")
         return u32le(reply[1:])
@@ -347,7 +581,7 @@ class RomLoader:
         padded = data + b"\x00" * ((-len(data)) & 3)
         for off in range(start_offset, len(padded), 4):
             self.write_exact(b"w" + padded[off:off + 4])
-            ack = self.read_exact(1)
+            _, ack = self.read_exact(1)
             if ack != b"w":
                 raise ProtocolError(
                     f"stream ACK mismatch at +0x{off:x}: {ack!r}"
@@ -383,7 +617,7 @@ class RomLoader:
 
         # First control write has a three-byte response; STK checks byte 2.
         self.write_exact(b"W" + p32(0x00000000) + p32(0x08006400))
-        reply = self.read_exact(3)
+        _, reply = self.read_exact(3)
         if reply[2:3] != b"W":
             raise ProtocolError(
                 f"start control ACK mismatch: {reply!r}"
@@ -415,12 +649,12 @@ class RomLoader:
                 return text
             if b == b"\r":
                 chars.append("\n")
-            elif b == b"\n":
-                # STK's target puts() emits LF then CR; its UI uses CR as
-                # the visible newline and ignores LF.
-                continue
-            elif 0x20 <= b[0] <= 0x7E or b == b"\t":
+            elif 0x20 <= b[0] <= 0x7A:
                 chars.append(b.decode("ascii", "replace"))
+            else:
+                # Factory status parser ignores LF, TAB and all other bytes
+                # outside the inclusive 0x20..0x7A text range.
+                continue
         raise ProtocolError("timeout waiting for RAM-loader console terminator")
 
     def receive_firmware_image(self) -> bytes:
@@ -433,7 +667,9 @@ class RomLoader:
         """
         self.monitor_until_nul(5.0)
 
-        size_bytes = self.read_exact(4)
+        size_ok, size_bytes = self.read_exact(4)
+        if not size_ok:
+            raise ProtocolError("short read while receiving firmware size")
         size = u32le(size_bytes)
         if size > 0x200000:
             raise ProtocolError(
@@ -444,7 +680,9 @@ class RomLoader:
 
         output = bytearray()
         while len(output) < size:
-            block = self.read_exact(16)
+            block_ok, block = self.read_exact(16)
+            if not block_ok:
+                raise ProtocolError("short read while receiving firmware data")
             output += block
             self.write_exact(block[:1])
 
@@ -562,7 +800,21 @@ def add_serial_args(
         choices=sorted(BAUD_DIVISOR),
         default=115200,
     )
-    p.add_argument("--timeout", type=float, default=1.5)
+    p.add_argument(
+        "--transport",
+        choices=("factory", "pyserial"),
+        default="factory",
+        help=(
+            "factory = recovered synchronous Win32 STK transport; "
+            "pyserial = portable non-factory extension"
+        ),
+    )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=1.5,
+        help="pyserial extension timeout; ignored by factory transport",
+    )
     if with_stk:
         p.add_argument(
             "--stk",
@@ -595,10 +847,25 @@ def main() -> int:
     add_serial_args(upload)
     upload.add_argument("image", type=pathlib.Path)
 
-    read_flash = sub.add_parser("read-flash")
+    read_flash = sub.add_parser(
+        "read-flash",
+        help="factory-equivalent logical firmware READ",
+    )
     add_serial_args(read_flash, with_stk=True)
     read_flash.add_argument("output", type=pathlib.Path)
     read_flash.add_argument(
+        "--expect-sha256",
+        default=None,
+        help="optional expected SHA-256 for immediate readback verification",
+    )
+
+    read_full_flash = sub.add_parser(
+        "read-full-flash",
+        help="project extension: read the full physical 1 MiB SPI flash",
+    )
+    add_serial_args(read_full_flash, with_stk=True)
+    read_full_flash.add_argument("output", type=pathlib.Path)
+    read_full_flash.add_argument(
         "--expect-sha256",
         default=None,
         help="optional expected SHA-256 for immediate readback verification",
@@ -666,14 +933,22 @@ def main() -> int:
         print("read_patch_validation=ok")
         return 0
 
-    with RomLoader(args.port, args.baud, args.timeout) as rl:
+    with RomLoader(
+        args.port,
+        args.baud,
+        args.timeout,
+        transport=args.transport,
+    ) as rl:
         if args.command == "monitor":
             rl.monitor(args.stop_on_nul)
             return 0
 
-        if args.command == "read-flash":
+        if args.command in ("read-flash", "read-full-flash"):
             stub = extract_target_stub(args.stk)
-            image = rl.read_full_flash(stub)
+            if args.command == "read-flash":
+                image = rl.read_firmware(stub)
+            else:
+                image = rl.read_full_flash(stub)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_bytes(image)
             digest = hashlib.sha256(image).hexdigest()
