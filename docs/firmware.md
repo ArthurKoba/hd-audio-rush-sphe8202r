@@ -1064,3 +1064,61 @@ suite yet. The desired CI gate is limited to syntax/import and the fast
 `sphe_romloader.py info` offline integrity path on Windows and Linux. Hardware
 session, flash readback and recovery remain board acceptance and must not be
 folded into CI.
+
+
+### GM5 / spatial preset control
+
+The AUDIO SETUP GM5 descriptor is now resolved beyond its menu/control ID.
+
+Control `0x9E` exposes three translated options:
+- `OFF`
+- `MODE 1`
+- `MODE 2`
+
+The control routes through `HandleGm5ControlOption` and
+`ApplyPackedAudioModeControl`. The packed control updates fields inside the
+runtime audio-mode word and commits through hardware audio action `0x0E`.
+
+Observed GM5 sequences are:
+- OFF -> packed codes `0x10`, then `0x23`;
+- MODE 1 -> `0x11`, then `0x23`;
+- MODE 2 -> `0x11`, then `0x22`.
+
+Enabling MODE 1/2 also resets/reapplies related KEY/output state before the
+GM5 mode sequence.
+
+A separate runtime route pairs GM5 with DOWNMIX:
+- spatial preset: GM5 MODE 2 + DOWNMIX OFF;
+- normal stereo preset: GM5 OFF + DOWNMIX STEREO.
+
+DOWNMIX labels and behavior are now grounded:
+- LT/RT -> mode 8;
+- STEREO -> mode 7;
+- VSS -> mode 9;
+- OFF follows a distinct decoder/speaker/delay restore path and must not be
+  collapsed into VSS.
+
+### External-input mode contract
+
+The external-input hardware mode code is validated as 0..3:
+- 0..2 -> S/PDIF-input path;
+- 3 -> AUXIN.
+
+`PollExternalInputModeCode` reads it, `WriteExternalInputModeCode` writes it,
+`ApplyExternalInputHardwareMode` updates the SPHE hardware-control fields, and
+`ApplyExternalInputSourceTransition` updates the higher-level source/subsource
+state.
+
+The runtime spatial-preset trigger and external-input stepping share one
+control path, but the currently recovered state selector governing which branch
+runs is not yet semantically identified. Do not infer that GM5 is automatically
+enabled by AUX merely from this shared route; that exact event policy remains
+to be recovered.
+
+### Stale-flow correction in audio profile region
+
+A targeted low-level check found that part of the decoder output-profile
+high-level route followed stale stored targets into a data table. The actual
+raw MIPS targets differ and include runtime-state helpers. Therefore raw
+low-level operations are authoritative in that local region until the analysis
+metadata is repaired. No broad repair has been applied.
