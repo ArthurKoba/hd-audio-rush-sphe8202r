@@ -250,6 +250,10 @@ class RomLoader:
         self.baud = baud
         self.timeout = timeout
         self.ser: serial.Serial | None = None
+        # STK uses one shared I/O buffer. SerialReadExact clears only its
+        # first byte before ReadFile and reports success through the actual
+        # byte count; callers then inspect the shared buffer.
+        self._io_buffer = bytearray(16)
 
     def __enter__(self) -> "RomLoader":
         self.ser = serial.Serial(
@@ -275,23 +279,39 @@ class RomLoader:
             raise ProtocolError("serial port is not open")
         return self.ser
 
-    def write_exact(self, data: bytes) -> None:
+    def write_exact(self, data: bytes) -> bool:
+        """
+        Factory SerialWriteExact semantics.
+
+        The Win32 BOOL result is not part of the wrapper contract; success is
+        only actual_count == requested_count.  Callers decide how to handle a
+        false result.
+        """
         ser = self._serial()
         n = ser.write(data)
-        ser.flush()
-        if n != len(data):
-            raise ProtocolError(f"short UART write: {n}/{len(data)}")
+        return n == len(data)
 
-    def read_exact(self, n: int) -> bytes:
+    def read_exact(self, n: int) -> tuple[bool, bytes]:
+        """
+        Factory SerialReadExact semantics.
+
+        Clear the first byte of the shared destination before I/O, preserve
+        the rest of the shared buffer, and report success only when the actual
+        byte count equals the requested count.
+        """
+        if n < 1 or n > len(self._io_buffer):
+            raise ValueError("factory serial read size must be 1..16 bytes")
         ser = self._serial()
+        self._io_buffer[0] = 0
         data = ser.read(n)
-        if len(data) != n:
-            raise ProtocolError(f"UART timeout/short read: {len(data)}/{n}")
-        return data
+        actual = len(data)
+        self._io_buffer[:actual] = data
+        return actual == n, bytes(self._io_buffer[:n])
 
     def exchange_byte(self, value: int, expected: int | None = None) -> int:
         self.write_exact(bytes([value]))
-        got = self.read_exact(1)[0]
+        _, reply = self.read_exact(1)
+        got = reply[0]
         if expected is not None and got != expected:
             raise ProtocolError(
                 f"unexpected ACK 0x{got:02x}, expected 0x{expected:02x}"
@@ -300,13 +320,13 @@ class RomLoader:
 
     def write32(self, address: int, value: int) -> None:
         self.write_exact(b"W" + p32(address) + p32(value))
-        ack = self.read_exact(1)
+        _, ack = self.read_exact(1)
         if ack != b"W":
             raise ProtocolError(f"write32 ACK mismatch: {ack!r}")
 
     def read32(self, address: int) -> int:
         self.write_exact(b"R" + p32(address))
-        reply = self.read_exact(5)
+        _, reply = self.read_exact(5)
         if reply[:1] != b"R":
             raise ProtocolError(f"read32 ACK mismatch: {reply!r}")
         return u32le(reply[1:])
@@ -350,7 +370,7 @@ class RomLoader:
         padded = data + b"\x00" * ((-len(data)) & 3)
         for off in range(start_offset, len(padded), 4):
             self.write_exact(b"w" + padded[off:off + 4])
-            ack = self.read_exact(1)
+            _, ack = self.read_exact(1)
             if ack != b"w":
                 raise ProtocolError(
                     f"stream ACK mismatch at +0x{off:x}: {ack!r}"
@@ -386,7 +406,7 @@ class RomLoader:
 
         # First control write has a three-byte response; STK checks byte 2.
         self.write_exact(b"W" + p32(0x00000000) + p32(0x08006400))
-        reply = self.read_exact(3)
+        _, reply = self.read_exact(3)
         if reply[2:3] != b"W":
             raise ProtocolError(
                 f"start control ACK mismatch: {reply!r}"
@@ -436,7 +456,9 @@ class RomLoader:
         """
         self.monitor_until_nul(5.0)
 
-        size_bytes = self.read_exact(4)
+        size_ok, size_bytes = self.read_exact(4)
+        if not size_ok:
+            raise ProtocolError("short read while receiving firmware size")
         size = u32le(size_bytes)
         if size > 0x200000:
             raise ProtocolError(
@@ -447,7 +469,9 @@ class RomLoader:
 
         output = bytearray()
         while len(output) < size:
-            block = self.read_exact(16)
+            block_ok, block = self.read_exact(16)
+            if not block_ok:
+                raise ProtocolError("short read while receiving firmware data")
             output += block
             self.write_exact(block[:1])
 
