@@ -23,6 +23,7 @@ Recovered target UART:
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import pathlib
 import struct
@@ -32,8 +33,8 @@ import zipfile
 
 try:
     import serial
-except ImportError as exc:
-    raise SystemExit("pyserial is required: pip install pyserial") from exc
+except ImportError:
+    serial = None
 
 
 BAUD_DIVISOR = {
@@ -66,6 +67,197 @@ RAM_EXEC_MAX_SIZE = IMAGE_SIZE_ADDRESS - RAM_STUB_ADDRESS
 
 class ProtocolError(RuntimeError):
     pass
+
+
+class _Win32Dcb(ctypes.Structure):
+    _fields_ = [
+        ("DCBlength", ctypes.c_uint32),
+        ("BaudRate", ctypes.c_uint32),
+        ("Flags", ctypes.c_uint32),
+        ("wReserved", ctypes.c_uint16),
+        ("XonLim", ctypes.c_uint16),
+        ("XoffLim", ctypes.c_uint16),
+        ("ByteSize", ctypes.c_ubyte),
+        ("Parity", ctypes.c_ubyte),
+        ("StopBits", ctypes.c_ubyte),
+        ("XonChar", ctypes.c_char),
+        ("XoffChar", ctypes.c_char),
+        ("ErrorChar", ctypes.c_char),
+        ("EofChar", ctypes.c_char),
+        ("EvtChar", ctypes.c_char),
+        ("wReserved1", ctypes.c_uint16),
+    ]
+
+
+class _Win32CommTimeouts(ctypes.Structure):
+    _fields_ = [
+        ("ReadIntervalTimeout", ctypes.c_uint32),
+        ("ReadTotalTimeoutMultiplier", ctypes.c_uint32),
+        ("ReadTotalTimeoutConstant", ctypes.c_uint32),
+        ("WriteTotalTimeoutMultiplier", ctypes.c_uint32),
+        ("WriteTotalTimeoutConstant", ctypes.c_uint32),
+    ]
+
+
+class FactoryWin32Serial:
+    """Synchronous serial transport matching the recovered STK Win32 setup."""
+
+    GENERIC_READ = 0x80000000
+    GENERIC_WRITE = 0x40000000
+    OPEN_EXISTING = 3
+    PURGE_ALL = 0x0F
+
+    def __init__(self, port: str, baud: int):
+        if sys.platform != "win32":
+            raise ProtocolError(
+                "factory transport requires Windows; "
+                "use --transport pyserial only as a non-factory extension"
+            )
+
+        self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._configure_api()
+
+        handle = self._k32.CreateFileW(
+            port,
+            self.GENERIC_READ | self.GENERIC_WRITE,
+            0,
+            None,
+            self.OPEN_EXISTING,
+            0,
+            None,
+        )
+        if handle == ctypes.c_void_p(-1).value:
+            err = ctypes.get_last_error()
+            raise OSError(err, f"CreateFileW failed for {port!r}")
+
+        self._handle = ctypes.c_void_p(handle)
+        try:
+            self._configure_port(baud)
+        except Exception:
+            self.close()
+            raise
+
+    def _configure_api(self) -> None:
+        k32 = self._k32
+        k32.CreateFileW.argtypes = [
+            ctypes.c_wchar_p,
+            ctypes.c_uint32,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+        ]
+        k32.CreateFileW.restype = ctypes.c_void_p
+        k32.GetCommState.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32Dcb),
+        ]
+        k32.GetCommState.restype = ctypes.c_int
+        k32.SetCommState.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32Dcb),
+        ]
+        k32.SetCommState.restype = ctypes.c_int
+        k32.GetCommTimeouts.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32CommTimeouts),
+        ]
+        k32.GetCommTimeouts.restype = ctypes.c_int
+        k32.SetCommTimeouts.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_Win32CommTimeouts),
+        ]
+        k32.SetCommTimeouts.restype = ctypes.c_int
+        k32.PurgeComm.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        k32.PurgeComm.restype = ctypes.c_int
+        k32.ReadFile.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_void_p,
+        ]
+        k32.ReadFile.restype = ctypes.c_int
+        k32.WriteFile.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_void_p,
+        ]
+        k32.WriteFile.restype = ctypes.c_int
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle.restype = ctypes.c_int
+
+    def _configure_port(self, baud: int) -> None:
+        dcb = _Win32Dcb()
+        dcb.DCBlength = ctypes.sizeof(_Win32Dcb)
+        if not self._k32.GetCommState(self._handle, ctypes.byref(dcb)):
+            err = ctypes.get_last_error()
+            raise OSError(err, "GetCommState failed")
+
+        dcb.ByteSize = 8
+        dcb.StopBits = 0
+        dcb.Parity = 0
+        dcb.BaudRate = baud
+        if not self._k32.SetCommState(self._handle, ctypes.byref(dcb)):
+            err = ctypes.get_last_error()
+            raise OSError(err, "SetCommState failed")
+
+        timeouts = _Win32CommTimeouts()
+        if not self._k32.GetCommTimeouts(
+            self._handle,
+            ctypes.byref(timeouts),
+        ):
+            err = ctypes.get_last_error()
+            raise OSError(err, "GetCommTimeouts failed")
+
+        timeouts.ReadIntervalTimeout = 100
+        timeouts.ReadTotalTimeoutMultiplier = 100
+        timeouts.ReadTotalTimeoutConstant = 500
+        timeouts.WriteTotalTimeoutMultiplier = 10
+        timeouts.WriteTotalTimeoutConstant = 1000
+        if not self._k32.SetCommTimeouts(
+            self._handle,
+            ctypes.byref(timeouts),
+        ):
+            err = ctypes.get_last_error()
+            raise OSError(err, "SetCommTimeouts failed")
+
+        if not self._k32.PurgeComm(self._handle, self.PURGE_ALL):
+            err = ctypes.get_last_error()
+            raise OSError(err, "PurgeComm failed")
+
+    def write(self, data: bytes) -> int:
+        buf = ctypes.create_string_buffer(data, len(data))
+        actual = ctypes.c_uint32(0)
+        self._k32.WriteFile(
+            self._handle,
+            buf,
+            len(data),
+            ctypes.byref(actual),
+            None,
+        )
+        return int(actual.value)
+
+    def read(self, size: int) -> bytes:
+        buf = ctypes.create_string_buffer(size)
+        actual = ctypes.c_uint32(0)
+        self._k32.ReadFile(
+            self._handle,
+            buf,
+            size,
+            ctypes.byref(actual),
+            None,
+        )
+        return bytes(buf.raw[:actual.value])
+
+    def close(self) -> None:
+        handle = getattr(self, "_handle", None)
+        if handle is not None:
+            self._k32.CloseHandle(handle)
+            self._handle = None
 
 
 def u32le(data: bytes) -> int:
@@ -243,30 +435,46 @@ def extract_target_stub(stk_source: pathlib.Path) -> bytes:
 
 
 class RomLoader:
-    def __init__(self, port: str, baud: int, timeout: float = 1.5):
+    def __init__(
+        self,
+        port: str,
+        baud: int,
+        timeout: float = 1.5,
+        transport: str = "factory",
+    ):
         if baud not in BAUD_DIVISOR:
             raise ValueError(f"unsupported baud: {baud}")
+        if transport not in ("factory", "pyserial"):
+            raise ValueError(f"unsupported transport: {transport}")
         self.port = port
         self.baud = baud
         self.timeout = timeout
-        self.ser: serial.Serial | None = None
+        self.transport = transport
+        self.ser = None
         # STK uses one shared I/O buffer. SerialReadExact clears only its
         # first byte before ReadFile and reports success through the actual
         # byte count; callers then inspect the shared buffer.
         self._io_buffer = bytearray(16)
 
     def __enter__(self) -> "RomLoader":
-        self.ser = serial.Serial(
-            self.port,
-            self.baud,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=self.timeout,
-            write_timeout=self.timeout,
-        )
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        if self.transport == "factory":
+            self.ser = FactoryWin32Serial(self.port, self.baud)
+        else:
+            if serial is None:
+                raise ProtocolError(
+                    "pyserial transport requires: pip install pyserial"
+                )
+            self.ser = serial.Serial(
+                self.port,
+                self.baud,
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=self.timeout,
+                write_timeout=self.timeout,
+            )
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -289,6 +497,8 @@ class RomLoader:
         """
         ser = self._serial()
         n = ser.write(data)
+        if self.transport == "pyserial":
+            ser.flush()
         return n == len(data)
 
     def read_exact(self, n: int) -> tuple[bool, bytes]:
@@ -589,7 +799,21 @@ def add_serial_args(
         choices=sorted(BAUD_DIVISOR),
         default=115200,
     )
-    p.add_argument("--timeout", type=float, default=1.5)
+    p.add_argument(
+        "--transport",
+        choices=("factory", "pyserial"),
+        default="factory",
+        help=(
+            "factory = recovered synchronous Win32 STK transport; "
+            "pyserial = portable non-factory extension"
+        ),
+    )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=1.5,
+        help="pyserial extension timeout; ignored by factory transport",
+    )
     if with_stk:
         p.add_argument(
             "--stk",
@@ -708,7 +932,12 @@ def main() -> int:
         print("read_patch_validation=ok")
         return 0
 
-    with RomLoader(args.port, args.baud, args.timeout) as rl:
+    with RomLoader(
+        args.port,
+        args.baud,
+        args.timeout,
+        transport=args.transport,
+    ) as rl:
         if args.command == "monitor":
             rl.monitor(args.stop_on_nul)
             return 0
