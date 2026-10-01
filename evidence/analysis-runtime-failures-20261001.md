@@ -103,3 +103,28 @@ The backend has no published tool for installing a processor definition. Its sup
 3. restart the service;
 4. import new DSP program copies under a separate project folder;
 5. preserve the existing MIPS probe programs until validation is complete.
+
+## Incident marker policy
+
+User-facing incident markers are intentionally distinct:
+
+- `❗` — external provider/safety/pre-tool classification prevented the requested operation from reaching the intended backend. Treat it as an external execution constraint; do not misattribute it to MCP or analysis runtime.
+- `🟠` — Koba MCP, connector, transport, schema publication, session, analysis runtime, or backend defect. Treat it as an engineering issue: collect diagnostics, fix the owning layer when possible, and validate the repair.
+
+Do not use `❗` for ordinary MCP/backend failures.
+
+### Infrastructure status after mcp-bridge PR #105
+
+Baseline: `ArthurKoba/mcp-bridge` main `40fafe64ab2d83cd5444d556681cb3d6889f6eef`.
+
+The following previously observed infrastructure incidents are considered addressed by that baseline unless reproduced with new evidence:
+
+- concurrent OAuth refresh rotation causing `bad_refresh_token`;
+- transient GitHub `RemoteDisconnected` on idempotent GET/HEAD without reconnect retry;
+- duplicate ERROR logging for one MCP failure;
+- duplicated internal `Analysis → Ghidra` calls in Management MCP-call history.
+
+A transient disconnect that still occurs after the bounded retry budget remains a transport incident, but it is no longer the earlier missing-retry defect.
+
+A separate current observation is that an already-open ChatGPT session can retain a stale published root tool schema after the backend is redeployed. On 2026-10-01 the live GitHub backend catalog exposed `github_reviewer_merge_pull_request` while the session-level tool catalog still exposed the removed `github_agent_merge_pull_request`. The unified Koba MCP bridge catalog/call path reflected the live backend correctly. Treat this as a schema/session-refresh issue, not a GitHub provider implementation defect.
+
