@@ -4,20 +4,26 @@ Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SP
 
 The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
-## Current analysis milestone — 2026-10-01
+## Current analysis milestone — 2026-10-02
 
-The current canonical Analysis project is `sphe8202r_decoder_p25d80`. The active work has crossed two major milestones:
+The current canonical Analysis project is `sphe8202r_decoder_p25d80`.
+
+**Current continuation authority:** [MUSIC MODE, decoder input ring and audio-service contracts](evidence/ap1-music-mode-20261002.md). Read this checkpoint before using older audio handoffs. Its explicit corrections supersede conflicting EQ-table, configured-window and success-result interpretations in `docs/analyze-status.md`, `docs/firmware.md` and the earlier evidence files; those older documents retain useful historical detail, not a newer acceptance claim.
 
 - **`srvdsp.bin` is no longer a blocked/legacy-only DSP blob.** A dedicated `SunplusSPHEAudioDSP:BE:16:default` processor model is deployed through `ArthurKoba/ghidra-mcp` and validated in the live Analysis runtime. The canonical program is `/dsp_sunplus/srvdsp.bin`; the old `/modules_probe_mipsle/srvdsp.bin` remains only as a preserved wrong-language probe and must not be used for current conclusions.
-- **Canonical `srvdsp` local coverage is complete at implementation-proof level:** 32 vector words, 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, real CNTR-controlled `DO ... UNTIL CE` flow, 21 named/typed DM state/config slots, and a structured PM data bank.
-- The two previously described “FIR” coefficient blocks are now corrected: they are exact Q13 sine windows. `PM:193E..195C` is a 31-point table `round(8192*sin(pi*(i+1)/32))`; `PM:195F..1975` is a 23-point table `round(8192*sin(pi*(i+1)/24))`, with zero error for every stored coefficient.
+- **Canonical `srvdsp` local coverage is complete at implementation-proof level:** 32 vector words, 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, real CNTR-controlled `DO ... UNTIL CE` flow, 21 named/typed DM state/config slots, and a structured PM data bank. This does not close resident DSP behavior outside that blob.
+- The two previously described “FIR” coefficient blocks are exact Q13 sine windows. `PM:193E..195C` is a 31-point table `round(8192*sin(pi*(i+1)/32))`; `PM:195F..1975` is a 23-point table `round(8192*sin(pi*(i+1)/24))`, with zero error for every stored coefficient.
 - `PM:1906..1939` is a 4x13-word coefficient-preset bank: seven fields are constant and six change in stepped patterns. Some constant sub-sequences form near-geometric gain-like steps (~±2.44 dB/step). Exact product-level effect remains outside the local blob because the consumer is resident DSP code.
-- **AP1 behavior analysis has resumed.** Current saved `ap1.bin` inventory is 3847 action nodes, with 134 custom/semantic names and 60 forwarders. This is a naming metric only, not overall behavior-completeness.
-- The currently active AP1 cluster is the audio-preset / seven-band EQ path. A 7x7-byte preset bank at `0x8070B37A` is tied to UI resources `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, and `%d DB`. Preset index 7 selects a custom/user 7-byte curve; code value 13 corresponds to 0 dB.
-- Two missed AP1 action boundaries were recovered at `0x806E89E4` (`ApplyCurrentSevenBandEqPreset`) and `0x806E8A54` (`HandleMusicPresetState`). Existing shared-return thunks around this region are being retained where inbound-link evidence proves they are real.
-- Future upstreaming of the reusable Sunplus/SPHE processor support is tracked separately in issue **#30**. That task explicitly separates reusable Ghidra processor semantics from this project's MCP/import/documentation glue and requires an independent review before an official Ghidra PR.
+- **AP1 semantic naming is now 135/3847, approximately 3.51%.** This is a naming metric only, not audio-path completeness. The last earlier forwarder snapshot was 60; it is not being presented as a newly measured count.
+- **MUSIC MODE separates SRND, EQ, BAND and KEY.** There are five fixed EQ curves (STANDARD/CLASSIC/ROCK/JAZZ/POP), not seven; the real bank starts at `0x8070B388`. Index 7 selects the USER curve. Code value 13 is displayed as 0 dB. Factory policy makes non-OFF SRND and non-STANDARD EQ mutually exclusive; this is not a silicon limitation or the same control as GM5.
+- **The configured decoder window is a CPU-fed input ring.** Native producer copies, byte cursors and three-byte-unit publication establish its transport role. Its configured byte capacities must not be treated as total/free DSP program memory or proof of PCM sample width.
+- **Command acceptance and final audio state are distinct.** The service wait is bounded by a poll count, not a proved time unit. The common dispatcher can return 1 without issuing a command under a state-mask gate, while some higher wrappers ignore intermediate failure results. Start/stop/pause paths have separate final-state waits. Exact routes and caveats are in the current checkpoint.
+- Four runtime action nodes were added with native evidence: `SetDspParameterWord24`, `GetDspParameterWord24`, `WaitForAudioServiceConditions`, and `GetDecoderInputRingFreeBytes`. One AP1 link was corrected against its original instruction and saved; the remaining local link corrections and ABI warnings are explicitly tracked, not silently treated as repaired.
+- Future upstreaming of reusable Sunplus/SPHE processor support remains separate issue **#30**. It separates reusable processor semantics from this project's MCP/import/documentation glue and requires independent review before an official upstream contribution.
 
-The current overall audio-route estimate is approximately **97–98% at implementation-proof level**. This estimate covers the target audio behavior contract; it is not the same as whole-program action-node naming coverage and does not imply execution, board, or integration proof.
+**The whole audio-path task remains open.** The earlier 97–98% audio estimate is historical, not a validated measure of the remaining DSP algorithms, resource budget or physical-output acceptance. Exact DSP consumers/effect behavior, clock/free-cycle budget, backend ownership and six physical output lanes still require further evidence. Implementation proof does not imply execution, board or integration proof.
+
+Provider/safety incidents are tracked per module/tool in `ArthurKoba/mcp-bridge` issues. The board repository retains behavior evidence and recovery locators, not a second ongoing safety log.
 
 ## Project objective
 
@@ -48,7 +54,7 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-analysis 
 
 - The extracted Sunplus application modules are coherent **MIPS32 little-endian**, so normal analysis workspace MIPS support is the correct path for `ap1.bin`, `drv_other.bin`, `cdrom.bin` and `wma.bin`.
 - The custom SCORE7 backend came from the early, incorrect assumption that the packed 1 MiB Sunplus container itself was SCORE7 code. Correct STK extraction disproved that assumption for the primary modules.
-- No current target binary on this board has been proven to require SCORE7. Auxiliary `iop` / DSP images remain unidentified and must not be labelled SCORE7 without evidence.
+- No current target binary on this board has been proven to require SCORE7. Auxiliary `iop` / `iop_rst` images remain unidentified and must not be labelled SCORE7 without evidence. The audio DSP uses the separate Sunplus-scoped model described above.
 - SCORE7 is useful general analysis workspace work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
 - The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 analysis workspace processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
 
@@ -117,7 +123,9 @@ The extracted files live directly in `firmware/modules/`. The redundant `modules
 
 The remaining STK slots (`ap2`, `ap3`, `dvb`, `dvd`, `dvd_ipod`, `free`, `mp4`, `mpeg`, `rom3`) are zero-length files and are retained because they are part of the exact 18-slot extraction.
 
-## Firmware findings
+## Firmware findings — preserved early checkpoint
+
+This section preserves earlier identification and address-audit evidence. Historical statements of open validation work below do not override subsequent milestones in the current checkpoint and `docs/analyze-status.md`.
 
 STK identifies the dump as:
 - version `02R-D-02`
@@ -140,9 +148,9 @@ The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In
 
 A 2026-09-21 raw-instruction audit found 43 stale stored direct action links in the three non-AP1 modules. The encoded targets and stored links disagree; a repair source is saved but its application was blocked and is not claimed complete. Separately, AP1 initial-delay invokes, absolute/relative branch joins and string pointers contradict its old base. See `docs/firmware.md` before using existing action node addresses or inbound action lists.
 
-The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in analysis workspace. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open.
+The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in analysis workspace. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open in this early checkpoint.
 
-The canonical analysis project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed.
+The canonical analysis project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed by this early checkpoint.
 
 ## Layout
 
@@ -155,6 +163,7 @@ tools/
   analysis workspace/RepairMipsDirectFlow.java
 evidence/
   ac695n-boot-excerpt.log
+  ap1-music-mode-20261002.md
 analysis/
   modules.csv
 docs/
