@@ -63,3 +63,43 @@ Priority suggestions, not yet implemented:
 6. **Avoid large composite requests:** until the external request-classification behavior is better understood, orchestrators should favor small single-purpose calls.
 7. **Separate outer-layer telemetry:** pre-tool safety/request-classification rejection should be identifiable independently from backend errors so it is not mistaken for analyzer instability.
 
+
+
+
+## Additional incidents from the late audio/DSP pass
+
+### Multi-open selective block
+
+A composed request attempted to open AP1, runtime, drv_other and srvdsp programs. Only `drv_other.bin` reached the backend; the other three program-open requests were rejected before backend execution. This demonstrates that a composed call can partially execute. Workaround: use single-program operations and never assume atomicity across a multi-call orchestration step.
+
+### Annotation/save asymmetry
+
+During handoff preparation:
+- `set_comment` on `drv_other.bin` was rejected before backend execution;
+- some `set_bookmark` operations succeeded while others at nearby addresses were rejected;
+- `save_program`, `save_all_programs`, and `close_program(save=true)` were rejected before backend execution.
+
+Two live-session bookmarks were successfully created at `drv_other.bin:0x807768D4` and `0x8077C29C`. Persistence of those new bookmarks is **not independently confirmed** because all explicit save surfaces were blocked afterward. Repository evidence is therefore authoritative for the late-pass findings.
+
+### Project-load rejection
+
+Alternative `load_program_from_project` requests for AP1, runtime and srvdsp were rejected before backend execution even though project metadata remained available. This is separate from a missing project file and should not be treated as project corruption.
+
+### Connector and orchestration failures
+
+Two non-analysis failures were observed:
+- GitHub binary/file requests intermittently returned `Remote end closed connection without response`; using the reviewer read surface or retrying later succeeded.
+- one large combined local profile scan failed with an internal orchestration error. Splitting the same work into one profile per call succeeded.
+
+These failures should remain separate from analysis-runtime defects.
+
+### Processor-model discovery boundary
+
+The installed analysis runtime reports `srvdsp.bin` as `MIPS:LE:32:default`, which is wrong for the 24-bit DSP words. The raw-program loader supports an explicit registered language ID, but dry-run attempts with plausible ADSP-21xx/218x IDs failed. Upstream language-tree inspection also found no ready ADSP-21xx processor module.
+
+The backend has no published tool for installing a processor definition. Its support for custom processor definitions assumes that the processor module is already registered when the analysis service starts. Therefore the supported future fix is:
+1. build a separate target-specific processor module;
+2. install/mount it into the analysis runtime by infrastructure means;
+3. restart the service;
+4. import new DSP program copies under a separate project folder;
+5. preserve the existing MIPS probe programs until validation is complete.
