@@ -138,3 +138,47 @@ AP1:
 5. Establish DSP clock, free-cycle budget, resident backend ownership and six physical output lanes separately. CPU-side source proof cannot replace target execution/continuity measurements.
 
 The whole audio-path task remains OPEN. Safety/provider incident records belong to `ArthurKoba/mcp-bridge` issues, not this board evidence file.
+
+## Codec-profile corpus and model boundary — later 2026-10-02 pass
+
+Four decoder profiles were independently re-extracted from canonical `drv_other.bin` (301072 bytes, SHA-256 `e9463f81093a43990c39ca39555d2742f29ebb2fe7fc7ca7e8eac0b694de6451`). Each bounded raw-DEFLATE stream reached EOF and its output size/hash was checked. Trailing two zero bytes in each decoded artifact remain preserved. The Python preparation script performs decompression and integrity checks only, not instruction analysis.
+
+| Profile | Descriptor VA | Packed source VA | Decoded bytes | SHA-256 |
+|---|---|---|---:|---|
+| AUX | 0x807B55DC | 0x807B3218 | 17468 | 47ccd79c7868e47dd55c1fdfaf1ccabc315f71c58d6e3f7e3f99c606b1aded2e |
+| PCM | 0x807A9170 | 0x807A5C34 | 25052 | be1cda3ac614db29818fc68423063ea3820c6033b207442367ccbb7b967242eb |
+| AC-3 | 0x807A5C28 | 0x807A0D58 | 33770 | d0a391f61b271c3faac77101271df62729bd643862264fa435421f03365b0c3a |
+| DTS | 0x807973C4 | 0x80792F88 | 30536 | 6f7af5491b3d174382a9a12a7a96b9cdfdc81b0414a296e620087c25a42df3d1 |
+
+Durable shared workspace: `projects/audio-profile-evidence-20261002` (Terminal root `/workspace`). It contains `extract_profiles.py`, `profiles/{aux,pcm,ac3,dts}-profile.bin`, and `profiles/provenance.json`. The extractor bounds output to 65536 bytes, verifies the canonical source and decoded hashes, and refuses conflicting overwrites. The repository snapshot was obtained from main; input hash verification, not an assumed SHA-pinned checkout, establishes binary provenance. The GitHub checkout helper's commit-SHA-as-branch attempt failed and was not treated as a successful pinned clone.
+
+AUX was imported through the native Analysis workspace-file path as `/dsp_sunplus/codec_profiles/aux-profile.bin`, PM base 0000, language `SunplusSPHEAudioDSP:BE:16:default`, with auto-analysis disabled. Existing CPU and srvdsp programs were not replaced. A provenance/scope annotation at PM:0000 was written and explicitly saved. No complete AUX action discovery or high-level behavior is claimed.
+
+Native decode previews reveal a genuine model limitation:
+- `PM:0000` through `PM:0022` (35 whole words, 105 bytes): 28 decoded operations; repeated word `0x0A001F` is missing;
+- `PM:0024` through `PM:0043` (32 words, 96 bytes): 27 decoded operations; gaps at PM:0028 (`0x180250`), PM:0031/003B (`0x22E21F`), PM:0042 (`0x0F02F6`), PM:0043 (`0x0D00AF`);
+- the initial native JUMP at PM:0002 targets PM:0024, grounding that entry route. Raw readback agrees with imported bytes;
+- `bytes_disassembled` and success=true report the processed range, not absence of instruction gaps. These previews were rolled back, not promoted to persistent complete code coverage.
+
+Primary-reference check: Analog Devices, *ADSP-218x DSP Instruction Set Reference*, revision 2.0 (November 2004), https://www.analog.com/media/en/dsp-documentation/processor-manuals/5876423468xinset.pdf . Relevant encoding tables were visually checked. Reference-ISA interpretations are RTI; IF EQ JUMP 0x0025; AR=AR-1; SR=LSHIFT AR BY -10 (HI); and AR=SR1 respectively (sections 4-144/145, 4-135, A-10/A-21/A-22, 4-111/112, 4-114/115/A-17). These resolve the reference instruction forms, not every Sunplus integration detail. RTI must restore PC/status-stack effects rather than be aliased to ordinary RTS.
+
+The model source also contains globally numeric srvdsp-resident destination overrides and one srvdsp-only DO target. Those assumptions are unsafe to generalize to larger profiles with local code at the same numeric addresses. A specific executed AUX collision is not claimed yet. Model-source blob inspected: `be3d8c0d7cb3554a1090a18a01ac78e6622034bb` in `ArthurKoba/ghidra-mcp`; README scope blob `1cc09aace2794059ff9986b9aa4e53ec78b1a210`. Exact deployed image commit remains unverified.
+
+Correctness work is tracked in **ArthurKoba/mcp-bridge#150**, with implementation owner `ArthurKoba/ghidra-mcp` (its own issues API is disabled). No processor source, deployed image or hardware was changed. Preserve srvdsp regressions while extending generic instruction/context semantics; do not substitute mnemonic-only coverage for reliable behavior.
+
+## Decoder input-drain gate — later native evidence
+
+The logical action `0x8071BB64..0x8071BD9F` was inspected through native low-level views. Surrounding state/event meanings remain partly unnamed; the established ring-dependent branches are:
+
+- when `gp+0x7C0` and `gp+0x800` both equal 0x10, the queued-byte getter at 0x80702844 is compared with 128. At least 128 queued bytes returns without entering the gp+0x825 completion path;
+- the branch at 0x8071BD3C samples free bytes around helper 0x80681F14. Its threshold is 0x1771 (6001); values below the threshold or a changed comparison reset the stability counter. The stable path exits once the counter reaches five;
+- extra getter reads refresh the baseline, so this is not an atomic snapshot or proof that every intermediate observation was identical;
+- there is no total poll/time/retry budget in this local wait. The counter can reset indefinitely. A persistent low-free condition can retain control here unless a called action changes the situation;
+- helper 0x80681F14 is not an empty delay: native code writes through 0x80702940, invokes 0x806ACAC8, and conditionally calls 0x806FEFC0 after comparing a hardware counter with saved state;
+- completion may invoke 0x80780354 before setting gp+0x825 to 1. Its physical effect and the exact identities of all state selectors are not established here.
+
+This is a source-level potential stall boundary, not an observed device hang. The evidence comment at 0x8071BB64 and the AP1 program were explicitly saved. No additional names, firmware bytes or broad action-link repairs were applied.
+
+## Next decision boundary
+
+Codec-profile behavior analysis now depends on resolving the processor-model gaps and correctly scoping wrapper-only flow assumptions, not on repeating CPU-side EQ menu tracing. Independent CPU drain/source/lifecycle analysis can continue using native operations, but the full DSP effect algorithms, coefficient widths, band centers and physical-output contract remain open. Also retain the unresolved profile-placement/capacity question: software base-setting formulas alone do not prove physical aliasing or the free hardware memory budget.
