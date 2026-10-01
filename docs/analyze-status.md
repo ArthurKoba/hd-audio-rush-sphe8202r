@@ -110,6 +110,25 @@ Immediate continuation:
 
 Upstream extraction of the reusable Sunplus/SPHE processor implementation is **separate issue #30** and must not block AP1 behavior recovery.
 
+### AP1 seven-band EQ continuation delta
+
+Latest stable findings before the next analysis session:
+
+- The audio-preset cluster is confirmed as a **seven-band EQ/music-preset state machine**, not just a generic seven-byte parameter path.
+- Fixed preset bank at `0x8070B37A`: seven records x seven bytes. UI/resource evidence in the same image includes `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, `MUSIC MODE`, plus `%d DB` rendering.
+- Stored band code `13` is confirmed as **0 dB** because the UI path renders `stored_value - 13` with the `%d DB` format.
+- Preset index `7` selects the custom/user seven-byte curve from runtime RAM; fixed indexes select records from the ROM preset bank.
+- Recovered boundaries remain `ApplyCurrentSevenBandEqPreset @ 0x806E89E4` and `HandleMusicPresetState @ 0x806E8A54`.
+- Existing `HandlePreviousAudioPresetMenuItem` and `HandleNextAudioPresetMenuItem` are symmetric navigation handlers. In menu substate 2 they navigate/edit the custom EQ band state rather than merely changing the top-level preset.
+- `FUN_806E735C` renders the selected custom-band gain in dB; `FUN_806E8CF0` reloads the neutral seven-band curve `[13,13,13,13,13,13,13]` and refreshes related state.
+- `FUN_806F983C` installs/uses the audio-preset control callbacks; `FUN_806FD65C` is a generic callback-registration wrapper and should not be renamed as EQ-specific.
+- The forwarder at `0x806E8A48` is **real** despite beginning on a delay-slot NOP: inbound-link and low-level evidence show it forwards into shared worker `FUN_806E9228`. Do not delete it.
+- Runtime state evidence: `0x80002B0D` is the seven-band EQ preset index; `0x80002B18` is the top-level audio-preset menu/page index; `0x80002B19` is its substate; `0x80002B22` participates in the custom-band value/UI state; `0x80002B10..16` is the custom seven-byte curve used when preset index is 7.
+- A narrow backing block for `0x80002B00..0x80002B3F` was considered for typing, but no runtime-RAM block was created in the canonical program during this pass. Keep this explicit rather than inventing a broad RAM layout.
+
+Immediate continuation: apply concise semantic names/comments to the proven EQ helpers, then move outward into the already established audio-service route (decoder state, speaker topology/delay, volume/mute and source routing). Do not spend another long pass polishing EQ UI helpers unless they materially change the audio behavior contract.
+
+
 ## Project direction
 
 Target state: **control-complete behavior analysis of the entire board**.
