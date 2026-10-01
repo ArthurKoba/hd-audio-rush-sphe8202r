@@ -900,7 +900,7 @@ After `A`/configuration/`C`, STK:
 - writes the first loader dword to `0x19000` using the normal `W` packet;
 - sends every remaining loader dword as `'w' + dword`, requiring lowercase `'w'` acknowledgement after each dword.
 
-The READ and WRITE actions controlled modification a few words inside the embedded loader before upload. The headless implementation extracts and patches the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
+The READ and WRITE actions controlled modification a few words inside the embedded loader before upload. The headless implementation extracts and adjusts the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
 
 ### RAM-loader start and console-ready contract
 
@@ -960,7 +960,7 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - verifies the exact rev-8203R STK executable SHA-256;
 - can read the executable directly or from `tools/STK_0.2.3.zip`;
 - reconstructs the STK system/SDRAM profile scripts;
-- extracts and applies the profile-correct READ patches to the stock RAM-loader;
+- extracts and applies the profile-correct READ adjustments to the stock RAM-loader;
 - implements a non-destructive `probe` command for Boot-ROM/session initialization;
 - implements factory-equivalent logical `read-flash`;
 - keeps full-physical `read-full-flash` explicitly separate as a project extension;

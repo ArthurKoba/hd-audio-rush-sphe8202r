@@ -199,7 +199,7 @@ This is known-wrong. Keep it only as a preserved legacy probe.
 
 The backend raw loader can use an explicit language ID if the language is already registered. No ready ADSP-21xx/218x language was found in the installed/upstream language set; plausible IDs failed dry-run.
 
-The available MCP surface has no processor-module installation operation. The ghidra-mcp issue-205 support only exposes decoded low-level text for already installed custom processor definitions; it is not an installer.
+The available MCP surface has no processor-module installation operation. The analysis-MCP issue-205 support only exposes decoded low-level text for already installed custom processor definitions; it is not an installer.
 
 Deferred correct migration:
 1. create a separate target-specific 24-bit ADSP-compatible processor module;
