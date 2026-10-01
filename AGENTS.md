@@ -92,7 +92,7 @@ Keep the tree small. Prefer updating `README.md`, `docs/hardware.md`, `docs/firm
 
 ## Canonical Analysis project lifecycle
 
-The current persistent Analysis project for the GD AudioRush device is historically named `sphe8202r_decoder_p25d80` at `/projects/sphe8202r_decoder_p25d80.gpr`. Treat it as the canonical AudioRush device project until a deliberate native project migration/rename is performed. The historical processor/flash-oriented name does not mean the project is limited to one architecture; it contains CPU, runtime, DSP, loader/stub, and other device artifacts.
+The current persistent Analysis project for the HD Audio Rush 5.1 device is historically named `sphe8202r_decoder_p25d80` at `/projects/sphe8202r_decoder_p25d80.gpr`. Treat it as the canonical AudioRush device project until a deliberate native project migration/rename is performed. The historical processor/flash-oriented name does not mean the project is limited to one architecture; it contains CPU, runtime, DSP, loader/stub, and other device artifacts.
 
 Project state and open-program state are different:
 
