@@ -89,3 +89,20 @@ Exact architecture names, instruction mnemonics, registers, control IDs, protoco
 ## Repository policy
 
 Keep the tree small. Prefer updating `README.md`, `docs/hardware.md`, `docs/firmware.md`, `docs/analyze-status.md`, or the issue tracker over creating another narrow README/status/plan file.
+
+## Canonical Analysis project lifecycle
+
+The current persistent Analysis project for the GD AudioRush device is historically named `sphe8202r_decoder_p25d80` at `/projects/sphe8202r_decoder_p25d80.gpr`. Treat it as the canonical AudioRush device project until a deliberate native project migration/rename is performed. The historical processor/flash-oriented name does not mean the project is limited to one architecture; it contains CPU, runtime, DSP, loader/stub, and other device artifacts.
+
+Project state and open-program state are different:
+
+- the project and saved analysis persist on disk even when its worker session is idle-released;
+- open programs are session-local handles and may disappear after idle release, worker restart, reassignment, or explicit close;
+- `Program not found`, an empty `list_open_programs`, or a missing current program is therefore not evidence that analysis was lost;
+- first check `project_session_info` and `list_project_files`; if the project is available, reacquire/open the project session and reopen only the required program from its project path;
+- use `load_program_from_project` / `open_program` for saved project programs rather than re-importing the binary;
+- only treat a program as missing/corrupt after the project file itself is absent or fails to open with a concrete backend diagnostic;
+- do not abandon the active behavior route merely because a program handle was released. Recover the handle and continue from the saved project state.
+
+Worker pool capacity is shared infrastructure, not permanent project ownership. A project normally stays sticky to one worker while its session is active, but an idle-released project may later reopen on another eligible worker. Do not assume worker index is part of the project's identity.
+
