@@ -147,3 +147,90 @@ Metric: `search_actions_enhanced(has_custom_name=true)` numerator divided by the
 Continue along the same route: determine later writes to the profile table, service-image placement, and how GM5/downmix parameters reach the actual DSP processing actions. Preserve the distinction between profile data, generic transfer machinery and the audio algorithm.
 
 UART execution evidence, physical six-channel routing, exact DSP resources and the secondary-controller contract remain open. USB work remains limited to evidence for computer-facing device/dual-role capability after the active audio boundary; host/removable-media feature work is out of scope.
+
+
+## 6. Complete packed profile images and service-parameter route — 2026-10-01
+
+Independent raw-DEFLATE decoding of the descriptor sources produced complete profile images:
+
+| Profile | Packed source | Decoded bytes |
+|---|---|---:|
+| PCM | `0x807A5C34` | 25,052 |
+| AC-3 | `0x807A0D58` | 33,770 |
+| DTS | `0x80792F88` | 30,536 |
+| AUX | `0x807B3218` | 17,468 |
+| zero-mask fallback | `0x807AD2CC` | 41,000 |
+| profile A | `0x8078EC9C` | 30,296 |
+| profile B | `0x807973D0` | 31,466 |
+
+The decoded PCM/AC-3/DTS/AUX images start with coherent 24-bit DSP vector/code words. None contains `srvdsp.bin` as an identical embedded byte sequence; the longest common 24-bit-word run found against `srvdsp.bin` was only four words. Therefore `srvdsp.bin` must remain a separate specialized image/context until its target ownership is proved.
+
+The descriptor/load route establishes this software layout:
+
+- profile image base = `0xF8`;
+- second boundary = `0xF8 + A`;
+- 24-bit service-parameter base = `0xF8 + A + C`.
+
+The transfer decoder writes the unpacked profile from the first base. The runtime 24-bit parameter writer uses the third base and a three-byte stride. Field B is saved but has no direct reader in the currently loaded MIPS modules; its meaning remains UNKNOWN.
+
+### Decoder-service parameter block
+
+The resolver at AP1 `0x806D1F70` is broader than audio. Runtime initialization clears 128 24-bit service words and then fills fixed and resolver-derived entries. Because service slot `0x0B` depends on DVD region state, the block must not be named an audio-only parameter table.
+
+Confirmed audio entries:
+
+| Service slot | Evidence-backed value |
+|---|---|
+| `0x07` | effective master-volume coefficient derived from master level, mute flag and runtime gain table |
+| `0x09` | KEY selection encoding; runtime KEY offset is `selection - 8`, clamped by its update routes to -6..+6 |
+| `0x0D` | SUBWOOFER speaker state |
+| `0x0E` | S/PDIF output selection state |
+| `0x1B` | packed speaker-topology word |
+| `0x20` | decoder/service state influenced by downsample/profile reconfiguration; exact semantic name remains open |
+| `0x21` | effective DOWNMIX mode: OFF=6, STEREO=7, LT/RT=8, VSS=9 |
+| `0x23` | full GM5 packed state |
+
+Do not confuse service slot `0x1B` with persistent control state-slot `0x1B`; they are different namespaces.
+
+### GM5 and KEY
+
+GM5 control descriptor `0x9E` has persistent state-slot `0x22`. Selection indices map to:
+- 2 -> MODE 1 -> packed state `0x137330`;
+- 3 -> MODE 2 -> packed state `0x127330`;
+- 4 -> OFF -> packed state `0x037330`.
+
+The resulting packed word is written to service slot `0x23`.
+
+KEY control `0x5C` has persistent state-slot `0x0F`. Runtime initialization sets `key_offset = selection - 8`; the increment/decrement routes clamp it to -6..+6. The service resolver returns `key_offset + 8`, so service slot `0x09` receives the encoded current KEY selection.
+
+### DIGITAL controls and speaker delays
+
+The corrected translation pointer table base is `0x806DCD88`. Direct pointer lookup confirms:
+- `0xF9` -> `OP MODE`;
+- `0xFA` -> `LINE OUT`;
+- `0xFB` -> `RF REMOD`;
+- `0x6A` -> `DYNAMIC RANGE`;
+- `0xFC` -> `DUAL MONO`;
+- `0x31` -> `STEREO`;
+- `0x2F` -> `MONO L`;
+- `0x30` -> `MONO R`;
+- `0xFD` -> `MIX MONO`;
+- `0xD1` -> `CENTER DELAY`;
+- `0xD2` -> `REAR DELAY`.
+
+Persistent control-state mapping:
+- OP MODE `0xF9` -> state-slot `0x1A`;
+- DYNAMIC RANGE `0x6A` -> state-slot `0x1B`;
+- DUAL MONO `0xFC` -> state-slot `0x1C`;
+- CENTER DELAY `0xD1` -> state-slot `0x18`;
+- REAR DELAY `0xD2` -> state-slot `0x19`.
+
+Implementation routes:
+- OP MODE LINE OUT / RF REMOD select generic audio-action-1 selectors `0x20` / `0x10`;
+- DYNAMIC RANGE working state is initialized as `persistent_selection - 2`; when nonzero the apply route forms `state * 0x2020 - 0x101` and sends it through audio action 1 with selector `0x80`, while zero sends coefficient 0;
+- DUAL MONO sends selectors `0x90/0x91/0x92/0x93` for STEREO/MONO L/MONO R/MIX MONO through audio action 1;
+- CENTER DELAY uses audio action `0x0B`, kind 1, value `selection - 2`;
+- REAR DELAY uses audio action `0x0B`, kind 2, value `selection * 3 - 6`.
+
+These are implementation-level control/service contracts. Physical channel timing and audible behavior remain separate board/execution acceptance.
+

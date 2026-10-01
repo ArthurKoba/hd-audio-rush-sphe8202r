@@ -1,5 +1,24 @@
 # analysis status
 
+## Active audio behavior status — 2026-10-01
+
+Current working estimate: **84–87% of the target audio behavior contract at implementation-proof level**.
+
+This percentage is an approximate engineering-progress estimate whose denominator is the required audio chain: source/input and decoder selection, codec/profile loading, service-parameter initialization, GM5/downmix/KEY/dynamic-range/digital controls, speaker topology/delays, and the path toward six-channel output ownership. It is **not** a measured action-node coverage value and must not be used as an acceptance claim.
+
+The separate strict semantic-name metric remains **157 / 4149 = 3.78%** for the four established CPU modules. That metric intentionally includes large amounts of legacy media behavior outside the target audio denominator.
+
+New implementation-level findings:
+- PCM, AC-3, DTS and AUX profile sources inside `drv_other.bin` are complete raw-DEFLATE DSP images, not opaque placeholders.
+- The runtime initializes a broader decoder-service parameter block, not an audio-only table. Proven audio entries include effective master-volume coefficient, KEY, SUBWOOFER state, S/PDIF output mode, speaker topology, DOWNMIX and GM5.
+- DOWNMIX and GM5 are written into same-numbered 24-bit service slots `0x21` and `0x23`.
+- DYNAMIC RANGE, OP MODE, DUAL MONO, CENTER DELAY and REAR DELAY now have direct implementation-level control-to-command routes.
+- `srvdsp.bin` remains a separate specialized 24-bit DSP image. Its exact ownership/role relative to the codec profiles is still open; do not describe it as the common audio service image without additional target evidence.
+- Analysis-runtime incidents and workarounds are tracked in `evidence/analysis-runtime-failures-20261001.md`.
+
+Validation remains separated: implementation proof does not imply execution, board or integration proof.
+
+
 ## Project direction
 
 Target state: **control-complete behavior analysis of the entire board**.
