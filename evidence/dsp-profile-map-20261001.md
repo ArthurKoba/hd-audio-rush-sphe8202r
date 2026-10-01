@@ -147,3 +147,184 @@ Metric: `search_actions_enhanced(has_custom_name=true)` numerator divided by the
 Continue along the same route: determine later writes to the profile table, service-image placement, and how GM5/downmix parameters reach the actual DSP processing actions. Preserve the distinction between profile data, generic transfer machinery and the audio algorithm.
 
 UART execution evidence, physical six-channel routing, exact DSP resources and the secondary-controller contract remain open. USB work remains limited to evidence for computer-facing device/dual-role capability after the active audio boundary; host/removable-media feature work is out of scope.
+
+
+## 6. Complete packed profile images and service-parameter route — 2026-10-01
+
+Independent raw-DEFLATE decoding of the descriptor sources produced complete profile images:
+
+| Profile | Packed source | Decoded bytes |
+|---|---|---:|
+| PCM | `0x807A5C34` | 25,052 |
+| AC-3 | `0x807A0D58` | 33,770 |
+| DTS | `0x80792F88` | 30,536 |
+| AUX | `0x807B3218` | 17,468 |
+| zero-mask fallback | `0x807AD2CC` | 41,000 |
+| profile A | `0x8078EC9C` | 30,296 |
+| profile B | `0x807973D0` | 31,466 |
+
+The decoded PCM/AC-3/DTS/AUX images start with coherent 24-bit DSP vector/code words. None contains `srvdsp.bin` as an identical embedded byte sequence; the longest common 24-bit-word run found against `srvdsp.bin` was only four words. Therefore `srvdsp.bin` must remain a separate specialized image/context until its target ownership is proved.
+
+The descriptor/load route establishes this software layout:
+
+- profile image base = `0xF8`;
+- second boundary = `0xF8 + A`;
+- 24-bit service-parameter base = `0xF8 + A + C`.
+
+The transfer decoder writes the unpacked profile from the first base. The runtime 24-bit parameter writer uses the third base and a three-byte stride. Field B is saved but has no direct reader in the currently loaded MIPS modules; its meaning remains UNKNOWN.
+
+### Decoder-service parameter block
+
+The resolver at AP1 `0x806D1F70` is broader than audio. Runtime initialization clears 128 24-bit service words and then fills fixed and resolver-derived entries. Because service slot `0x0B` depends on DVD region state, the block must not be named an audio-only parameter table.
+
+Confirmed audio entries:
+
+| Service slot | Evidence-backed value |
+|---|---|
+| `0x07` | effective master-volume coefficient derived from master level, mute flag and runtime gain table |
+| `0x09` | KEY selection encoding; runtime KEY offset is `selection - 8`, clamped by its update routes to -6..+6 |
+| `0x0D` | SUBWOOFER speaker state |
+| `0x0E` | S/PDIF output selection state |
+| `0x1B` | packed speaker-topology word |
+| `0x20` | decoder/service state influenced by downsample/profile reconfiguration; exact semantic name remains open |
+| `0x21` | effective DOWNMIX mode: OFF=6, STEREO=7, LT/RT=8, VSS=9 |
+| `0x23` | full GM5 packed state |
+
+Do not confuse service slot `0x1B` with persistent control state-slot `0x1B`; they are different namespaces.
+
+### GM5 and KEY
+
+GM5 control descriptor `0x9E` has persistent state-slot `0x22`. Selection indices map to:
+- 2 -> MODE 1 -> packed state `0x137330`;
+- 3 -> MODE 2 -> packed state `0x127330`;
+- 4 -> OFF -> packed state `0x037330`.
+
+The resulting packed word is written to service slot `0x23`.
+
+KEY control `0x5C` has persistent state-slot `0x0F`. Runtime initialization sets `key_offset = selection - 8`; the increment/decrement routes clamp it to -6..+6. The service resolver returns `key_offset + 8`, so service slot `0x09` receives the encoded current KEY selection.
+
+### DIGITAL controls and speaker delays
+
+The corrected translation pointer table base is `0x806DCD88`. Direct pointer lookup confirms:
+- `0xF9` -> `OP MODE`;
+- `0xFA` -> `LINE OUT`;
+- `0xFB` -> `RF REMOD`;
+- `0x6A` -> `DYNAMIC RANGE`;
+- `0xFC` -> `DUAL MONO`;
+- `0x31` -> `STEREO`;
+- `0x2F` -> `MONO L`;
+- `0x30` -> `MONO R`;
+- `0xFD` -> `MIX MONO`;
+- `0xD1` -> `CENTER DELAY`;
+- `0xD2` -> `REAR DELAY`.
+
+Persistent control-state mapping:
+- OP MODE `0xF9` -> state-slot `0x1A`;
+- DYNAMIC RANGE `0x6A` -> state-slot `0x1B`;
+- DUAL MONO `0xFC` -> state-slot `0x1C`;
+- CENTER DELAY `0xD1` -> state-slot `0x18`;
+- REAR DELAY `0xD2` -> state-slot `0x19`.
+
+Implementation routes:
+- OP MODE LINE OUT / RF REMOD select generic audio-action-1 selectors `0x20` / `0x10`;
+- DYNAMIC RANGE working state is initialized as `persistent_selection - 2`; when nonzero the apply route forms `state * 0x2020 - 0x101` and sends it through audio action 1 with selector `0x80`, while zero sends coefficient 0;
+- DUAL MONO sends selectors `0x90/0x91/0x92/0x93` for STEREO/MONO L/MONO R/MIX MONO through audio action 1;
+- CENTER DELAY uses audio action `0x0B`, kind 1, value `selection - 2`;
+- REAR DELAY uses audio action `0x0B`, kind 2, value `selection * 3 - 6`.
+
+These are implementation-level control/service contracts. Physical channel timing and audible behavior remain separate board/execution acceptance.
+
+
+
+
+## 7. Direct DSP-side consumption of audio controls — 2026-10-01
+
+The decoded codec profiles provide direct implementation proof that the MIPS/runtime service vector is consumed by the DSP code itself.
+
+### GM5
+
+Direct immediate reads:
+- PCM reads `DM($0023)`;
+- AC-3 reads `DM($0023)`;
+- AUX reads `DM($0023)`.
+
+Each profile splits the packed GM5 word into multiple working fields. Those fields are later read in active processing routes, so the configuration is not dead state.
+
+The first working field acts as GM5 enable: MODE1 and MODE2 enable the spatial route while OFF disables it. A second field distinguishes MODE2 from MODE1. The coefficient initialization is repeated across PCM, AC-3 and AUX profiles.
+
+Observed Q23-style coefficient values include approximately:
+- `0.353553`;
+- `0.176777`;
+- `0.25`;
+- `0.5`;
+- `0.4`;
+- `0.12`;
+- `0.585786`;
+- `0.414214`.
+
+The square-root-of-two-related values and their later use in multiply-accumulate loops establish GM5 as a fixed-point spatial matrix/upmix path rather than a simple gain preset. MODE2 initializes additional coefficient pairs and therefore selects a richer matrix than MODE1.
+
+### AC-3 DOWNMIX
+
+AC-3 directly reads service slot `DM($0021)` and compares it against values 6, 7, 8 and 9. The resulting working state is:
+
+| User mode | Service value | Internal matrix state `DM(0x223)` | VSS state `DM(0x29B)` |
+|---|---:|---:|---:|
+| OFF | 6 | 7 | 0 |
+| STEREO | 7 | 2 | 0 |
+| LT/RT | 8 | 0 | 0 |
+| VSS | 9 | 2 | 2 |
+
+Before this mapper runs, `L0` is explicitly zero, so the zero values above are not unknown inherited state.
+
+The VSS state is consumed in additional MAC/buffer routes. When nonzero, AC-3 performs extra scaling and buffer-processing loops that are skipped by OFF/STEREO/LT-RT. The matrix state `DM(0x223)` is independently read by multiple later routes and therefore acts as the core downmix/output-mode selector.
+
+## 8. DSP resource envelope and resident-backend boundary
+
+Decoded profile sizes and active flow:
+
+| Profile | Decoded bytes | 24-bit words | Approximate highest live flow target |
+|---|---:|---:|---:|
+| PCM | 25,052 | 8,350 | `0x2090` |
+| AC-3 | 33,770 | 11,256 | `0x2BF3` |
+| DTS | 30,536 | 10,178 | `0x27B2` |
+| AUX | 17,468 | 5,822 | `0x16BA` |
+| fallback | 41,000 | 13,666 | `0x355F` |
+
+All inspected codec profiles use immediate DM addresses through `0x3FFD`. No PMOVLAY/DMOVLAY writes were found. This proves a flat program envelope of at least 13,666 24-bit words and a heavily used 14-bit DM address range. A complete `0x0000..0x3FFF` 16K-word PM/DM-style envelope is **LIKELY**, not yet CONFIRMED.
+
+No direct ADSP-style `IO(x)` operations were found in PCM, AC-3, DTS, AUX or fallback profiles. Instead all profiles use common high-DM areas.
+
+Two high-DM command/status groups recur across all profiles:
+- `0x3F00..0x3F03`: repeated parameter writes;
+- `0x3F04`: repeated status/control reads;
+- `0x3F10..0x3F13`: another repeated write group;
+- `0x3F14`: its status/control read.
+
+A second common area contains repeating blocks with a `0x10` stride, including `0x3C20/30/40/50/60/70/80/90...`. Profiles write base/state/config fields at consistent offsets inside these blocks. The number of blocks exceeds the six physical analog outputs, so this area is a generic multi-stream/resident-backend descriptor contract, not a one-register-per-DAC map.
+
+The codec profiles therefore terminate at a resident stream/DMA/service boundary. Exact `stream N -> FR/FL/SR/SL/C/SUB` ownership requires resident-service evidence or board execution proof.
+
+## 9. Processor-model cleanup boundary
+
+The existing canonical program `/modules_probe_mipsle/srvdsp.bin` is currently registered as `MIPS:LE:32:default` and has zero action nodes. That language assignment is wrong for the file and must not be used for DSP semantics.
+
+The target instruction stream is 24-bit and ADSP-21xx-compatible at the encoding level used so far. A clean future processor definition must support separate PM/DM concepts and preserve the target-specific 24-bit service/data behavior instead of assuming every ordinary ADSP-218x data-width detail applies unchanged.
+
+Known validation anchors:
+- first `srvdsp.bin` word `0x19820F` at PM base `0x1800` -> unconditional jump to `0x1820`;
+- `0x0A000F` -> unconditional return;
+- `0x80023A` -> read `DM($0023)` into AR;
+- `0x80021A` -> read `DM($0021)` into AR;
+- `0x400064` -> load constant 6 into AY0.
+
+The analysis backend can import raw files with an explicit language ID only when that processor model is already registered. Plausible ADSP language IDs failed in dry-run and no ready upstream ADSP-21xx language module was found. The backend exposes no processor-module installation tool.
+
+Deferred migration plan:
+1. preserve all current MIPS and probe programs;
+2. build a separate target-specific 24-bit processor module;
+3. validate the anchors above on a temporary `srvdsp.bin` copy;
+4. import new codec-profile copies under a dedicated DSP project folder;
+5. use PM base `0x1800` for `srvdsp.bin`; validate codec-profile base independently, with current flow evidence consistent with word-address zero;
+6. only after low-level operation parity is proved, create DSP action nodes, links and semantic annotations;
+7. mark the old MIPS probe copy as legacy but do not delete it until the new programs are stable.

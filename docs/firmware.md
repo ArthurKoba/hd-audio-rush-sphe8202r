@@ -1,5 +1,46 @@
 # Firmware
 
+
+## Audio/DSP handoff boundary — 2026-10-01
+
+The target audio route is now estimated at **94–96% implementation-proof coverage** under the project audio behavior contract. The remaining gap is no longer ordinary menu/control recovery; it is the resident DSP/backend and board-acceptance boundary.
+
+Confirmed end-to-end software route:
+
+`source/input -> decoder state -> profile descriptor -> packed DSP profile -> decoder-service parameter vector -> DSP-side GM5/downmix/digital processing -> shared high-DM stream/backend area`.
+
+Important closed contracts:
+- GM5 service slot `0x23` is directly read by PCM, AC-3 and AUX DSP profiles. The packed word is split into DSP working fields and those fields are consumed by later processing routes.
+- AC-3 reads DOWNMIX service slot `0x21` and selects distinct OFF/STEREO/LT-RT/VSS routes.
+- KEY, effective master volume/mute, SUBWOOFER, S/PDIF output state, speaker topology, CENTER/REAR delays, OP MODE, DYNAMIC RANGE and DUAL MONO all have implementation-level control/service contracts.
+- DYNAMIC RANGE control `0x6A` uses persistent slot `0x1B`; its working state is `selection-2`, and the nonzero apply route forms `state*0x2020-0x101` for audio-action selector `0x80`.
+- DUAL MONO options map to selectors `0x90/0x91/0x92/0x93` for STEREO/MONO L/MONO R/MIX MONO.
+- CENTER DELAY `0xD1` uses action `0x0B`, kind 1, `selection-2`; REAR DELAY `0xD2` uses kind 2, `selection*3-6`.
+
+DSP profile/resource evidence:
+- PCM: 8,350 24-bit words;
+- AC-3: 11,256 words;
+- DTS: 10,178 words;
+- AUX: 5,822 words;
+- zero-mask fallback: 13,666 words with live flow through approximately `0x355F`.
+- Immediate DM accesses reach `0x3FFD`; no codec profile was observed writing PMOVLAY/DMOVLAY.
+- The exact DSP clock, total free processing budget and total free memory are still UNKNOWN. Do not convert the profile sizes into a custom-filter capacity claim without execution/resource measurements.
+
+The common `0x3Cxx` and `0x3Fxx` areas are a resident multi-stream/service boundary rather than six plainly labelled DAC sample registers. Reference-board evidence proves that SPHE8202R silicon exposes dedicated FR/FL/SR/SL/SUB/C analog outputs, but target-board continuity and exact backend-stream-to-DAC-lane ownership remain separate board proof.
+
+### Deferred DSP processor-model cleanup
+
+The canonical workspace currently contains `/modules_probe_mipsle/srvdsp.bin` under the wrong language model `MIPS:LE:32:default`. Preserve it unchanged as a legacy probe.
+
+Later, build/install a target-specific 24-bit ADSP-21xx-compatible processor definition and import new copies under a separate DSP folder. Validation anchors:
+- `srvdsp.bin` file bytes `19 82 0F` decode as `JUMP $1820` when the image is based at PM `0x1800`;
+- `0A000F` is an unconditional return;
+- codec-profile word `0x80023A` reads `DM($0023)` into AR;
+- `0x400064` loads constant 6 for the DOWNMIX comparison path.
+
+Do not replace the old program or run broad analysis on the new DSP programs until these anchors and PM/DM address spaces match exactly. The backend supports explicit language selection only for processor models already registered at service startup; no available MCP operation installs a processor module.
+
+
 ## Active audio/DSP boundary — 2026-09-30
 
 Current work is intentionally constrained to the audio/runtime chain.
@@ -859,7 +900,7 @@ After `A`/configuration/`C`, STK:
 - writes the first loader dword to `0x19000` using the normal `W` packet;
 - sends every remaining loader dword as `'w' + dword`, requiring lowercase `'w'` acknowledgement after each dword.
 
-The READ and WRITE actions controlled modification a few words inside the embedded loader before upload. The headless implementation extracts and patches the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
+The READ and WRITE actions controlled modification a few words inside the embedded loader before upload. The headless implementation extracts and adjusts the loader directly from the verified rev-8203R STK executable rather than storing another vendor binary copy.
 
 ### RAM-loader start and console-ready contract
 
@@ -919,7 +960,7 @@ This is an implementation-level UART contract. The exact physical header/pin use
 - verifies the exact rev-8203R STK executable SHA-256;
 - can read the executable directly or from `tools/STK_0.2.3.zip`;
 - reconstructs the STK system/SDRAM profile scripts;
-- extracts and applies the profile-correct READ patches to the stock RAM-loader;
+- extracts and applies the profile-correct READ adjustments to the stock RAM-loader;
 - implements a non-destructive `probe` command for Boot-ROM/session initialization;
 - implements factory-equivalent logical `read-flash`;
 - keeps full-physical `read-full-flash` explicitly separate as a project extension;

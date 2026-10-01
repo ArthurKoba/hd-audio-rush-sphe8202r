@@ -1,5 +1,26 @@
 # analysis status
 
+## Active audio behavior status — 2026-10-01
+
+Current working estimate: **94–96% of the target audio behavior contract at implementation-proof level**.
+
+This percentage is an approximate engineering-progress estimate whose denominator is the required product audio chain: source/input and decoder selection, codec/profile loading, decoder-service parameter initialization, GM5/downmix/KEY/dynamic-range/digital controls, speaker topology/delays, DSP-side parameter consumption, and the handoff toward the resident multi-stream backend. It is **not** an action-node coverage value and does not imply execution, board or integration acceptance.
+
+The separate strict semantic-name metric remains **157 / 4149 = 3.78%** for the four established CPU modules. That metric includes large legacy-media regions outside the target audio denominator and must not be mixed with audio behavior progress.
+
+New implementation-level findings:
+- PCM, AC-3, DTS, AUX and fallback descriptor sources are complete raw-DEFLATE 24-bit DSP profile images.
+- DSP-side consumption is now proved: PCM, AC-3 and AUX directly read decoder-service slot `0x23` for GM5; AC-3 directly reads slot `0x21` for DOWNMIX.
+- AC-3 DOWNMIX states are resolved inside the DSP profile: OFF -> `(matrix=7,vss=0)`, STEREO -> `(2,0)`, LT/RT -> `(0,0)`, VSS -> `(2,2)`. The VSS state opens additional MAC/buffer processing paths.
+- GM5 MODE1/MODE2/OFF is a real fixed-point spatial-matrix path. MODE2 uses additional coefficient pairs with square-root-of-two-related values; the coefficients are consumed in multiply-accumulate loops.
+- Target-derived DSP resource evidence now proves at least 13,666 active 24-bit program words in the largest decoded profile and immediate DM addressing through `0x3FFD`. A full 16K-word PM/DM-style 14-bit address envelope is likely, but the exact hardware resource contract and clock remain unproved.
+- All major codec profiles share high-DM service/backend regions. Repeating `0x3Cxx` blocks behave as multi-stream descriptor/state groups, while `0x3F00..0x3F04` and `0x3F10..0x3F14` behave as command/status groups. Codec profiles do not directly use ADSP-style IO instructions for six DAC lanes; the exact physical lane ownership is below this resident backend boundary.
+- The existing `srvdsp.bin` program in the canonical analysis workspace is imported as `MIPS:LE:32:default`, which is known-wrong for its 24-bit DSP content. It must remain a legacy probe copy until a proper custom processor definition is installed.
+- The analysis backend can load raw programs with an explicit registered language, but the installed/upstream language set does not provide a ready ADSP-21xx/218x language ID. A custom processor module is therefore required before clean DSP-program import.
+- Analysis-runtime incidents and workarounds are tracked in `evidence/analysis-runtime-failures-20261001.md`; the complete continuation state is in `evidence/audio-dsp-handoff-20261001.md`.
+
+Validation remains separated: implementation proof does not imply execution, board or integration proof.
+
 ## Project direction
 
 Target state: **control-complete behavior analysis of the entire board**.
