@@ -2,11 +2,11 @@
 
 ## Active audio behavior status — 2026-10-01
 
-Current working estimate: **94–96% of the target audio behavior contract at implementation-proof level**.
+Current working estimate: **97–98% of the target audio behavior contract at implementation-proof level**.
 
 This percentage is an approximate engineering-progress estimate whose denominator is the required product audio chain: source/input and decoder selection, codec/profile loading, decoder-service parameter initialization, GM5/downmix/KEY/dynamic-range/digital controls, speaker topology/delays, DSP-side parameter consumption, and the handoff toward the resident multi-stream backend. It is **not** an action-node coverage value and does not imply execution, board or integration acceptance.
 
-The separate strict semantic-name metric remains **157 / 4149 = 3.78%** for the four established CPU modules. That metric includes large legacy-media regions outside the target audio denominator and must not be mixed with audio behavior progress.
+The old four-module semantic-name snapshot (`157 / 4149`) is now historical and must not be presented as the current counter. The current saved **AP1-only** snapshot is **134 / 3847 = 3.48%** custom/semantic names, with **60 forwarders**. This is a naming metric only; it includes thousands of legacy-media action nodes outside the active audio denominator and must not be mixed with audio behavior progress.
 
 New implementation-level findings:
 - PCM, AC-3, DTS, AUX and fallback descriptor sources are complete raw-DEFLATE 24-bit DSP profile images.
@@ -15,11 +15,100 @@ New implementation-level findings:
 - GM5 MODE1/MODE2/OFF is a real fixed-point spatial-matrix path. MODE2 uses additional coefficient pairs with square-root-of-two-related values; the coefficients are consumed in multiply-accumulate loops.
 - Target-derived DSP resource evidence now proves at least 13,666 active 24-bit program words in the largest decoded profile and immediate DM addressing through `0x3FFD`. A full 16K-word PM/DM-style 14-bit address envelope is likely, but the exact hardware resource contract and clock remain unproved.
 - All major codec profiles share high-DM service/backend regions. Repeating `0x3Cxx` blocks behave as multi-stream descriptor/state groups, while `0x3F00..0x3F04` and `0x3F10..0x3F14` behave as command/status groups. Codec profiles do not directly use ADSP-style IO instructions for six DAC lanes; the exact physical lane ownership is below this resident backend boundary.
-- The existing `srvdsp.bin` program in the canonical analysis workspace is imported as `MIPS:LE:32:default`, which is known-wrong for its 24-bit DSP content. It must remain a legacy probe copy until a proper custom processor definition is installed.
-- The analysis backend can load raw programs with an explicit registered language, but the installed/upstream language set does not provide a ready ADSP-21xx/218x language ID. A custom processor module is therefore required before clean DSP-program import.
+- The dedicated `SunplusSPHEAudioDSP:BE:16:default` processor model is now deployed and validated in the live Analysis runtime. Canonical DSP analysis uses `/dsp_sunplus/srvdsp.bin`; the old `/modules_probe_mipsle/srvdsp.bin` remains only as a preserved wrong-language probe.
+- Canonical `srvdsp.bin` local executable coverage is complete at implementation-proof level: 117/117 local code words, 9/9 vector-seeded action nodes and 9/9 high-level behavior views. The proven `DO PM:186C UNTIL CE` sequence is modeled as real CNTR-controlled flow rather than an opaque user operation.
+- The reusable processor/tooling implementation currently lives in `ArthurKoba/ghidra-mcp`; future extraction into upstream Ghidra is tracked separately as issue #30 so board analysis is not blocked on upstream contribution work.
 - Analysis-runtime incidents and workarounds are tracked in `evidence/analysis-runtime-failures-20261001.md`; the complete continuation state is in `evidence/audio-dsp-handoff-20261001.md`.
 
 Validation remains separated: implementation proof does not imply execution, board or integration proof.
+
+## Current handoff — 2026-10-01 late session
+
+This section is the current continuation authority. Older coverage snapshots and handoff sections below remain historical evidence only.
+
+### srvdsp module status
+
+`srvdsp.bin` is structurally and behaviorally closed to the limit of the local blob at implementation-proof level.
+
+Confirmed current state:
+- canonical program: `/dsp_sunplus/srvdsp.bin`;
+- language: `SunplusSPHEAudioDSP:BE:16:default`;
+- image base: PM word `0x1800`;
+- vector table: `PM:1800..181F`, 32 x 24-bit entries;
+- local executable region: `PM:1820..1894`, **117/117 words decoded**;
+- local action nodes: **9/9**, all with semantic names, void prototypes and default calling convention;
+- low-level surface: **149/149 vector+code operations visible**;
+- executable gaps: **0**. The only reported non-action ranges are the vector table and the PM data bank;
+- DM state/config: **21 named/typed 16-bit slots**;
+- PM/data structural markers: default vector landing plus parameter/preset/sine-window boundaries;
+- canonical global/structural labels observed after the pass: **26**.
+
+Recovered local actions:
+- `InitializeAndDelegateSrvdsp`;
+- `ProcessLevelWindowExtrema`;
+- `ProcessWeightedDspAccumulation`;
+- `ClearDspDataWindow`;
+- `ProcessCountdownRouting`;
+- `ProcessThresholdStateAndIo`;
+- `SetThresholdStateFromM0AndDelegate`;
+- `HandleConditionalReturnOrDelegate`;
+- `SetStoredArAndClearState`.
+
+Important state relationships:
+- `ProcessLevelWindowExtrema -> g_sSrvdspCountdown -> ProcessCountdownRouting`;
+- `ProcessThresholdStateAndIo <-> g_sSrvdspThresholdState <- SetThresholdStateFromM0AndDelegate`;
+- `DM:00FE`, `DM:0086`, `DM:00BC` are resident-provided threshold/config inputs in the local wrapper: each is read locally and not written locally;
+- `g_nSrvdspLongCountdown @ DM:0101` initializes to `0x14BD`, decrements at the local PM:182F path and routes to resident PM:05A4 on expiry;
+- `g_nSrvdspLocalPmEntryWord @ DM:0056` stores local PM word `0x182F`; its consumer is outside the local blob;
+- only two local IO writes are present: `IO:003B <- 0` in countdown routing and `IO:0012 <- AR` in threshold/state processing.
+
+PM data bank:
+- `PM:1895`: default/reserved landing for vector slots 9..31, value `0x007FFF`;
+- `PM:1896..1905`: general parameter/coefficient bank;
+- `PM:1906..1939`: four 13-word coefficient preset records; seven fields are constant, six switch in stepped patterns; some constant sequences are near-geometric gain-like steps around ±2.44 dB/step;
+- `PM:193E..195C`: exact 31-point Q13 sine window, `round(8192*sin(pi*(i+1)/32))`;
+- `PM:195F..1975`: exact 23-point Q13 sine window, `round(8192*sin(pi*(i+1)/24))`;
+- `PM:195D..195E` and `PM:1976..1977`: zero separators/tail.
+
+Do not reclassify the two sine tables as FIR kernels. The exact resident consumer/effect of the preset/data banks is outside `srvdsp.bin` and remains an explicit evidence boundary.
+
+### AP1 resumed state
+
+The canonical `ap1.bin` saved program currently reports:
+- **3847 action nodes**;
+- **134 custom/semantic names** = **3.48% AP1 naming coverage**;
+- **60 forwarders**.
+
+This metric is intentionally separate from the **97–98% target audio behavior-contract estimate**. Whole-program naming is dominated by unrelated legacy media code.
+
+Current active AP1 route: **audio preset / seven-band EQ state machine**.
+
+Confirmed evidence:
+- fixed preset bank at `0x8070B37A`: **7 records x 7 bytes**;
+- adjacent/UI resource evidence includes `%d DB`, `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, `MUSIC MODE`;
+- a neutral record is `[13,13,13,13,13,13,13]`; code subtracts 13 before rendering `%d DB`, proving stored code 13 = **0 dB**;
+- preset index **7** selects a custom/user seven-byte EQ curve from runtime RAM instead of a fixed record;
+- `GetSevenBandEqPresetIndex` returns runtime state byte `0x80002B0D`;
+- `InitializeAudioPresetMenu` initializes menu state bytes `0x80002B18/19`;
+- `HandleAudioPresetMenuState` renders/loads the current preset and selects fixed vs custom curve;
+- `HandlePreviousAudioPresetMenuItem` / `HandleNextAudioPresetMenuItem` perform symmetric top-level navigation and, in substate 2, band-edit navigation;
+- `FUN_806E735C` displays the selected custom-band value as `stored_value - 13` dB;
+- `FUN_806E8CF0` resets/reloads the neutral seven-band profile.
+
+Recovered action boundaries:
+- `ApplyCurrentSevenBandEqPreset @ 0x806E89E4`, 100-byte body;
+- `HandleMusicPresetState @ 0x806E8A54`, 744-byte body.
+
+A nearby `thunk_FUN_806E9228` at `0x806E8A48` was initially suspected to be stale because it begins on a delay-slot NOP, but inbound-link and low-level evidence prove it is a real shared-return/forwarder entry. **Do not delete it.**
+
+Immediate continuation:
+1. finish semantic names/types/comments for the seven-band EQ helper chain (`FUN_806E8960`, `FUN_80702D64`, `FUN_806E8ED0`, `FUN_806E8CF0`, rendering helpers) without conflating UI-only helpers with DSP/service writes;
+2. materialize only the narrow runtime state windows needed for proven GP/RAM state if typing requires backing memory; do not invent a broad RAM layout;
+3. continue outward from the EQ/menu state machine into the already named audio-service control cluster (`DispatchAudioHardwareAction`, decoder state, speaker topology, delays, volume/mute);
+4. keep raw low-level action view authoritative where old AP1 action boundaries or stored links disagree with the high-level behavior view;
+5. save semantic batches into the canonical Analysis project and periodically synchronize stable findings back into this repository.
+
+Upstream extraction of the reusable Sunplus/SPHE processor implementation is **separate issue #30** and must not block AP1 behavior recovery.
 
 ## Project direction
 
@@ -117,7 +206,7 @@ Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 
 - Issue #9 checklist coverage after static S/PDIF input + RAW/PCM recovery: **7/22 = 31.8%** overall. By scope: address model **3/7 = 42.9%**, control surfaces **3/8 = 37.5%**, firmware construction **1/7 = 14.3%**.
 - Validation level remains static/source analysis. No hardware acceptance is implied by these percentages.
 
-## Agent handoff — continue here
+## Historical handoff — 2026-09-21
 
 Do **not** restart address/base discovery or S/PDIF OFF/RAW/PCM tracing. The current Sunplus state is already preserved in canonical analysis workspace and in this document.
 

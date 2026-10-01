@@ -28,17 +28,78 @@ DSP profile/resource evidence:
 
 The common `0x3Cxx` and `0x3Fxx` areas are a resident multi-stream/service boundary rather than six plainly labelled DAC sample registers. Reference-board evidence proves that SPHE8202R silicon exposes dedicated FR/FL/SR/SL/SUB/C analog outputs, but target-board continuity and exact backend-stream-to-DAC-lane ownership remain separate board proof.
 
-### Deferred DSP processor-model cleanup
+### Sunplus audio-DSP processor and srvdsp contract — current
 
-The canonical workspace currently contains `/modules_probe_mipsle/srvdsp.bin` under the wrong language model `MIPS:LE:32:default`. Preserve it unchanged as a legacy probe.
+The deferred processor-model gate is closed for the canonical `srvdsp.bin` wrapper.
 
-Later, build/install a target-specific 24-bit ADSP-21xx-compatible processor definition and import new copies under a separate DSP folder. Validation anchors:
-- `srvdsp.bin` file bytes `19 82 0F` decode as `JUMP $1820` when the image is based at PM `0x1800`;
-- `0A000F` is an unconditional return;
-- codec-profile word `0x80023A` reads `DM($0023)` into AR;
-- `0x400064` loads constant 6 for the DOWNMIX comparison path.
+Current processor/tooling state:
+- implementation repository: `ArthurKoba/ghidra-mcp`;
+- processor module: `processors/SunplusSPHEAudioDSP/`;
+- language: `SunplusSPHEAudioDSP:BE:16:default`;
+- 24-bit big-endian fixed-width instructions;
+- PM word addressing with `wordsize=3` and `alignment=3`;
+- 16-bit DM and IO spaces;
+- corpus instruction families implemented: 3, 4, 6, 7, 9, 10, 11, 15, 17, 20, 29;
+- proven `DO PM:186C UNTIL CE` is real `CNTR`-controlled flow;
+- resident PM jumps remain explicit handoffs and do not fabricate unavailable resident instructions.
 
-Do not replace the old program or run broad analysis on the new DSP programs until these anchors and PM/DM address spaces match exactly. The backend supports explicit language selection only for processor models already registered at service startup; no available MCP operation installs a processor module.
+Canonical Analysis layout:
+- current DSP program: `/dsp_sunplus/srvdsp.bin`;
+- image base: PM `0x1800`;
+- preserved legacy wrong-language probe: `/modules_probe_mipsle/srvdsp.bin` under `MIPS:LE:32:default`; keep it only as historical evidence.
+
+Canonical acceptance:
+- 1128 bytes = 376 x 24-bit words;
+- 32 vector words;
+- local executable `PM:1820..1894` = **117/117 decoded words**;
+- **9/9 local action nodes**;
+- **9/9 high-level behavior views**;
+- bounded `SRVDSP_DM_STATE` backing through `DM:017F`;
+- live deployed Analysis runtime confirmed the nine-action model.
+
+The local wrapper now has 21 named/typed DM state/config slots and no unresolved executable word inside the local code region. Important shared state includes level min/max/current, window counter, short and long countdowns, weighted accumulator/input/weights, threshold state/gate/delta, route state, stored AR and cleared state.
+
+The PM data region is structurally recovered:
+- `PM:1895` — default vector landing for slots 9..31;
+- `PM:1896..1905` — parameter/coefficient bank;
+- `PM:1906..1939` — four 13-word preset records;
+- `PM:193E..195C` — exact 31-point Q13 sine window;
+- `PM:195F..1975` — exact 23-point Q13 sine window.
+
+The two sine tables were initially mistaken for symmetric FIR kernels. That interpretation is withdrawn: every coefficient exactly matches the corresponding sine-window formula.
+
+The remaining DSP uncertainty is outside the local blob: resident PM consumers, exact product-level meaning of the 13-word preset fields, physical PM/DM capacity/clock, and final backend-to-DAC lane ownership.
+
+Reusable processor upstreaming is tracked separately in issue #30. Board behavior analysis does not wait on that contribution.
+
+### AP1 seven-band EQ / music-preset state — 2026-10-01
+
+The current AP1 audio-preset route is recovered far enough to establish a concrete seven-band EQ contract.
+
+Evidence:
+- `0x8070B37A` starts a 49-byte bank = seven 7-byte preset curves;
+- `%d DB` strings sit immediately adjacent to this resource family;
+- UI resources include `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, `MUSIC MODE`;
+- code subtracts 13 from stored custom-band values before rendering dB, proving code 13 = 0 dB;
+- preset index 7 selects the custom/user 7-byte curve from runtime RAM;
+- neutral/default fixed profile is seven copies of 13.
+
+Saved/recovered action map now includes:
+- `ApplyCurrentSevenBandEqPreset @ 0x806E89E4`;
+- `HandleMusicPresetState @ 0x806E8A54`;
+- existing `InitializeAudioPresetMenu`;
+- existing `HandleAudioPresetMenuState`;
+- `HandlePreviousAudioPresetMenuItem`;
+- `HandleNextAudioPresetMenuItem`;
+- existing `GetSevenBandEqPresetIndex`.
+
+The repaired `ApplyCurrentSevenBandEqPreset` path loads the fixed curve selected by the runtime preset index, programs the associated command field, and switches to the runtime custom curve when index 7 is active.
+
+The larger `HandleMusicPresetState` action manages menu/substate transitions, synchronizes UI indices, applies fixed or custom EQ curves, and enters the custom-band editing route.
+
+A shared-return thunk at `0x806E8A48` is real despite beginning on a delay-slot NOP: inbound links and its jump into `FUN_806E9228` prove it is a live forwarder. Do not delete it as an action-boundary artifact.
+
+Current AP1 saved snapshot after this repair pass: **3847 action nodes, 134 custom/semantic names, 60 forwarders**. These counts are analysis-state metrics only and do not define overall audio behavior completion.
 
 
 ## Active audio/DSP boundary — 2026-09-30

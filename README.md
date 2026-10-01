@@ -4,6 +4,21 @@ Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SP
 
 The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
+## Current analysis milestone — 2026-10-01
+
+The current canonical Analysis project is `sphe8202r_decoder_p25d80`. The active work has crossed two major milestones:
+
+- **`srvdsp.bin` is no longer a blocked/legacy-only DSP blob.** A dedicated `SunplusSPHEAudioDSP:BE:16:default` processor model is deployed through `ArthurKoba/ghidra-mcp` and validated in the live Analysis runtime. The canonical program is `/dsp_sunplus/srvdsp.bin`; the old `/modules_probe_mipsle/srvdsp.bin` remains only as a preserved wrong-language probe and must not be used for current conclusions.
+- **Canonical `srvdsp` local coverage is complete at implementation-proof level:** 32 vector words, 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, real CNTR-controlled `DO ... UNTIL CE` flow, 21 named/typed DM state/config slots, and a structured PM data bank.
+- The two previously described “FIR” coefficient blocks are now corrected: they are exact Q13 sine windows. `PM:193E..195C` is a 31-point table `round(8192*sin(pi*(i+1)/32))`; `PM:195F..1975` is a 23-point table `round(8192*sin(pi*(i+1)/24))`, with zero error for every stored coefficient.
+- `PM:1906..1939` is a 4x13-word coefficient-preset bank: seven fields are constant and six change in stepped patterns. Some constant sub-sequences form near-geometric gain-like steps (~±2.44 dB/step). Exact product-level effect remains outside the local blob because the consumer is resident DSP code.
+- **AP1 behavior analysis has resumed.** Current saved `ap1.bin` inventory is 3847 action nodes, with 134 custom/semantic names and 60 forwarders. This is a naming metric only, not overall behavior-completeness.
+- The currently active AP1 cluster is the audio-preset / seven-band EQ path. A 7x7-byte preset bank at `0x8070B37A` is tied to UI resources `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, and `%d DB`. Preset index 7 selects a custom/user 7-byte curve; code value 13 corresponds to 0 dB.
+- Two missed AP1 action boundaries were recovered at `0x806E89E4` (`ApplyCurrentSevenBandEqPreset`) and `0x806E8A54` (`HandleMusicPresetState`). Existing shared-return thunks around this region are being retained where inbound-link evidence proves they are real.
+- Future upstreaming of the reusable Sunplus/SPHE processor support is tracked separately in issue **#30**. That task explicitly separates reusable Ghidra processor semantics from this project's MCP/import/documentation glue and requires an independent review before an official Ghidra PR.
+
+The current overall audio-route estimate is approximately **97–98% at implementation-proof level**. This estimate covers the target audio behavior contract; it is not the same as whole-program action-node naming coverage and does not imply execution, board, or integration proof.
+
 ## Project objective
 
 The goal is **control-complete behavior analysis** of the whole board, not merely inspecting low-level behavior one firmware image.
