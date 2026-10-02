@@ -139,7 +139,9 @@ AP1:
 
 The whole audio-path task remains OPEN. Safety/provider incident records belong to `ArthurKoba/mcp-bridge` issues, not this board evidence file.
 
-## Codec-profile corpus and model boundary — later 2026-10-02 pass
+## Historical codec-profile model gap — resolved later 2026-10-02
+
+This section records the pre-extension processor-model gap for provenance. It is superseded by the resolved status below; the missing forms and unscoped wrapper assumptions are no longer active blockers.
 
 Four decoder profiles were independently re-extracted from canonical `drv_other.bin` (301072 bytes, SHA-256 `e9463f81093a43990c39ca39555d2742f29ebb2fe7fc7ca7e8eac0b694de6451`). Each bounded raw-DEFLATE stream reached EOF and its output size/hash was checked. Trailing two zero bytes in each decoded artifact remain preserved. The Python preparation script performs decompression and integrity checks only, not instruction analysis.
 
@@ -164,7 +166,7 @@ Primary-reference check: Analog Devices, *ADSP-218x DSP Instruction Set Referenc
 
 The model source also contains globally numeric srvdsp-resident destination overrides and one srvdsp-only DO target. Those assumptions are unsafe to generalize to larger profiles with local code at the same numeric addresses. A specific executed AUX collision is not claimed yet. Model-source blob inspected: `be3d8c0d7cb3554a1090a18a01ac78e6622034bb` in `ArthurKoba/ghidra-mcp`; README scope blob `1cc09aace2794059ff9986b9aa4e53ec78b1a210`. Exact deployed image commit remains unverified.
 
-Correctness work is tracked in **ArthurKoba/mcp-bridge#150**, with implementation owner `ArthurKoba/ghidra-mcp` (its own issues API is disabled). No processor source, deployed image or hardware was changed. Preserve srvdsp regressions while extending generic instruction/context semantics; do not substitute mnemonic-only coverage for reliable behavior.
+Historical correctness tracking used **ArthurKoba/mcp-bridge#150** because issues were disabled in `ArthurKoba/ghidra-mcp`. The processor-model blocker described above was later resolved in `ghidra-mcp/main`; see the current resolved status below.
 
 ## Decoder input-drain gate — later native evidence
 
@@ -179,6 +181,59 @@ The logical action `0x8071BB64..0x8071BD9F` was inspected through native low-lev
 
 This is a source-level potential stall boundary, not an observed device hang. The evidence comment at 0x8071BB64 and the AP1 program were explicitly saved. No additional names, firmware bytes or broad action-link repairs were applied.
 
+## Resolved DSP processor status and late AP1 audio pass — 2026-10-02
+
+### Processor-model blocker resolved
+
+`ArthurKoba/ghidra-mcp` main commit `5570d8c` contains the completed target-corpus processor extension. Production Analysis was redeployed from that main and smoke-tested against the canonical project.
+
+Acceptance:
+- `srvdsp`: 117/117 local executable words, 9/9 action nodes, 9/9 high-level behavior views;
+- AUX: 5451/5451 vector-seeded reachable words, zero gaps;
+- PCM: 7787/7787, zero gaps;
+- AC-3: 10339/10339, zero gaps;
+- DTS: 9651/9651, zero gaps.
+
+Wrapper-only resident handoffs and the proven CE-loop specialization are context-scoped. Generic codec profiles retain local flow for numerically colliding destinations. RTI is not aliased to RTS.
+
+### srvdsp post-extension audit
+
+The canonical `srvdsp.bin` was audited again after deployment. All nine action routes remained consistent; all 21 proven DM state/config slots are named, typed and documented. Two high-level presentation artifacts are annotated and native flow remains authoritative. No restart-from-zero analysis is required for this local wrapper.
+
+### AP1 profile loading
+
+Saved names include `LoadDecoderDspProfile @ 0x807002FC` and `SelectDecoderProfileByStateMask @ 0x80700410`. Raw flow proves the selector calls the loader at `0x8070046C`.
+
+Descriptor layout is source pointer +0, A +4/+5, B +6/+7, C +8/+9. The internal worker writes page selectors `0xF8`, `0xF8+A`, `0xF8+A+C` into service/runtime state. Real runtime calls are `0x88001584` (service init) and `0x88001AF8` (packed profile transfer); displayed `+0x800` targets are stale.
+
+`ValidateDecoderProfileInputRingCapacity` was rechecked natively: states `0x8000`/`0x40000` add 3 to the descriptor capacity unit before `<<10`; there is no extra helper call on that branch.
+
+### Master volume, speakers and delays
+
+Master-volume action 2 maps level through runtime table `0x88012CA0`, stages `0x1100|gainByte`, keeps cached gain at `gp+0x478`, and uses the auxiliary slot for mute/special state. `drv_other:0x8077C554` is a constant-zero stub in this firmware.
+
+Speaker slots are FRONT `gp+0x827`, CENTER `gp+0x7DC`, REAR `gp+0x80E`, SUB `gp+0x7D6`. Packed topology goes through action `0x17`; SUB also sends action 6. CENTER delay is `kind=1,value=selection-2`; REAR is `kind=2,value=selection*3-6`.
+
+### External input and decoder status
+
+Current external hardware mode is `gp+0x12B`, previous mode `gp+0x12C`. Mode 3 is AUX -> subsource 1 -> transient state `0x0B`; modes 0..2 are S/PDIF-input-side patterns -> subsource 2 -> transient state `0x0D`. Their exact physical optical/coax meaning remains unproven.
+
+`0x806FABA0` is anti-pop preparation: master volume zero plus a 500-iteration busy-wait before source/decoder work. AUX transition at `0x8071E4F0` performs decoder/audio-format reconfiguration, ECHO reset `(0,0)`, decoder reapply and volume restore. S/PDIF transition at `0x8071EE94` temporarily applies downsample mode 1 during decoder/status preparation and restores the prior selection.
+
+The 16-byte decoder status block is at `0x800022E4`. Type mapping from bits2:0 is 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can trigger stop/reconfiguration/restart.
+
+### Dispatcher and ECHO correction
+
+The common audio dispatcher `0..26` is mechanically reconstructed; the full table is in `docs/analyze-status.md`.
+
+Control ID `0x57` is confirmed ECHO. The saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is stale/wrong: the apply branch computes ECHO index `selection-2`, stores `gp+0x83A`, indexes runtime table `0x88012CC0`, and dispatches action 4 / family `0x0600`. Direct wrapper `0x80702CC8` is the same ECHO hardware-profile route and AUX uses `(0,0)`. Documentation aliases are `ApplyEchoProfileIndex` and `ApplyEchoHardwareProfile` until saved symbols are updated.
+
+### Current AP1 snapshot
+
+Fresh live enumeration returns **3853 action nodes**, **147 non-generic/semantic names (~3.82%)** by the current naming rule and **62 forwarders**. Earlier 134/3847 and 135/3847 snapshots are historical.
+
 ## Next decision boundary
 
-Codec-profile behavior analysis now depends on resolving the processor-model gaps and correctly scoping wrapper-only flow assumptions, not on repeating CPU-side EQ menu tracing. Independent CPU drain/source/lifecycle analysis can continue using native operations, but the full DSP effect algorithms, coefficient widths, band centers and physical-output contract remain open. Also retain the unresolved profile-placement/capacity question: software base-setting formulas alone do not prove physical aliasing or the free hardware memory budget.
+Continue from the CPU/source/runtime boundary rather than reopening MUSIC MODE. Resolve the remaining product-level names for the `gp+0x7A5` source-state handlers; reopen the saved `/runtime/rom12-runtime.bin` when a session-local handle is needed; connect recovered command families and codec parameters to resident high-DM/backend consumers; then close physical six-channel output ownership and rebuild/repack/recovery gates.
+
+The whole audio-path task remains OPEN at execution/board/integration levels. Controlled behavior-preserving patches are feasible now; replacement firmware is not yet hardware-accepted.

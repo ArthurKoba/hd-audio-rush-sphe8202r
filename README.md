@@ -4,26 +4,39 @@ Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SP
 
 The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
-## Current analysis milestone — 2026-10-02
+## Current analysis milestone — 2026-10-02 late pass
 
-The current canonical Analysis project is `sphe8202r_decoder_p25d80`.
+The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current continuation authority is this README together with `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md`; older handoffs are historical where they conflict with these files.
 
-**Current continuation authority:** [MUSIC MODE, decoder input ring and audio-service contracts](evidence/ap1-music-mode-20261002.md). Read this checkpoint before using older audio handoffs. Its explicit corrections supersede conflicting EQ-table, configured-window and success-result interpretations in `docs/analyze-status.md`, `docs/firmware.md` and the earlier evidence files; those older documents retain useful historical detail, not a newer acceptance claim.
+### DSP processor/tooling
 
-- **`srvdsp.bin` is no longer a blocked/legacy-only DSP blob.** A dedicated `SunplusSPHEAudioDSP:BE:16:default` processor model is deployed through `ArthurKoba/ghidra-mcp` and validated in the live Analysis runtime. The canonical program is `/dsp_sunplus/srvdsp.bin`; the old `/modules_probe_mipsle/srvdsp.bin` remains only as a preserved wrong-language probe and must not be used for current conclusions.
-- **Canonical `srvdsp` local coverage is complete at implementation-proof level:** 32 vector words, 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, real CNTR-controlled `DO ... UNTIL CE` flow, 21 named/typed DM state/config slots, and a structured PM data bank. This does not close resident DSP behavior outside that blob.
-- The two previously described “FIR” coefficient blocks are exact Q13 sine windows. `PM:193E..195C` is a 31-point table `round(8192*sin(pi*(i+1)/32))`; `PM:195F..1975` is a 23-point table `round(8192*sin(pi*(i+1)/24))`, with zero error for every stored coefficient.
-- `PM:1906..1939` is a 4x13-word coefficient-preset bank: seven fields are constant and six change in stepped patterns. Some constant sub-sequences form near-geometric gain-like steps (~±2.44 dB/step). Exact product-level effect remains outside the local blob because the consumer is resident DSP code.
-- **AP1 semantic naming is now 135/3847, approximately 3.51%.** This is a naming metric only, not audio-path completeness. The last earlier forwarder snapshot was 60; it is not being presented as a newly measured count.
-- **MUSIC MODE separates SRND, EQ, BAND and KEY.** There are five fixed EQ curves (STANDARD/CLASSIC/ROCK/JAZZ/POP), not seven; the real bank starts at `0x8070B388`. Index 7 selects the USER curve. Code value 13 is displayed as 0 dB. Factory policy makes non-OFF SRND and non-STANDARD EQ mutually exclusive; this is not a silicon limitation or the same control as GM5.
-- **The configured decoder window is a CPU-fed input ring.** Native producer copies, byte cursors and three-byte-unit publication establish its transport role. Its configured byte capacities must not be treated as total/free DSP program memory or proof of PCM sample width.
-- **Command acceptance and final audio state are distinct.** The service wait is bounded by a poll count, not a proved time unit. The common dispatcher can return 1 without issuing a command under a state-mask gate, while some higher wrappers ignore intermediate failure results. Start/stop/pause paths have separate final-state waits. Exact routes and caveats are in the current checkpoint.
-- Four runtime action nodes were added with native evidence: `SetDspParameterWord24`, `GetDspParameterWord24`, `WaitForAudioServiceConditions`, and `GetDecoderInputRingFreeBytes`. One AP1 link was corrected against its original instruction and saved; the remaining local link corrections and ABI warnings are explicitly tracked, not silently treated as repaired.
-- Future upstreaming of reusable Sunplus/SPHE processor support remains separate issue **#30**. It separates reusable processor semantics from this project's MCP/import/documentation glue and requires independent review before an official upstream contribution.
+- The reusable Sunplus audio-DSP processor is implemented in `ArthurKoba/ghidra-mcp` as `SunplusSPHEAudioDSP:BE:16:default` and is deployed from `ghidra-mcp/main` commit `5570d8c`.
+- `srvdsp.bin` remains closed at implementation-proof level after post-deploy revalidation: 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, and 21/21 named, typed and documented DM state/config slots.
+- Codec-profile support is no longer blocked on missing instruction forms. Vector-seeded reachable-code acceptance is zero-gap for the current extracted profiles: AUX 5451/5451, PCM 7787/7787, AC-3 10339/10339 and DTS 9651/9651 reached words decoded.
+- Wrapper-only resident handoffs and the recovered `DO ... UNTIL CE` specialization are context-scoped to canonical `srvdsp`; generic codec profiles keep ordinary local flow semantics. RTI remains distinct from RTS through an explicit status-restoration side effect.
+- This is target-corpus instruction coverage, not proof of the full ADSP-218x ISA, Sunplus DSP clock/resource budget or physical output routing.
 
-**The whole audio-path task remains open.** The earlier 97–98% audio estimate is historical, not a validated measure of the remaining DSP algorithms, resource budget or physical-output acceptance. Exact DSP consumers/effect behavior, clock/free-cycle budget, backend ownership and six physical output lanes still require further evidence. Implementation proof does not imply execution, board or integration proof.
+### Current AP1 / runtime audio contract
 
-Provider/safety incidents are tracked per module/tool in `ArthurKoba/mcp-bridge` issues. The board repository retains behavior evidence and recovery locators, not a second ongoing safety log.
+- Current live AP1 snapshot: **3853 action nodes**, **147 non-generic/semantic names by the current naming rule (~3.82%)**, and **62 forwarders**. This is a naming metric only.
+- Saved semantic names now include `SelectDecoderProfileByStateMask` and `LoadDecoderDspProfile`. Profile selection uses the least-significant decoder-state bit and the descriptor table rooted at `0x80002264`.
+- Decoder profile descriptor layout is packed-source pointer `+0`, A `+4/+5`, B `+6/+7`, C `+8/+9`; the load route derives page selectors `0xF8`, `0xF8+A`, `0xF8+A+C`, initializes runtime service state, validates input-ring compatibility and transfers the packed profile.
+- Real runtime targets are `0x88001584` for service initialization and `0x88001AF8` for packed-profile transfer. Older high-level views showing `+0x800` displaced targets are stale metadata; raw MIPS transitions are authoritative.
+- `ValidateDecoderProfileInputRingCapacity` now has a corrected instruction-backed contract: decoder states `0x8000`/`0x40000` add 3 to the descriptor capacity unit before scaling/comparison. The old high-level extra-call interpretation is withdrawn.
+- The decoder window is a CPU-fed input ring, not a free-DSP-memory measurement. Runtime 24-bit parameter read/write, service-condition polling and input-ring free/queued-byte helpers remain saved in `/runtime/rom12-runtime.bin`.
+- Master-volume action 2 maps level through runtime gain table `0x88012CA0`, stages `0x1100|gainByte`, and keeps mute as separate state. `drv_other:0x8077C554` is a constant-zero stub in this firmware.
+- Speaker state is instruction-backed: FRONT `gp+0x827`, CENTER `gp+0x7DC`, REAR `gp+0x80E`, SUB `gp+0x7D6`; topology is action `0x17`; SUB also uses action 6; CENTER/REAR delay formulas are confirmed through action `0x0B`.
+- External hardware mode 3 is AUX; modes 0..2 are S/PDIF-input-side patterns whose physical optical/coax meaning remains unknown. AUX uses transient state `0x0B`; S/PDIF-input uses `0x0D`; anti-pop sequencing temporarily applies master volume zero.
+- Decoder status block `0x800022E4` is 16 bytes. Hardware decoder type bits map 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can stop/reconfigure/restart the pipeline.
+- The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; the current saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is semantically stale and actually indexes ECHO table `0x88012CC0` before dispatching action 4 / family `0x0600`.
+
+### Readiness boundary
+
+The old `97–98%` whole-audio estimate is retired. A useful current scoped estimate is that the **CPU-side audio control/loader contract is approximately 90–95% implementation-proof**. The denominator is CPU-side control behavior only.
+
+Controlled in-place behavior-preserving patches can already be designed. Replacement/custom firmware is still gated by container rebuild/repack/integrity reproduction, safe recovery/rollback, remaining resident runtime/backend ownership, DSP resource-budget evidence, physical six-channel output acceptance and at least one hardware-validated intentional modification.
+
+Provider/safety incidents are tracked in `ArthurKoba/mcp-bridge`; this repository keeps behavior evidence and recovery state, not a duplicate incident log.
 
 ## Project objective
 
