@@ -210,7 +210,7 @@ Confirmed fields:
 
 Control ID `0x57` is confirmed **ECHO**. Its apply branch computes `index=selection-2`, stores it at `gp+0x83A`, and calls saved `ApplyEchoProfileIndex @ 0x80702C8C`.
 
-That saved name is wrong. `0x80702C8C` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
+The historical REGION name was wrong. `ApplyEchoProfileIndex` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
 
 Saved `ApplyEchoHardwareProfile @ 0x80702CC8` dispatches action 4 from explicit `(mode,aux)` and AUX uses it with `(0,0)`.
 
