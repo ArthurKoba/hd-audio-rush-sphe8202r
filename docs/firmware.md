@@ -1,76 +1,61 @@
 # Firmware
 
+## Current audio/control authority — 2026-10-02 late pass
 
-## Audio/DSP handoff boundary — 2026-10-01
+This section supersedes conflicting audio interpretations in the historical investigation log below. Keep the older material for provenance only; when addresses, action names, percentages or route semantics disagree, this section plus `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md` are authoritative.
 
-The target audio route is now estimated at **94–96% implementation-proof coverage** under the project audio behavior contract. The remaining gap is no longer ordinary menu/control recovery; it is the resident DSP/backend and board-acceptance boundary.
+### Current end-to-end software route
 
-Confirmed end-to-end software route:
+`source/input state -> decoder state -> profile descriptor -> page/bank setup -> runtime decoder-service init -> input-ring compatibility check -> packed DSP profile transfer -> decoder-service parameter bank -> codec DSP profile -> audio-service command mailbox -> resident backend`.
 
-`source/input -> decoder state -> profile descriptor -> packed DSP profile -> decoder-service parameter vector -> DSP-side GM5/downmix/digital processing -> shared high-DM stream/backend area`.
+The route is implementation-proven through the service/backend boundary. It is not yet board-proven through the six physical analog lanes.
 
-Important closed contracts:
-- GM5 service slot `0x23` is directly read by PCM, AC-3 and AUX DSP profiles. The packed word is split into DSP working fields and those fields are consumed by later processing routes.
-- AC-3 reads DOWNMIX service slot `0x21` and selects distinct OFF/STEREO/LT-RT/VSS routes.
-- KEY, effective master volume/mute, SUBWOOFER, S/PDIF output state, speaker topology, CENTER/REAR delays, OP MODE, DYNAMIC RANGE and DUAL MONO all have implementation-level control/service contracts.
-- DYNAMIC RANGE control `0x6A` uses persistent slot `0x1B`; its working state is `selection-2`, and the nonzero apply route forms `state*0x2020-0x101` for audio-action selector `0x80`.
-- DUAL MONO options map to selectors `0x90/0x91/0x92/0x93` for STEREO/MONO L/MONO R/MIX MONO.
-- CENTER DELAY `0xD1` uses action `0x0B`, kind 1, `selection-2`; REAR DELAY `0xD2` uses kind 2, `selection*3-6`.
+### Processor/model state
 
-DSP profile/resource evidence:
-- PCM: 8,350 24-bit words;
-- AC-3: 11,256 words;
-- DTS: 10,178 words;
-- AUX: 5,822 words;
-- zero-mask fallback: 13,666 words with live flow through approximately `0x355F`.
-- Immediate DM accesses reach `0x3FFD`; no codec profile was observed writing PMOVLAY/DMOVLAY.
-- The exact DSP clock, total free processing budget and total free memory are still UNKNOWN. Do not convert the profile sizes into a custom-filter capacity claim without execution/resource measurements.
+- `SunplusSPHEAudioDSP:BE:16:default` is deployed from `ArthurKoba/ghidra-mcp` main commit `5570d8c`.
+- `srvdsp.bin`: 117/117 local executable words, 9/9 actions, 9/9 behavior views, 21/21 documented DM state/config slots after a fresh production audit.
+- Reachable codec-profile decode: AUX 5451/5451, PCM 7787/7787, AC-3 10339/10339, DTS 9651/9651, zero gaps.
+- The old codec-model-gap blocker is resolved. Early missing words and unscoped resident handoffs are historical findings, not current limitations.
 
-The common `0x3Cxx` and `0x3Fxx` areas are a resident multi-stream/service boundary rather than six plainly labelled DAC sample registers. Reference-board evidence proves that SPHE8202R silicon exposes dedicated FR/FL/SR/SL/SUB/C analog outputs, but target-board continuity and exact backend-stream-to-DAC-lane ownership remain separate board proof.
+### AP1 profile-loader corrections
 
-### Sunplus audio-DSP processor and srvdsp contract — current
+`SelectDecoderProfileByStateMask @ 0x80700410` raw flow calls `LoadDecoderDspProfile @ 0x807002FC`; high-level `0x80700AFC` is stale `+0x800` metadata.
 
-The deferred processor-model gate is closed for the canonical `srvdsp.bin` wrapper.
+Descriptor layout: source pointer `+0`; A `+4/+5`; B `+6/+7`; C `+8/+9`. Runtime selectors are `0xF8`, `0xF8+A`, `0xF8+A+C`. Real runtime targets are `0x88001584` (service init) and `0x88001AF8` (packed transfer); high-level `0x88001D84`/`0x880022F8` are stale.
 
-Current processor/tooling state:
-- implementation repository: `ArthurKoba/ghidra-mcp`;
-- processor module: `processors/SunplusSPHEAudioDSP/`;
-- language: `SunplusSPHEAudioDSP:BE:16:default`;
-- 24-bit big-endian fixed-width instructions;
-- PM word addressing with `wordsize=3` and `alignment=3`;
-- 16-bit DM and IO spaces;
-- corpus instruction families implemented: 3, 4, 6, 7, 9, 10, 11, 15, 17, 20, 29;
-- proven `DO PM:186C UNTIL CE` is real `CNTR`-controlled flow;
-- resident PM jumps remain explicit handoffs and do not fabricate unavailable resident instructions.
+`ValidateDecoderProfileInputRingCapacity` adjusts the capacity field by `+3` only for decoder states `0x8000`/`0x40000`, then compares `(capacity<<10)` against configured input-ring bytes. There is no real extra call on that branch.
 
-Canonical Analysis layout:
-- current DSP program: `/dsp_sunplus/srvdsp.bin`;
-- image base: PM `0x1800`;
-- preserved legacy wrong-language probe: `/modules_probe_mipsle/srvdsp.bin` under `MIPS:LE:32:default`; keep it only as historical evidence.
+### Runtime and ring
 
-Canonical acceptance:
-- 1128 bytes = 376 x 24-bit words;
-- 32 vector words;
-- local executable `PM:1820..1894` = **117/117 decoded words**;
-- **9/9 local action nodes**;
-- **9/9 high-level behavior views**;
-- bounded `SRVDSP_DM_STATE` backing through `DM:017F`;
-- live deployed Analysis runtime confirmed the nine-action model.
+The configured decoder window is a CPU-fed ring, not DSP free memory. Producer/consumer byte cursors, wrap copies and publication in three-byte units are established. `WaitForAudioServiceConditions @ 0x88001C78`, 24-bit parameter read/write and ring free/queued-byte helpers are present in the saved runtime project.
 
-The local wrapper now has 21 named/typed DM state/config slots and no unresolved executable word inside the local code region. Important shared state includes level min/max/current, window counter, short and long countdowns, weighted accumulator/input/weights, threshold state/gate/delta, route state, stored AR and cleared state.
+### Volume / speakers / delays
 
-The PM data region is structurally recovered:
-- `PM:1895` — default vector landing for slots 9..31;
-- `PM:1896..1905` — parameter/coefficient bank;
-- `PM:1906..1939` — four 13-word preset records;
-- `PM:193E..195C` — exact 31-point Q13 sine window;
-- `PM:195F..1975` — exact 23-point Q13 sine window.
+Master volume maps level through `0x88012CA0`, stages `0x1100|gainByte`, caches the gain byte at `gp+0x478`, and keeps mute as separate state. `drv_other:0x8077C554` is a constant-zero feature/query stub in this firmware.
 
-The two sine tables were initially mistaken for symmetric FIR kernels. That interpretation is withdrawn: every coefficient exactly matches the corresponding sine-window formula.
+Speaker state slots: FRONT `gp+0x827`, CENTER `gp+0x7DC`, REAR `gp+0x80E`, SUB `gp+0x7D6`. Packed topology is sent through action `0x17`/family `0x2300`; SUB also uses action 6. CENTER delay = kind1/`selection-2`; REAR delay = kind2/`selection*3-6`, both through action `0x0B`.
 
-The remaining DSP uncertainty is outside the local blob: resident PM consumers, exact product-level meaning of the 13-word preset fields, physical PM/DM capacity/clock, and final backend-to-DAC lane ownership.
+### External input and decoder status
 
-Reusable processor upstreaming is tracked separately in issue #30. Board behavior analysis does not wait on that contribution.
+Mode 3 is AUX; modes 0..2 are S/PDIF-input-side hardware patterns whose exact physical optical/coax meaning is not established. AUX uses transient state `0x0B`; S/PDIF-input uses `0x0D`; anti-pop sequencing temporarily applies master volume zero.
+
+AUX transition reconfigures decoder/audio-format state, resets ECHO profile to `(0,0)`, reapplies the decoder and restores volume. S/PDIF-input preparation temporarily applies downsample mode 1, refreshes the 16-byte decoder status block, then restores the prior downsample selection.
+
+Decoder status parser mapping: bits2:0 type `0=PCM`, `1=AC-3`, `2/3=DTS-family`; bits5:3 and bits15:8 feed additional status fields/tables. Type changes can stop/reconfigure/restart the decoder.
+
+### Common audio action families
+
+The mechanically recovered action map is maintained in `docs/analyze-status.md`. Important corrections: action 4/family `0x0600` is ECHO, not a region-code profile; action 23/family `0x2300` is speaker topology; action 2 is the master-volume table worker.
+
+Control ID `0x57` is ECHO. The saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is stale: it indexes runtime table `0x88012CC0`, stores ECHO working index at `gp+0x83A`, and dispatches action 4. The direct action-4 wrapper at `0x80702CC8` is used by AUX with `(0,0)`.
+
+### Readiness
+
+The former 94–98% whole-audio percentages are retired. Current scoped estimate is approximately 90–95% of the **CPU-side audio control/loader contract** at implementation-proof level. DSP reachable instruction coverage and local `srvdsp` coverage are complete for the current corpus, but custom/replacement firmware is still gated by rebuild/repack/integrity, safe recovery, runtime/backend/physical-lane ownership, DSP resource-budget evidence and hardware acceptance.
+
+## Historical investigation log — preserved for provenance
+
+The sections below record earlier work. They may contain superseded percentages, stale `+0x800` high-level targets, pre-extension DSP-model limitations, old EQ-bank interpretations and earlier symbol names. Do not promote them over the current authority above.
 
 ### AP1 seven-band EQ / music-preset state — 2026-10-01
 
