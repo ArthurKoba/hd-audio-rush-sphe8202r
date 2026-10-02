@@ -1,10 +1,10 @@
 module,size,isa,image_base,status
-ap1.bin,684192,MIPS32_LE,0x8067B800,confirmed_base_ghidra_rebased_stale_flow_refs_pending
+ap1.bin,684192,MIPS32_LE,0x8067B800,confirmed_base_rebased_stale_flow_metadata_partially_reconciled
 drv_other.bin,301072,MIPS32_LE,0x80775800,confirmed
 rom12.bin,82528,nonlinear_or_data,,confirmed_not_linear_mips
 cdrom.bin,63264,MIPS32_LE,0x8074C800,confirmed
 wma.bin,51308,MIPS32_LE,0x8073F000,confirmed
 jpeg.bin,38816,data_tables,,confirmed_not_linear_mips
 iop.bin,1424,microcode_unknown,,provisional
-srvdsp.bin,1128,microcode_unknown,,provisional
+srvdsp.bin,1128,SunplusSPHEAudioDSP_24BE,PM:0x1800,confirmed_117of117_local_code_9of9_actions
 iop_rst.bin,712,microcode_unknown,,provisional
