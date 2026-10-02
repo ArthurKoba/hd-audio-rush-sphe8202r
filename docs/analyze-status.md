@@ -208,11 +208,11 @@ Confirmed fields:
 
 ## ECHO control correction
 
-Control ID `0x57` is confirmed **ECHO**. Its apply branch computes `index=selection-2`, stores it at `gp+0x83A`, and calls the wrapper currently saved as `ApplyRegionCodeProfile @ 0x80702C8C`.
+Control ID `0x57` is confirmed **ECHO**. Its apply branch computes `index=selection-2`, stores it at `gp+0x83A`, and calls saved `ApplyEchoProfileIndex @ 0x80702C8C`.
 
-That saved name is wrong. `0x80702C8C` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
+The historical REGION name was wrong. `ApplyEchoProfileIndex` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
 
-Direct wrapper `0x80702CC8` dispatches action 4 from explicit `(mode,aux)` and AUX uses it with `(0,0)`. Documentation aliases: `ApplyEchoProfileIndex`, `ApplyEchoHardwareProfile`; saved renames have not yet been applied.
+Saved `ApplyEchoHardwareProfile @ 0x80702CC8` dispatches action 4 from explicit `(mode,aux)` and AUX uses it with `(0,0)`.
 
 Other established wrappers:
 - KEY accepts 1..15 and dispatches action 3 / `0x0500`;
@@ -225,12 +225,12 @@ Other established wrappers:
 1. AP1 was rebased to `0x8067B800` after older analysis state existed. Stored high-level links may still be shifted by `+0x800`, even when the wrong target is itself a valid action node.
 2. Several logical routes are split into artificial adjacent action boundaries, notably decoder profile loading and master-volume apply.
 3. Raw/native transitions win whenever high-level behavior disagrees.
-4. `ApplyRegionCodeProfile` is semantically wrong; it is ECHO.
-5. Documentation may use semantic aliases for proven routes whose Analysis rename has not yet been persisted.
+4. Historical `ApplyRegionCodeProfile` metadata was corrected in canonical Analysis to `ApplyEchoProfileIndex`; action 4 is ECHO.
+5. Historical evidence may retain older names, but current authority and canonical Analysis use the corrected ECHO names.
 
 ## Readiness for custom firmware
 
-Controlled modification can begin on isolated behavior-preserving action nodes now. A replacement/custom firmware effort is **not yet product-ready**.
+Source-level replacement implementation can begin now for isolated, recovered CPU-side behavior. A complete replacement image is **not yet safe to flash or product-ready**.
 
 Remaining gates:
 1. reproduce container/module reconstruction, integrity/checksum and write path;
@@ -246,6 +246,6 @@ Remaining gates:
 2. Reopen saved `/runtime/rom12-runtime.bin` when a session-local runtime handle is needed and continue below the service mailbox.
 3. Connect recovered command families and codec parameters to resident high-DM/backend consumers.
 4. Close physical six-channel output ownership with board/runtime evidence.
-5. Then move from controlled patching toward rebuild/repack/recovery acceptance.
+5. In parallel, turn the recovered behavior contracts into maintainable replacement-source modules while rebuild/repack/recovery acceptance is completed.
 
 Safety/provider incident reproduction belongs to `ArthurKoba/mcp-bridge` issues and is not duplicated here.

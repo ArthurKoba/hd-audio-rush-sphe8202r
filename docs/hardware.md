@@ -104,6 +104,18 @@ Do not currently claim:
 - that PCB SPHE8202RD_SPDIF_V02 copies the demo-board analog output circuit component-for-component;
 - that the product-board `4558D` devices are definitely the final channel buffers until continuity is archived.
 
+## Current interface status
+
+| Interface/domain | Current state | What is still missing |
+|---|---|---|
+| SPHE UART / ROM-loader | **Implementation proof:** factory serial/monitor protocol, RAM-loader, flash read and minimal runtime TX behavior are recovered. Reference pins/bootstrap are identified. | **Board/execution proof:** continuity to accessible pads, I/O voltage confirmation and a successful target session. |
+| Secondary-controller UART | **Board proof for TX:** the observed header emits AC695N/BR23-family boot/runtime logs. | RX ownership, interactive command behavior and any control framing are unknown. |
+| USB on SPHE | Routing toward SPHE is user-traced; reference design exposes USB DP/DM; target firmware metadata reports **Host USB 2.0 supported**. | Exact pad pinout plus any device/dual-role/UAC capability. Host support must not be promoted into device-mode support. |
+| SPHE↔secondary-controller link | No transport is currently confirmed. SPHE UART mux candidates are known from the reference design. | PCB continuity/execution evidence identifying transport, direction, framing and message semantics. |
+| Secondary firmware | AC695N/BR23-family identity is supported by runtime logs. | Raw firmware dump/preservation and pi32v2 analysis. |
+
+The secondary UART log contains `ALINK_SR = 44100`, `spdif_dec_start`, DAC and Bluetooth/application activity. Those strings establish behavior inside the secondary firmware, but **do not by themselves identify the electrical/data link between the two processors**.
+
 ## Component references
 
 - HCF4052B family: STMicroelectronics dual 4-channel analog multiplexer/demultiplexer.
