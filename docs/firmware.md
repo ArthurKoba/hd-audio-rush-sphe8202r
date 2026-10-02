@@ -47,7 +47,7 @@ Decoder status parser mapping: bits2:0 type `0=PCM`, `1=AC-3`, `2/3=DTS-family`;
 
 The mechanically recovered action map is maintained in `docs/analyze-status.md`. Important corrections: action 4/family `0x0600` is ECHO, not a region-code profile; action 23/family `0x2300` is speaker topology; action 2 is the master-volume table worker.
 
-Control ID `0x57` is ECHO. The saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is stale: it indexes runtime table `0x88012CC0`, stores ECHO working index at `gp+0x83A`, and dispatches action 4. The direct action-4 wrapper at `0x80702CC8` is used by AUX with `(0,0)`.
+Control ID `0x57` is ECHO. Saved `ApplyEchoProfileIndex @ 0x80702C8C` indexes runtime table `0x88012CC0`, stores the ECHO working index at `gp+0x83A`, and dispatches action 4. Saved `ApplyEchoHardwareProfile @ 0x80702CC8` is the direct action-4 wrapper used by AUX with `(0,0)`.
 
 ### Readiness
 

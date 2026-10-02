@@ -11,9 +11,9 @@ Mandatory local map for this behavior-analysis repository.
 
 ## Project objective
 
-The target is control-complete behavior analysis: preserve both firmware domains, recover the hardware/inter-chip contracts, prove safe rebuild/flash/recovery, and reach intentional programmatic control of the board.
+The primary milestone is an independently maintainable Sunplus firmware implementation that reproduces the original board's useful audio behavior before product-specific modifications are added. Reaching that milestone requires control-complete behavior analysis of the original audio path, preservation of both firmware domains, recovery of relevant hardware/inter-chip contracts, and a proven rebuild/flash/recovery path.
 
-Do not substitute exhaustive action node naming for this acceptance contract.
+The secondary-controller domain remains part of whole-board completion, but it does not block beginning a Sunplus replacement implementation once its external contract is sufficiently isolated. Do not substitute exhaustive action node naming for this acceptance contract.
 
 ## Evidence rules
 
@@ -49,15 +49,17 @@ Hashes are documented in the root `README.md`; do not add parallel checksum mani
 
 ## Repository workflow
 
-For this repository, routine behavior-analysis, research notes, issue maintenance, and documentation changes may be committed directly to `main`.
+Use the universal GitHub writer/reviewer identity contract from `ArthurKoba/ai-agent-workflow`.
 
-Do not create pull requests for ordinary work unless the user explicitly asks for one or the change is genuinely high-risk/destructive enough to justify an independent merge gate.
+- `koba-ai-agent` owns working branches, commits, issue/PR creation and requested revisions.
+- `koba-ai-reviewer` independently reviews and is the only identity that merges pull requests into `main`.
+- Do not mutate reserved/default `main` directly and do not let the writer merge its own PR.
 
 ## Mandatory working rules
 
 These rules are mandatory for ongoing behavior analysis in this repository:
 
-- Work directly on `main` for ordinary analysis notes, semantic naming and documentation. Do not create pull requests unless the user explicitly asks or the operation is genuinely destructive/high-risk.
+- Persist Git documentation through a writer branch and pull request; the reviewer performs independent review and merge. Analysis-project semantic mutations remain separate from Git branch policy.
 - Do not create or maintain issues as a running notebook. Use issues only for a real blocker, contradiction or explicit user request. Stable findings belong in the canonical analysis project and, in batches, in Git documentation.
 - Preserve canonical artifacts. Never edit the raw SPI dump or extracted firmware modules in place.
 - Prefer narrow, read-only evidence queries. Avoid broad re-analysis and giant speculative batches. Keep invokes small and bounded; where an analysis timeout is configurable, use at most one second for the current workflow. If that budget is insufficient, switch to a narrower evidence path instead of blindly retrying.

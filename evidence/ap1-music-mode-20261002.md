@@ -226,7 +226,7 @@ The 16-byte decoder status block is at `0x800022E4`. Type mapping from bits2:0 i
 
 The common audio dispatcher `0..26` is mechanically reconstructed; the full table is in `docs/analyze-status.md`.
 
-Control ID `0x57` is confirmed ECHO. The saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is stale/wrong: the apply branch computes ECHO index `selection-2`, stores `gp+0x83A`, indexes runtime table `0x88012CC0`, and dispatches action 4 / family `0x0600`. Direct wrapper `0x80702CC8` is the same ECHO hardware-profile route and AUX uses `(0,0)`. Documentation aliases are `ApplyEchoProfileIndex` and `ApplyEchoHardwareProfile` until saved symbols are updated.
+Control ID `0x57` is confirmed ECHO. Canonical Analysis now saves `ApplyEchoProfileIndex @ 0x80702C8C`; the apply branch computes the normalized ECHO index, indexes runtime table `0x88012CC0`, and dispatches action 4 / family `0x0600`. Canonical Analysis also saves `ApplyEchoHardwareProfile @ 0x80702CC8` for the direct ECHO hardware-profile route used by AUX with `(0,0)`.
 
 ### Current AP1 snapshot
 

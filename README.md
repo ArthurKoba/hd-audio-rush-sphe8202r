@@ -28,7 +28,7 @@ The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current c
 - Speaker state is instruction-backed: FRONT `gp+0x827`, CENTER `gp+0x7DC`, REAR `gp+0x80E`, SUB `gp+0x7D6`; topology is action `0x17`; SUB also uses action 6; CENTER/REAR delay formulas are confirmed through action `0x0B`.
 - External hardware mode 3 is AUX; modes 0..2 are S/PDIF-input-side patterns whose physical optical/coax meaning remains unknown. AUX uses transient state `0x0B`; S/PDIF-input uses `0x0D`; anti-pop sequencing temporarily applies master volume zero.
 - Decoder status block `0x800022E4` is 16 bytes. Hardware decoder type bits map 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can stop/reconfigure/restart the pipeline.
-- The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; the current saved symbol `ApplyRegionCodeProfile @ 0x80702C8C` is semantically stale and actually indexes ECHO table `0x88012CC0` before dispatching action 4 / family `0x0600`.
+- The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; canonical Analysis now saves `ApplyEchoProfileIndex @ 0x80702C8C` and `ApplyEchoHardwareProfile @ 0x80702CC8`, both on action 4 / family `0x0600`.
 
 ### Readiness boundary
 
