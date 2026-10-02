@@ -1,49 +1,52 @@
-# analysis status
+# Analysis status
 
-## Active audio behavior status — 2026-10-01
+## Current authority — 2026-10-02 late pass
 
-Current working estimate: **97–98% of the target audio behavior contract at implementation-proof level**.
+This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
-This percentage is an approximate engineering-progress estimate whose denominator is the required product audio chain: source/input and decoder selection, codec/profile loading, decoder-service parameter initialization, GM5/downmix/KEY/dynamic-range/digital controls, speaker topology/delays, DSP-side parameter consumption, and the handoff toward the resident multi-stream backend. It is **not** an action-node coverage value and does not imply execution, board or integration acceptance.
+Validation levels remain separate:
+- **implementation proof** — static/native behavior recovered from target firmware or the saved Analysis project;
+- **execution proof** — the path has been observed executing;
+- **board proof** — target PCB ownership/routing is physically established;
+- **integration proof** — modified/rebuilt firmware has been accepted on the target with rollback/recovery available.
 
-The old four-module semantic-name snapshot (`157 / 4149`) is now historical and must not be presented as the current counter. The current saved **AP1-only** snapshot is **134 / 3847 = 3.48%** custom/semantic names, with **60 forwarders**. This is a naming metric only; it includes thousands of legacy-media action nodes outside the active audio denominator and must not be mixed with audio behavior progress.
+### Progress metrics
 
-New implementation-level findings:
-- PCM, AC-3, DTS, AUX and fallback descriptor sources are complete raw-DEFLATE 24-bit DSP profile images.
-- DSP-side consumption is now proved: PCM, AC-3 and AUX directly read decoder-service slot `0x23` for GM5; AC-3 directly reads slot `0x21` for DOWNMIX.
-- AC-3 DOWNMIX states are resolved inside the DSP profile: OFF -> `(matrix=7,vss=0)`, STEREO -> `(2,0)`, LT/RT -> `(0,0)`, VSS -> `(2,2)`. The VSS state opens additional MAC/buffer processing paths.
-- GM5 MODE1/MODE2/OFF is a real fixed-point spatial-matrix path. MODE2 uses additional coefficient pairs with square-root-of-two-related values; the coefficients are consumed in multiply-accumulate loops.
-- Target-derived DSP resource evidence now proves at least 13,666 active 24-bit program words in the largest decoded profile and immediate DM addressing through `0x3FFD`. A full 16K-word PM/DM-style 14-bit address envelope is likely, but the exact hardware resource contract and clock remain unproved.
-- All major codec profiles share high-DM service/backend regions. Repeating `0x3Cxx` blocks behave as multi-stream descriptor/state groups, while `0x3F00..0x3F04` and `0x3F10..0x3F14` behave as command/status groups. Codec profiles do not directly use ADSP-style IO instructions for six DAC lanes; the exact physical lane ownership is below this resident backend boundary.
-- The dedicated `SunplusSPHEAudioDSP:BE:16:default` processor model is now deployed and validated in the live Analysis runtime. Canonical DSP analysis uses `/dsp_sunplus/srvdsp.bin`; the old `/modules_probe_mipsle/srvdsp.bin` remains only as a preserved wrong-language probe.
-- Canonical `srvdsp.bin` local executable coverage is complete at implementation-proof level: 117/117 local code words, 9/9 vector-seeded action nodes and 9/9 high-level behavior views. The proven `DO PM:186C UNTIL CE` sequence is modeled as real CNTR-controlled flow rather than an opaque user operation.
-- The reusable processor/tooling implementation currently lives in `ArthurKoba/ghidra-mcp`; future extraction into upstream Ghidra is tracked separately as issue #30 so board analysis is not blocked on upstream contribution work.
-- Analysis-runtime incidents and workarounds are tracked in `evidence/analysis-runtime-failures-20261001.md`; the complete continuation state is in `evidence/audio-dsp-handoff-20261001.md`.
+- AP1 current live Analysis snapshot: **3853 action nodes**, **147 non-generic/semantic names (~3.82%)** by the current naming rule, **62 forwarders**. This includes thousands of unrelated legacy-media nodes and is not audio completion.
+- `srvdsp.bin`: **117/117 local executable words**, **9/9 action nodes**, **9/9 high-level behavior views**, **21/21 named/typed/documented DM state/config slots**. The local wrapper is closed at implementation-proof level.
+- Codec-profile processor coverage: **AUX 5451/5451**, **PCM 7787/7787**, **AC-3 10339/10339**, **DTS 9651/9651** vector-seeded reachable words decoded with zero gaps.
+- Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
+- The previous `97–98%` whole-audio estimate is retired.
 
-Validation remains separated: implementation proof does not imply execution, board or integration proof.
+## Toolchain and canonical project
 
-## Current handoff — 2026-10-01 late session
+- Canonical project: `sphe8202r_decoder_p25d80`.
+- AP1: `/modules_mipsle/ap1.bin`, MIPS32 LE, base `0x8067B800`, shared `$gp=0x80002B00`.
+- Runtime reconstruction: `/runtime/rom12-runtime.bin`, base `0x88000000`, saved project file version 21. Open-program handles are session-local and may need reacquisition after worker restart.
+- DSP wrapper: `/dsp_sunplus/srvdsp.bin`, `SunplusSPHEAudioDSP:BE:16:default`, PM base `0x1800`.
+- Codec programs: `/dsp_sunplus/codec_profiles/{aux,pcm,ac3,dts}-profile.bin`.
+- Deployed processor implementation: `ArthurKoba/ghidra-mcp` main commit `5570d8c` at this checkpoint; production Analysis smoke confirmed the extension after deployment.
 
-This section is the current continuation authority. Older coverage snapshots and handoff sections below remain historical evidence only.
+## Sunplus audio-DSP processor state
 
-### srvdsp module status
+The processor-model blocker is closed for the current target corpus.
 
-`srvdsp.bin` is structurally and behaviorally closed to the limit of the local blob at implementation-proof level.
+Confirmed model properties:
+- fixed 24-bit big-endian instruction words;
+- PM word-addressing with `wordsize=3` and `alignment=3`;
+- separate PM/DM/IO spaces with 16-bit DM/IO modeled for observed forms;
+- generic codec flow separated from `srvdsp`-only resident-handoff context;
+- RTI kept distinct from RTS through explicit status-restoration semantics;
+- real CNTR-controlled `DO PM:186C UNTIL CE` for the proven wrapper sequence;
+- reachable arithmetic/MAC, PM/DM memory, shifter, stack/mode, direct/indirect flow and register-move forms required by AUX/PCM/AC-3/DTS are implemented.
 
-Confirmed current state:
-- canonical program: `/dsp_sunplus/srvdsp.bin`;
-- language: `SunplusSPHEAudioDSP:BE:16:default`;
-- image base: PM word `0x1800`;
-- vector table: `PM:1800..181F`, 32 x 24-bit entries;
-- local executable region: `PM:1820..1894`, **117/117 words decoded**;
-- local action nodes: **9/9**, all with semantic names, void prototypes and default calling convention;
-- low-level surface: **149/149 vector+code operations visible**;
-- executable gaps: **0**. The only reported non-action ranges are the vector table and the PM data bank;
-- DM state/config: **21 named/typed 16-bit slots**;
-- PM/data structural markers: default vector landing plus parameter/preset/sine-window boundaries;
-- canonical global/structural labels observed after the pass: **26**.
+This is target-corpus completeness, not a full ADSP-218x compatibility claim and not evidence of Sunplus DSP clock, cycle budget, total PM/DM capacity or peripheral routing.
 
-Recovered local actions:
+## srvdsp current closed contract
+
+`srvdsp.bin` was audited again after the processor extension. All nine action boundaries and native routes remained consistent. All 21 proven DM state/config slots are named, typed and documented. Two high-level presentation artifacts around the weighted path and `DO ... UNTIL CE` are annotated; native low-level behavior is authoritative.
+
+Local actions:
 - `InitializeAndDelegateSrvdsp`;
 - `ProcessLevelWindowExtrema`;
 - `ProcessWeightedDspAccumulation`;
@@ -54,710 +57,195 @@ Recovered local actions:
 - `HandleConditionalReturnOrDelegate`;
 - `SetStoredArAndClearState`.
 
-Important state relationships:
-- `ProcessLevelWindowExtrema -> g_sSrvdspCountdown -> ProcessCountdownRouting`;
-- `ProcessThresholdStateAndIo <-> g_sSrvdspThresholdState <- SetThresholdStateFromM0AndDelegate`;
-- `DM:00FE`, `DM:0086`, `DM:00BC` are resident-provided threshold/config inputs in the local wrapper: each is read locally and not written locally;
-- `g_nSrvdspLongCountdown @ DM:0101` initializes to `0x14BD`, decrements at the local PM:182F path and routes to resident PM:05A4 on expiry;
-- `g_nSrvdspLocalPmEntryWord @ DM:0056` stores local PM word `0x182F`; its consumer is outside the local blob;
-- only two local IO writes are present: `IO:003B <- 0` in countdown routing and `IO:0012 <- AR` in threshold/state processing.
-
-PM data bank:
-- `PM:1895`: default/reserved landing for vector slots 9..31, value `0x007FFF`;
-- `PM:1896..1905`: general parameter/coefficient bank;
-- `PM:1906..1939`: four 13-word coefficient preset records; seven fields are constant, six switch in stepped patterns; some constant sequences are near-geometric gain-like steps around ±2.44 dB/step;
-- `PM:193E..195C`: exact 31-point Q13 sine window, `round(8192*sin(pi*(i+1)/32))`;
-- `PM:195F..1975`: exact 23-point Q13 sine window, `round(8192*sin(pi*(i+1)/24))`;
-- `PM:195D..195E` and `PM:1976..1977`: zero separators/tail.
-
-Do not reclassify the two sine tables as FIR kernels. The exact resident consumer/effect of the preset/data banks is outside `srvdsp.bin` and remains an explicit evidence boundary.
-
-### AP1 resumed state
-
-The canonical `ap1.bin` saved program currently reports:
-- **3847 action nodes**;
-- **134 custom/semantic names** = **3.48% AP1 naming coverage**;
-- **60 forwarders**.
-
-This metric is intentionally separate from the **97–98% target audio behavior-contract estimate**. Whole-program naming is dominated by unrelated legacy media code.
-
-Current active AP1 route: **audio preset / seven-band EQ state machine**.
-
-Confirmed evidence:
-- fixed preset bank at `0x8070B37A`: **7 records x 7 bytes**;
-- adjacent/UI resource evidence includes `%d DB`, `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, `MUSIC MODE`;
-- a neutral record is `[13,13,13,13,13,13,13]`; code subtracts 13 before rendering `%d DB`, proving stored code 13 = **0 dB**;
-- preset index **7** selects a custom/user seven-byte EQ curve from runtime RAM instead of a fixed record;
-- `GetSevenBandEqPresetIndex` returns runtime state byte `0x80002B0D`;
-- `InitializeAudioPresetMenu` initializes menu state bytes `0x80002B18/19`;
-- `HandleAudioPresetMenuState` renders/loads the current preset and selects fixed vs custom curve;
-- `HandlePreviousAudioPresetMenuItem` / `HandleNextAudioPresetMenuItem` perform symmetric top-level navigation and, in substate 2, band-edit navigation;
-- `FUN_806E735C` displays the selected custom-band value as `stored_value - 13` dB;
-- `FUN_806E8CF0` resets/reloads the neutral seven-band profile.
-
-Recovered action boundaries:
-- `ApplyCurrentSevenBandEqPreset @ 0x806E89E4`, 100-byte body;
-- `HandleMusicPresetState @ 0x806E8A54`, 744-byte body.
-
-A nearby `thunk_FUN_806E9228` at `0x806E8A48` was initially suspected to be stale because it begins on a delay-slot NOP, but inbound-link and low-level evidence prove it is a real shared-return/forwarder entry. **Do not delete it.**
-
-Immediate continuation:
-1. finish semantic names/types/comments for the seven-band EQ helper chain (`FUN_806E8960`, `FUN_80702D64`, `FUN_806E8ED0`, `FUN_806E8CF0`, rendering helpers) without conflating UI-only helpers with DSP/service writes;
-2. materialize only the narrow runtime state windows needed for proven GP/RAM state if typing requires backing memory; do not invent a broad RAM layout;
-3. continue outward from the EQ/menu state machine into the already named audio-service control cluster (`DispatchAudioHardwareAction`, decoder state, speaker topology, delays, volume/mute);
-4. keep raw low-level action view authoritative where old AP1 action boundaries or stored links disagree with the high-level behavior view;
-5. save semantic batches into the canonical Analysis project and periodically synchronize stable findings back into this repository.
-
-Upstream extraction of the reusable Sunplus/SPHE processor implementation is **separate issue #30** and must not block AP1 behavior recovery.
-
-### AP1 seven-band EQ continuation delta
-
-Latest stable findings before the next analysis session:
+PM data structure:
+- `PM:1895` default/reserved vector landing;
+- `PM:1896..1905` parameter/coefficient bank;
+- `PM:1906..1939` four 13-word preset records;
+- `PM:193E..195C` exact 31-point Q13 sine window;
+- `PM:195F..1975` exact 23-point Q13 sine window.
 
-- The audio-preset cluster is confirmed as a **seven-band EQ/music-preset state machine**, not just a generic seven-byte parameter path.
-- Fixed preset bank at `0x8070B37A`: seven records x seven bytes. UI/resource evidence in the same image includes `STANDARD`, `LIVELY`, `CONCERT`, `CLASSIC`, `ROCK`, `JAZZ`, `POP`, `MUSIC MODE`, plus `%d DB` rendering.
-- Stored band code `13` is confirmed as **0 dB** because the UI path renders `stored_value - 13` with the `%d DB` format.
-- Preset index `7` selects the custom/user seven-byte curve from runtime RAM; fixed indexes select records from the ROM preset bank.
-- Recovered boundaries remain `ApplyCurrentSevenBandEqPreset @ 0x806E89E4` and `HandleMusicPresetState @ 0x806E8A54`.
-- Existing `HandlePreviousAudioPresetMenuItem` and `HandleNextAudioPresetMenuItem` are symmetric navigation handlers. In menu substate 2 they navigate/edit the custom EQ band state rather than merely changing the top-level preset.
-- `FUN_806E735C` renders the selected custom-band gain in dB; `FUN_806E8CF0` reloads the neutral seven-band curve `[13,13,13,13,13,13,13]` and refreshes related state.
-- `FUN_806F983C` installs/uses the audio-preset control callbacks; `FUN_806FD65C` is a generic callback-registration wrapper and should not be renamed as EQ-specific.
-- The forwarder at `0x806E8A48` is **real** despite beginning on a delay-slot NOP: inbound-link and low-level evidence show it forwards into shared worker `FUN_806E9228`. Do not delete it.
-- Runtime state evidence: `0x80002B0D` is the seven-band EQ preset index; `0x80002B18` is the top-level audio-preset menu/page index; `0x80002B19` is its substate; `0x80002B22` participates in the custom-band value/UI state; `0x80002B10..16` is the custom seven-byte curve used when preset index is 7.
-- A narrow backing block for `0x80002B00..0x80002B3F` was considered for typing, but no runtime-RAM block was created in the canonical program during this pass. Keep this explicit rather than inventing a broad RAM layout.
+The sine tables are not FIR kernels. Exact resident consumer/effect semantics remain outside the local wrapper.
 
-Immediate continuation: apply concise semantic names/comments to the proven EQ helpers, then move outward into the already established audio-service route (decoder state, speaker topology/delay, volume/mute and source routing). Do not spend another long pass polishing EQ UI helpers unless they materially change the audio behavior contract.
+## Decoder profile load route
 
+Saved semantic entry points:
+- `SelectDecoderProfileByStateMask @ 0x80700410`;
+- `LoadDecoderDspProfile @ 0x807002FC`;
+- `ValidateDecoderProfileInputRingCapacity @ 0x80700168`.
 
-## Project direction
+Instruction-backed route:
+1. Select descriptor by the least-significant set bit of the requested decoder-state mask; fallback index is 8.
+2. Descriptor layout: packed-source pointer `+0`; field A `+4/+5`; field B `+6/+7`; field C `+8/+9`.
+3. Derive page/bank selectors `0xF8`, `0xF8+A`, `0xF8+A+C`.
+4. Internal worker `0x807002AC..0x807002F8` writes them into service state (`s6+0x4B0/0x4B8/0x4B4`) and runtime selectors (`gp+0x17AC/0x17AE/0x17B0`) and clears related service fields.
+5. Runtime decoder-service initialization is **real target `0x88001584`**.
+6. Validate descriptor capacity against configured input-ring capacity.
+7. Packed profile transfer is **real target `0x88001AF8`** to `0xA0000000 + (u16[gp+0x17AC] << 10)`.
 
-Target state: **control-complete behavior analysis of the entire board**.
+Known stale metadata: high-level views may show the runtime calls shifted by `+0x800` (`0x88001D84`, `0x880022F8`) and may show `SelectDecoderProfileByStateMask` calling `0x80700AFC` instead of raw `jal 0x807002FC`. Those displayed targets are not authoritative.
 
-Both firmware domains are required for the overall objective, but the active issue #9 work is Sunplus-only. The missing secondary dump does not block independent Sunplus static analysis.
+`ValidateDecoderProfileInputRingCapacity` has 57 native operations. For decoder states `0x8000` and `0x40000`, descriptor capacity is incremented by 3 before `<<10`; the result is compared with `u16[gp+0x71E]`. The old high-level extra-call interpretation on that branch is withdrawn.
 
-## Active decision boundary — 2026-09-21
+## Decoder input ring and runtime service contract
 
-**AP1 placement has been corrected to `0x8067B800` in the canonical analysis project.** The former `0x8067B000` claim is withdrawn. `analysis/modules.csv` records the corrected base as confirmed/rebased. action node-boundary cleanup and stale-flow-reference cleanup remain separate gates; the rebase does not by itself validate every pre-existing AP1 symbol/inbound action.
+The configured window is a CPU-fed input ring:
+- base = `0x80000000 + (u16[gp+0x17AE] << 10)`;
+- capacity bytes = `u16[gp+0x71E]`;
+- CPU producer byte cursor = `u16[gp+0x730]`;
+- service consumer byte cursor = `3 * u32[s6+0x4CC]`;
+- producer position is published in three-byte units through `s6+0x4C8`.
 
-Separately, a read-only audit found 43 stale direct-flow references across `wma`, `cdrom` and `drv_other`. The earlier AP1 row reporting zero mismatches is now withdrawn as a current-safety claim: targeted raw checks on 2026-09-22 found at least four AP1 stored flow references shifted by exactly `+0x800` after the rebase. Confirmed examples are `0x8071EC9C` raw `j 0x8071EC4C` but stored link `0x8071F44C`, `0x8071F548` raw `jal 0x806ED604` but stored link `0x806EDE04`, `0x8071F550` raw `j 0x8071F50C` but stored link `0x8071FD0C`, and `0x8067D514` raw `jal 0x806ED604` but stored link `0x806EDE04`. Therefore AP1 inbound action/high-level behavior engine data also requires raw-instruction validation in affected regions. No broad repair is claimed applied. See `docs/firmware.md` for reproducible examples, scope and remaining gates.
+`GetDecoderInputRingFreeBytes @ 0x88001CD0` and the adjacent queued-byte calculation establish ring arithmetic. This is transport capacity, not total/free DSP program memory.
 
-Do not stack broad auto-analysis or hardware-control conclusions on this inconsistent state.
+`WaitForAudioServiceConditions @ 0x88001C78` is analyzable in the saved runtime program. Dispatcher use `(1,0,0,100000)` makes `100000` a poll-count budget, not a proved time unit. A state-mask gate can return success without issuing a command. Command acknowledgement and requested final state are separate.
 
-## Confirmed
-
-- Product family: HD Audio Rush 5.1; PCB: `SPHE8202RD_SPDIF_V02`; main package: Sunplus `SPHE8202R`.
-- Raw external flash: Puya `P25D80SH`, 1 MiB dump preserved at `firmware/P25D80SH@SOP8.BIN`.
-- STK rev-8203R opens the dump and extracts 18 module slots.
-- Main application modules `ap1`, `cdrom`, `drv_other`, `wma` are coherent MIPS32 little-endian.
-- `wma.bin` base `0x8073F000`, `cdrom.bin` base `0x8074C800`, and `drv_other.bin` base `0x80775800` retain their established module-map status. Correct bases do not imply correct stored analysis workspace references.
-- Shared MIPS GP is `0x80002B00`. Independent WMA pairs give `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84`, both exactly `0x80002B00`. The AP1 base contradiction does not change these equations.
-- AP1 at `0x806D96F8` executes `lui gp,0x8801; lw gp,0x2200(gp)`, proving the runtime GP restore slot is absolute `0x88012200`. The current analysis workspace auxiliary block named `runtime_gp_slot` at `0x88012A00` is stale metadata shifted by the `+0x800` rebase; creation of a replacement block at `0x88012200` was blocked by the tool safety layer, so that metadata defect remains explicitly open.
-- Shared helpers identified in `drv_other.bin`: byte-wise `memcmp` at `0x80783F08`, `memcpy` at `0x80783F3C`, and `memset` at `0x80783F64`.
-- AP1 canonical module bytes were rechecked against the README SHA-256 during the address-model investigation; they were unchanged.
-- Additional raw-pointer evidence strengthens the `0x8067B800` candidate and invalidates one old UI-table interpretation: word at file `+0x615D0` is `0x806DA5C8`, which resolves exactly to `SPDIF/OFF` at file `+0x5EDC8` only with the candidate base. The old base resolves it into unrelated bytes.
-- RAW/PCM strings are at stable file offsets `+0x5F0AC/+0x5F0B8`, candidate runtime `0x806DA8AC/0x806DA8B8`. Those candidate addresses recur in localized pointer blocks at file `+0x6175C/+0x61764`, `+0x61F64/+0x61F6C`, `+0x62368/+0x62370`, `+0x6276C/+0x62774`, and `+0x62B70/+0x62B78`. By contrast, the old-listing chain through file `+0x61180` and `+0x62964` stores old absolute addresses; under the candidate base its targets are unrelated language text, so that earlier chain must not be used as the RAW/PCM setter path.
-- The corrected AP1 translation table is recoverable directly from raw bytes: base `0x806DCD88` (file `+0x61588`), language stride `0x404 = 257*4`; item `113` is `AUDIO OUT`, item `117` is `SPDIF/RAW`, and item `119` is `SPDIF/PCM`.
-- Command mailbox primitives are instruction-confirmed: `WriteCommandMailboxByte` at `0x8069B070` writes a 16-bit key to `s6+0xE80`, a byte value to `s6+0xE84`, and uses the `0x8000` handshake; `ReadCommandMailboxByte` at `0x8069B268` reads the response byte via `s6+0xE88` with the same handshake.
-- Raw initialization code beginning at `0x8069D4F8` maps command key `0x4627 -> 0x75` and `0x4628 -> 0x77`; the pair repeats identically in four initialization clusters. A runtime branch at `0x80684AA0..0x80684940` produces `WriteCommandMailboxByte(0x401A,0x75)` through helper `0x8069E1A4`. This links RAW item ID `0x75` to a runtime command path, but the matching PCM `0x77` runtime path and the semantic meaning of key `0x401A` remain unresolved.
-- S/PDIF output selection is now instruction-level confirmed through the control-descriptor layer. `ResolveControlIdToGroupSlot(0x71)` resolves group 2 / slot 1; its 13-byte descriptor at `0x80707FA3` is `03 71 12 75 77 00 00 00 00 00 00 0B 00`, where option IDs `0x12/0x75/0x77` map through the corrected translation table to `SPDIF/OFF`, `SPDIF/RAW`, `SPDIF/PCM`. `DispatchControlOption(controlId, optionId, sideEffects)` dispatches control `0x71` to `ApplySpdifOutputOption(optionId)`.
-- `ApplySpdifOutputOption` at `0x807759E0` has explicit branches for OFF/RAW/PCM. RAW (`0x75`) selects internal mode 2; PCM (`0x77`) selects internal mode 1; OFF (`0x12`) clears/reconfigures the path. `IsSpdifPcmSelected` at `0x8077C21C` tests the selected descriptor option against `0x77`.
-- Control `0x71` descriptor state slot is `0x0B`, so its selection index is mirrored through `DAT_80006810[0x0B] = 0x8000681B`. `LoadControlSelectionsFromStateSlots` and `SaveControlSelectionsToStateSlots` synchronize these state slots with the generic selection table at `0x800066B0 + group*9 + slot`. analysis type `ControlOptionDescriptor` (13 bytes) is applied to `0x80707FA3` with only evidence-backed fields named.
-- The interactive OFF/RAW/PCM commit path is now instruction-level complete. `HandleControlMenuInputEvent` dispatches browse/edit states through `HandleControlMenuBrowseInput` and `HandleControlMenuEditInput`. Browse-state code around `0x8077AD20..0x8077AD44` copies the current runtime selection from `0x800066B0 + group*9 + slot` into `DAT_80002B2B` and enters edit state 3. Edit-state commit at `0x8077B244..0x8077B270` reads the descriptor `+0x0B` state-slot index, writes `DAT_80002B2B` to both `DAT_80006810[stateIndex]` and the runtime selection table, then invokes `ApplyCurrentControlSelection` (`0x80777578`) and `SaveCurrentControlSelection` (`0x807774EC`).
-- `ApplyCurrentControlSelection` handles descriptor type 3 by calling `DispatchControlOption(controlId, optionId, 1)`, so `AUDIO OUT` commits reach `ApplySpdifOutputOption` with side effects enabled. `SaveCurrentControlSelection` mirrors the runtime position back to `DAT_80006810[stateIndex]` and persists the byte through the generic NVRAM/config writer; `SaveAllControlSelections` (`0x8077C0D0`) writes the full `0x41`-byte selection blob and checksum path. This closes the static setter/getter/persistence contract for OFF/RAW/PCM.
-- S/PDIF input selection is now statically recovered. AP1 external-input subsource selector `0x800032FA` maps `1 -> AUXIN`, `2 -> SPDIF IN`, and the non-AUX/non-SPDIF branch to `TUNER`; the mapping is instruction-backed by the source-status renderer at `0x8071E428..0x8071E4EC` using strings `AUXIN` (`0x8070B4D4`), `SPDIF IN` (`0x8070B4A0`), and `TUNER` (`0x8070B4AC`).
-- `ToggleTunerSpdifInput` at `0x806FB920` toggles selector `0x800032FA` strictly `0 <-> 2`, giving a concrete TUNER/SPDIF setter. `FUN_806FED18` also writes selector `1` or `2` in a broader external-input transition path; its broader semantics remain unnamed.
-- Source dispatcher state `gp+0x7A5 = 0x800032A5` indexes a 9-entry handler table at `0x8070B4E0`; handler table analysis is in progress. Index 1 is confirmed USB because its handler path reaches the `USB` string at `0x8070B504`.
-- AP1 contains S/PDIF/audio-status strings. Stable file offsets include `SPDIF/OFF` at `0x5EDC8`, `SPDIF/RAW` at `0x5F0AC`, `SPDIF/PCM` at `0x5F0B8`, and `SPDIF IN` at `0x8FCA0`. Their old analysis workspace listing addresses are not confirmed runtime addresses.
-- CDROM `0x8074C800` maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`, with encoded invokes to `0x80701A44` and conditionally `0x807017A8`. Its shared state access is `gp+0x774 = 0x80003274`; stored stored action links at `0x8074C838/0x8074C850` are wrong.
-- CDROM classifier `0x8074C868` has an AC3-syncword branch returning `0xAC3`. Its inbound action at `0x8074CB2C`, now named `InitializeCdromPackedStream`, stores internal mode `3` for that result, mode `0` for `-1`, and modes `1/2` for the other two classifier results. The initializer returns the original classifier result, not the stored byte mode.
-- STK program `/tools/stk.exe` contains a word-sum helper at `0x00401B56`, now named `CalculateContainerWordSum`. X86 instructions prove a wrapping 32-bit sum of unsigned little-endian 16-bit words. Parser transition sites use expected fields at `+0x20` and, after an unresolved intermediate routine, `+0x40`. This is static tool-code evidence, not a reproduced target checksum or repack path.
-- Secondary-side UART excerpt contains AC695N/BR23 build/runtime strings.
-- HCF4052-family device action node is analog multiplexing; 74HC04D is a hex inverter; 4558-family devices are dual op-amps.
+## MUSIC MODE / EQ / SRND
 
-## Likely / provisional
+Current mapping:
+- page 0 SRND: OFF / CONCERT / CHURCH / PASSIVE / WIDE / LIVE;
+- page 1 EQ: STANDARD / CLASSIC / ROCK / JAZZ / POP / USER;
+- page 2 BAND;
+- page 3 KEY.
 
-- AP1 base `0x8067B800` is applied in canonical analysis workspace. Independent initial-delay transition, absolute/relative branch convergence, cross-module entry and pointer-table evidence support the placement. action node-boundary cleanup is still pending.
-- `CdromPackedStreamState` is a 24-byte analytical structure for the state beginning at `0x80003704`; its type and six state/signature labels are saved in analysis workspace. The type has not been applied over invented RAM contents, and it is not claimed to be an original source declaration.
-- The two non-AC3 CDROM formats use different converters (`0x8074D538` and `0x8074D030`). Their codec identities are not established; do not label them DTS merely from packing patterns.
-- Secondary `AK24BP24230` is a JieLi/JL-family controller executing the observed AC695N/BR23 firmware.
-- 4558D output-stage devices participate in analog buffering/filtering/preamplification.
-- External SDRAM marking is close to reported `PMS3064 / 16BTR-60N`, but exact transcription is not yet reliable.
+There are five fixed EQ curves, not seven. The real fixed bank starts at `0x8070B388`; selection 7 is the runtime USER curve. Stored code 13 renders as 0 dB. Non-OFF SRND and non-STANDARD EQ are mutually exclusive by factory policy; this is not a silicon limitation and is distinct from GM5.
 
-## Retained findings requiring address-model revalidation
+Seven-band payload bytes are written to selected DSP-visible bank indices 7..13 through runtime `SetDspParameterWord24 @ 0x88001358`, then action 8/value `0x10` stages command `0x0A10`. These indices are selected-bank addresses, not decoder-service vector IDs.
 
-Earlier notes identified shared audio-mode writes through `gp+0x774` and `gp+0x76C`, numeric modes `1/2/4/0x1000/0x2000/0x4000`, and field values `0x600/0x700/0x800/0x300/0x400/0x500`. These remain useful instruction anchors, but the AP1 listing locations `0x807012C8` and `0x806FFD9C` must not be described as validated action node entries/runtime addresses. The old base split at least one real routine into false action node fragments. Exact AC3/DTS/PCM mapping of these audio-core numbers remains unknown and is distinct from the CDROM classifier-to-mode mapping above.
+## Master volume / mute
 
-## Unknown / remaining validation
+`SetMasterVolumeLevel` dispatches action 2. The logical hardware route is split by imperfect action boundaries: `ApplyMasterVolumeHardwareState @ 0x806FFBBC` contains the prologue and `FUN_806FFBC8` contains the main worker.
 
-- Corrected AP1 analysis, clean direct-flow references, remaining indirect/data references and module import/export tables.
-- Board init, volume/mute, USB and the SPHE <-> secondary transport. S/PDIF input selection and S/PDIF OFF/RAW/PCM output selection are statically recovered; hardware behavior remains unvalidated.
-- Exact SDRAM part/vendor/density and STK `32M` unit; public SKU behind `AK24BP24230`.
-- Secondary flash ID/size, physical USB download route and safe recovery path.
-- Exact TOSLINK/coax -> decode -> six-channel analog signal path; HCF4052/74HC04D routing and USB pad pinout.
-- Identity/hash of the already-imported `/tools/stk.exe` versus the three archived revisions, complete container module-table schema, intermediate transform, checksum reproduction, writer/repack and rollback validation.
-
-## Contradictions
-
-### AP1 base and stored analysis workspace references
-
-The old `0x8067B000` confirmation is withdrawn. Corrected base `0x8067B800` and the still-unrepaired analysis state are explicitly separated. A zero mismatch count between encoded J/JAL targets and stored references in AP1 does **not** prove its image base.
-
-### Physical SPHE8202R vs STK SPHE8203R
-
-Physical package marking is `SPHE8202R`; STK displays `SPHE8203R`. Do not resolve this by assumption.
-
-### SCORE7 vs MIPS
-
-Correct STK extraction shows the main application modules are MIPS32 LE. SCORE7 is not the active assumption or a dependency for `ap1/cdrom/drv_other/wma`.
-
-## Tooling and persistence
-
-- Canonical analysis project: `sphe8202r_decoder_p25d80`; extracted MIPS modules plus the existing STK analysis program. Earlier flat imports of the 1 MiB container remain removed.
-- Saved this pass: AP1 address-model warning/bookmark; CDROM initializer name/comment, state type and labels; STK sum-helper name/prototype/comment.
-- `the bundled direct-link repair helper` is a guarded metadata-repair source, audit-only by default. Source commit `3688a523` is recoverable; execution/application validation is absent. The audit snapshot is not a promise that parallel analysis cannot change counts.
-- inspect behavior invokes used a five-second timeout. Inline read-only audit loops had a four-second execution budget; most MCP methods expose no inbound action-controlled transport timeout. No full auto-analysis was launched in this pass.
-- No firmware bytes modified in a controlled way, no flash writes, no PR, no secondary-controller analysis expansion.
-
-## Coverage snapshot — 2026-09-21
-
-- analysis workspace action node inventory across `ap1/wma/cdrom/drv_other`: **4011 action nodes**.
-- action nodes still carrying default `FUN_*` names: **3975**; semantic/non-`FUN_*` naming coverage is therefore **36/4011 = 0.90%**. This measures naming coverage only, not understanding of every analyzed action node.
-- Issue #9 checklist coverage after static S/PDIF input + RAW/PCM recovery: **7/22 = 31.8%** overall. By scope: address model **3/7 = 42.9%**, control surfaces **3/8 = 37.5%**, firmware construction **1/7 = 14.3%**.
-- Validation level remains static/source analysis. No hardware acceptance is implied by these percentages.
-
-## Historical handoff — 2026-09-21
-
-Do **not** restart address/base discovery or S/PDIF OFF/RAW/PCM tracing. The current Sunplus state is already preserved in canonical analysis workspace and in this document.
-
-Immediate continuation order:
-
-1. Continue the **AP1 source-dispatcher map** from `gp+0x7A5 = 0x800032A5` and the 9-entry handler table at `0x8070B4E0`. Entry 1 is already confirmed USB. Recover the remaining source indices and name only handlers proven by instruction/data evidence.
-2. Finish the broader external-input transition routine around `0x806FED18`. It writes external-input subsource selector `gp+0x7FA = 0x800032FA` to values `1=AUXIN` and `2=SPDIF IN`; `ToggleTunerSpdifInput` at `0x806FB920` already proves the `0<->2` TUNER/SPDIF toggle. Determine inbound action/event semantics rather than rediscovering the selector mapping.
-3. Then move to **volume/mute**. Start from confirmed control-descriptor/dispatcher infrastructure in `drv_other` instead of string hunting: `ResolveControlIdToGroupSlot`, `DispatchControlOption`, runtime selection table `0x800066B0`, persistent selection blob `DAT_80006810[0..0x40]`, and apply/save helpers already named in analysis workspace.
-4. After volume/mute, map USB/service init and then SPHE<->secondary-controller invokes. Board-init tracing can proceed in parallel only where it does not depend on unresolved hardware routing.
-5. STK/repack remains a separate lane: continue from `CalculateContainerWordSum @ 0x00401B56`, parser fields `+0x20/+0x40`, and unresolved intermediate routine `0x00401ED2`. Do not claim repack until a byte-exact no-change round trip is reproduced.
-
-Known analysis hazards / do not repeat:
-- AP1 base is **`0x8067B800` and already rebased in analysis workspace**. The old `0x8067B000` model is invalid.
-- `wma/cdrom/drv_other` still have **43 stale DEFAULT direct-flow refs** from old rebases. AP1 is also now proven to contain at least four `+0x800` stale stored flow refs in the currently investigated source/media/audio region. Treat inbound action/high-level behavior engine output as provisional across all four modules and validate critical edges from raw instructions until repaired through an authorized path.
-- Runtime GP restore slot is instruction-proven **`0x88012200`**. The auxiliary analysis workspace block currently at `0x88012A00` is stale metadata shifted by the AP1 rebase.
-- The tool safety layer intermittently blocks even read-only analysis workspace invokes on specific ranges. Do not loop/retry the same blocked action. Prefer narrow single-address queries; when blocked, use canonical module bytes for raw instruction evidence and return to analysis workspace only for confirmed semantic markup.
-- Do not infer PCB routing from SoC/software capability. Current S/PDIF results are firmware-control evidence only.
-- Work directly in `main`; no PRs. Do not modify the canonical dump or extracted module bytes.
-
-Current coverage snapshot to carry forward:
-- semantic/non-`FUN_*` action node naming in the live canonical project: **67/4059 = 1.65%**; action node-inventory growth is not itself a completion metric;
-- issue #9 checklist: **7/22 = 31.8%** overall;
-- address-model scope: **3/7 = 42.9%**;
-- control-surface scope: **3/8 = 37.5%**;
-- firmware-construction scope: **1/7 = 14.3%**;
-- S/PDIF OFF/RAW/PCM static getter/setter/persistence contract: effectively closed for static analysis; hardware validation remains;
-- S/PDIF input static selector contract: recovered; remaining work is higher-level source-dispatcher/inbound action semantics and hardware validation.
-
-## Active work
-
-The issue tracker remains the task backlog:
-- #9 — Sunplus application and container analysis;
-- #10 — physical board map;
-- #11 — identify/dump secondary controller;
-- #15 — end-to-end analysis/reflash/recovery/control acceptance.
-
-
-## Behavior-analysis handoff — 2026-09-22 (latest)
-
-This snapshot records the current behavior map after the latest USB/audio pass. It is a handoff, not a project-complete claim.
-
-### Coverage
-
-- Strict semantic/action-node coverage across the four loaded MIPS modules: **151 / 4145 = 3.64%** (live snapshot; parallel semantic work may continue changing both numerator and inventory).
-- This percentage counts only action nodes with stable human semantic names. It does not measure byte coverage, instruction coverage, route coverage, hardware acceptance or project completion.
-- Route understanding is substantially ahead of the naming percentage because many large actions, transitions, state tables and callback contracts are already understood without being split into separately named nodes.
-
-### USB host and Mass Storage behavior
-
-The USB path is now closed from controller presence through SCSI block I/O and into the media state machine.
-
-Confirmed route:
-
-`PollUsbControllerPresence`
--> `ResetUsbHostControllerState` / `ClearUsbDeviceContext`
--> `InitializeUsbDeviceContext`
--> `HandleUsbDeviceTreeEvent`
--> `InitializeUsbDeviceTreeContexts`
--> `CreateMediaChildContexts`
--> primary MSC context `0x80002E24`
--> `ProbeUsbMediaUnits`
--> `CheckUsbMediaDeviceReady`
--> `NormalizeUsbMediaState`
--> `HandleUsbMediaRuntimeState`
--> `HandleUsbMediaActivation`
--> `InitializeUsbMediaRoute`.
-
-USB class behavior is now explicit:
-- child class `0x08` is USB Mass Storage and creates the SCSI/MSC context;
-- child class `0x09` is USB Hub and uses the separate hub context `0x80002E2C`;
-- the unsupported hub branch emits `[Hubs Not Supported]`;
-- `ReleaseMediaChildContexts` / `ReleaseUsbDeviceTreeContexts` release the matching contexts and clear primary/secondary pointers.
-
-The Mass Storage readiness sequence is standard SCSI:
-- `RunUsbScsiInquiry`: opcode `0x12`, up to 3 attempts, returns the 36-byte inquiry module data;
-- `CheckUsbScsiUnitReady`: opcode `0x00` TEST UNIT READY;
-- `ReadUsbScsiCapacity`: opcode `0x25` READ CAPACITY(10), up to 2 attempts, converts both 32-bit big-endian response fields;
-- `ReadUsbScsiSense`: opcode `0x03` REQUEST SENSE, up to 3 attempts;
-- `ReadUsbBlocksWithRetry`: READ(10), opcode `0x28`;
-- WRITE path at action start `0x806AAB8C`: WRITE(10), opcode `0x2A`.
-
-READ/WRITE behavior:
-- requests are clamped so `LBA + count - 1` does not pass the last reported LBA;
-- READ retries up to four attempts;
-- WRITE retries up to three attempts;
-- result `-4` has a dedicated path instead of ordinary retry/failure handling;
-- `ExecuteUsbMassStorageScsiCommand` drives command/data/status phases;
-- CBW/CSW handling is separated into `BuildUsbMassStorageCbw`, `ProcessUsbMassStorageCsw`, and `ValidateUsbMassStorageCsw`;
-- CSW signature `0x53425355` and matching command tag are validated.
-
-REQUEST SENSE handling is now mapped:
-- sense key 0 NO SENSE -> internal `0x1FE`;
-- key 1 RECOVERED ERROR -> `0x1FF`;
-- key 2 NOT READY uses ASC mapping: `0x04 -> 0x200`, `0x06 -> 0x201`, `0x08/0x54 -> 0x202`, `0x3A` medium-not-present -> `0x203`, other -> `0x207`;
-- key 3 MEDIUM ERROR -> `0x208`;
-- key 4 HARDWARE ERROR -> `0x209`;
-- key 5 ILLEGAL REQUEST -> `0x20A`;
-- key 6 UNIT ATTENTION: `ASC/ASCQ 0x28/0x00` -> `0x212`, other -> `0x20B`;
-- key 7 DATA PROTECT -> `0x20C`;
-- key 11 ABORTED COMMAND -> `0x20D`;
-- key 13 VOLUME OVERFLOW -> `0x20E`.
-
-The readiness probe maintains an availability bitmask at context `+0x54`, stores the selected unit index at `+0x5A`, and records per-unit last-LBA/block-size data. Block size `>= 0x1000` enters the firmware's oversized-sector error route rendered as `[BYTE/SECTOR >2048]`. For ready polling, the firmware uses a larger attempt budget for one/two-unit devices and a shorter budget for devices exposing more units.
-
-### USB media to playback and decoder handoff
-
-USB source activation is multi-state, not a one-value source enum.
-
-`InitializeUsbMediaRoute` installs startup media callback `0x8075A850` and enters media state 7. `HandleMediaEventTransition` executes the active callback, decodes the normalized event word as `class = event & 0xC000` and `module data = event & 0x3FFF`, then either advances to state 9 or replaces the startup callback with a general playback handler:
-- `0x80719B70`;
-- `HandlePlaybackNavigationEvent @ 0x8071A624/0x8071A628`.
-
-State 9 is `HandleMediaAudioTransitionState`. For ordinary media module data it advances to state 3 and invokes `InitializeMediaAudioPlaybackRoute`, whose sole audio-preparation child is `PreparePackedMediaAudioRoute`. State 3 is then a post-start/session state rather than a decoder-selection state.
-
-The selected-stream path is separately confirmed:
-`ParseMediaContainerStreamMetadata`
--> `ProcessSelectedMediaStreamState`
--> stream/session selection actions
--> `ConfigureSelectedMediaStreamAudio`.
-
-`ConfigureSelectedMediaStreamAudio` directly performs:
-1. stream/profile field extraction;
-2. `SetAudioDecoderState`;
-3. `ApplyDecoderOutputProfile`;
-4. `CommitAudioFormatMode`;
-5. `ConfigureSecondaryAudioFromStreamHeader` for header-derived service parameters.
-
-`ConfigureSecondaryAudioFromStreamHeader` fills the shared stream descriptor around `0x8000A860`, writes the changed header-derived fields, invokes `ApplyDecoderServiceConfig`, and that route ultimately reaches `StartConfiguredAudioPipeline`. The pipeline-start path conditionally restores effective master volume.
-
-### Codec and decoder state map
-
-`HandleStreamTypeDecoderConfig` is a WAVE-format dispatcher. The first 16-bit field is the `WAVEFORMATEX.wFormatTag` value.
-
-Confirmed mappings:
-- `0x0001` PCM -> decoder state `0x10`, generic service mode `0x40`;
-- `0x0002` MS ADPCM -> state `0x04000000`, legacy WAVE codec route;
-- `0x0006` A-law -> state `0x04000000`, same legacy route;
-- `0x0007` mu-law -> state `0x04000000`, same legacy route;
-- `0x0011` IMA/DVI ADPCM -> state `0x10`, generic service mode `0x80`;
-- `0x0050` MPEG-1 audio -> state `0x100`;
-- `0x0055` MP3 -> state `0x100`;
-- `0x0161` WMA Standard -> state `0x4000`, WMA route.
-
-The legacy WAVE codec action at `0x80702004` is used for MS ADPCM/A-law/mu-law. It writes secondary audio registers `0x40`, `0x41`, `0x43`, and `0x48`, then invokes `StartConfiguredAudioPipeline`.
-
-WMA is a separate route:
-`state 0x4000`
--> `InitializeWmaDecoderConfig`
--> `InitializeWmaModule @ 0x8073F000`
--> secondary registers `0x40..0x49`
--> backend commit/delay command `0x50`
--> `StartConfiguredAudioPipeline`.
-
-The decoder/hardware status machine is distinct from stream-format states:
-- status type 0 PCM -> state `0x8000`;
-- status type 1 AC3 -> `0x10000`;
-- status type 2/3 DTS -> `0x20000`.
-
-Packed-media classification is also distinct:
-- classifier result `0xAC3` -> packed AC3 route -> state `0x200`;
-- positive non-AC3 results `1/2` -> `ConfigurePackedNonAc3AudioRoute` -> state `0x2000`.
-
-Do not collapse hardware-status states, WAVE codec states and packed-media states into one enum.
+Confirmed worker contract:
+- master mute is separate state `gp+0x7B5`, not just level zero;
+- level indexes runtime gain table `0x88012CA0`;
+- staged command is `0x1100 | gainByte` at `s6+0x4C0`;
+- cached gain byte is `gp+0x478`;
+- `s6+0x4C4` carries special/mute state `0`, `1`, or `0xFFFF` according to route;
+- `drv_other:0x8077C554` is exactly `return 0`, so the branch that requires return 1 is unreachable in this firmware revision.
 
-### Sample-rate and audio-service profiles
-
-The action beginning at `0x807019BC` classifies sample-rate families before codec dispatch:
-- ranges around 8, 16 and 32 kHz select audio-format mode 1;
-- other rates, including the explicit bands around 11.025 and 22.05 kHz, select mode 2.
-
-`CommitAudioFormatMode` maintains a separate audio-service profile layer. Confirmed encodings in service field bits `[11:8]` include:
-- mode `1 -> 0x600`;
-- mode `2 -> 0x700`;
-- mode `4 -> 0x800`;
-- mode `0x1000 -> 0x300`;
-- mode `0x2000 -> 0x400`;
-- mode `0x4000 -> 0x500`.
-
-These service profiles are not the same thing as decoder states.
-
-### Hardware audio-action dispatcher and controls
+## Speaker topology and delays
 
-`DispatchAudioHardwareAction` accepts action IDs `0..0x1A` and writes command families through the common backend command area before issuing a synchronous backend commit.
+`SetSpeakerChannelState` mapping:
+- selector 0 -> FRONT at `gp+0x827`;
+- selector 1 -> CENTER at `gp+0x7DC`;
+- selector 2 -> REAR at `gp+0x80E`;
+- selector 3 -> SUBWOOFER at `gp+0x7D6`.
 
-Confirmed action contracts include:
-- action 1 -> downmix command family `0x0300 | value`;
-- action 2 -> master-volume hardware path;
-- action 3 -> KEY command family `0x0500 | value`;
-- action 4 -> command family `0x0600 | value`;
-- action 5 -> `0x0700 | value`;
-- action 6 -> `0x0800 | value`;
-- action 7 -> S/PDIF/output mode family `0x0900 | value`;
-- action 8 -> `0x0A00 | value`;
-- action 9 -> `0x0D00 | value`;
-- action 0x0B -> `0x0C00 | value`;
-- action 0x17 -> speaker topology `0x2300 | topology`;
-- action 0x19 -> `0x2800 | value`.
+`ApplySpeakerConfiguration` packs `FRONT<<12 | CENTER<<8 | REAR<<4 | derived_low_nibble`, stores it at `gp+0x550`, then dispatches action `0x17` with topology in the auxiliary value. Service resolver ID `0x21` participates in policy and can force CENTER/REAR working values to 2.
 
-`ApplySpeakerConfiguration` builds a packed speaker topology from FRONT/CENTER/REAR/SUB state and applies it through action `0x17`.
+`ApplySubwooferState` sends action 6 then immediately reapplies full topology.
 
-The control descriptors now identify the main setup groups:
-- **AUDIO SETUP**: `AUDIO OUT`, `DOWN SAMPLE`, `GM5`, `KEY`;
-- **SPEAKER SETUP**: `DOWNMIX`, `SUBWOOFER`, `CENTER DELAY`, `REAR DELAY`, `FRONT`, `CENTER`, `REAR`;
-- **DIGITAL SETUP**: `OP MODE`, `DYNAMIC RANGE`, `DUAL MONO`.
+`ApplySpeakerDelayParameter(kind,value)` is action `0x0B`, command family `0x0C00|kind`, delay value in the 16-bit auxiliary field.
 
-The separate VIDEO SETUP group contains BRIGHTNESS/CONTRAST/HUE/SATURATION/SHARPNESS and must not be mixed into audio control interpretation.
+`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. Documentation semantic alias: `ReapplyDigitalAndSpeakerDelayControls`; the saved symbol may still be generic.
 
-### Master volume and mute
+## External source / AUX / S/PDIF input
 
-Master volume remains a runtime control:
-- `master_volume_level = 0x80003332`;
-- `master_mute_flag = 0x800032B5`.
-
-VOL+/VOL- update the runtime level, conditionally apply it through `SetMasterVolumeLevel`, and update UI/status. No direct save/NVRAM action is present in the confirmed VOL+/VOL- path. `ToggleMasterMute` is also runtime: mute sets the flag and applies effective level 0; unmute clears the flag and, at normal playback speed, invokes `ClearMuteAndRestoreVolume`.
-
-The confirmed rule is therefore:
-`effective_volume = master_mute_flag ? 0 : master_volume_level`.
-
-The runtime gain table at `0x88012CA0` is shared by multiple audio command families, not only master volume. All references found in the loaded modules are reads. Its initialization/source is outside the currently loaded code/runtime image, so exact gain bytes remain open.
-
-### Remaining high-value gaps
-
-The most important unresolved items after this pass are:
-- origin/initialization of runtime gain table `0x88012CA0`;
-- startup/persistence source of `master_volume_level` if one exists outside the runtime button path;
-- exact semantic identities of private stream tags `0x2000/0x2001`;
-- exact meaning of two standalone runtime step controls driven through hardware action IDs 4 and 0x0A;
-- physical board validation of S/PDIF/analog routing and channel ownership;
-- execution/board proof for the statically recovered USB/audio routes.
-
-
-### Speaker / digital controls to SPHE audio-service contract — 2026-09-22
-
-A focused instruction-level pass now separates menu semantics from the common low-level audio command transport.
-
-- `DispatchAudioHardwareAction @ 0x806FFD1C` writes the command word at `0xBFFE84C0`, optional/auxiliary value at `0xBFFE84C4`, then normally commits synchronously through runtime entry `0x88001C78(1,0,0,100000)`.
-- Action 1 is a generic decoder/output-mode transport, not a DOWNMIX-only command. Its base family is `0x0300 | mode`, with a 16-bit auxiliary module data. Confirmed users include DOWNMIX, S/PDIF/output handling, GM5, DIGITAL SETUP OP MODE, DUAL MONO and DYNAMIC RANGE.
-- Speaker-specific families are separate: action 6 -> `0x0800 | subwoofer_state`; action `0x0B` -> `0x0C00 | delay_selector` with the delay value in the auxiliary word; action `0x17` -> `0x2300 | packed_topology`.
-- `SetSpeakerChannelState` selectors are instruction-confirmed as `0=FRONT`, `1=CENTER`, `2=REAR`, `3=SUBWOOFER`. FRONT/CENTER/REAR feed the packed topology; SUBWOOFER also emits its dedicated action-6 command before topology reapply.
-- Descriptor-backed control IDs are now pinned: AUDIO SETUP `0x71 AUDIO OUT`, `0x5B DOWN SAMPLE`, `0x9E GM5`, `0x5C KEY`; SPEAKER SETUP `0xF5 DOWNMIX`, `0x8B SUBWOOFER`, `0xD1 CENTER DELAY`, `0xD2 REAR DELAY`, `0xD3 FRONT`, `0xCD CENTER`, `0xCE REAR`; DIGITAL SETUP `0xF9 OP MODE`, `0x6A DYNAMIC RANGE`, `0xFC DUAL MONO`.
-- OP MODE maps its two choices into generic output-mode module data `0x20` and `0x10`. DUAL MONO maps its four choices into `0x90..0x93`. DYNAMIC RANGE uses mode selector `0x80`; its auxiliary module data is zero for state zero, otherwise `((state * 0x101) << 5) - 0x101` truncated to 16 bits.
-- `ApplyDownsampleRateMode @ 0x80701B80` maps selections `0..2` through the halfword table `0x80702F40` to internal masks `0x0007 / 0x0067 / 0x0667`, stores the changed mask at `gp+0x744`, then reuses `CommitAudioFormatMode`.
-- `ReapplyDigitalAndSpeakerDelayControls @ 0x8077C29C` is now named in the canonical project. It reapplies OP MODE, conditionally DYNAMIC RANGE, DUAL MONO, then CENTER and REAR delay values from the persistent selection state.
-
-The implementation proof currently ends at the SPHE service mailbox and runtime commit entry. `0x88001C78` is not present as an analyzable action node in the loaded modules, so DAC/channel/PCB routing below that boundary remains a board/runtime-proof task rather than a static conclusion.
-
-Master-volume persistence remains open. Direct stores to `gp+0x832 = 0x80003332` are confined to the VOL+/VOL- update paths found in the loaded AP1 code; those writers contain no direct NVRAM/save transition. This does not exclude a deferred/global persistence mechanism elsewhere.
-
-### Speaker/digital hardware-control continuation — 2026-09-22
-
-- Speaker channel-state contract is instruction-backed: selector 0=FRONT, 1=CENTER, 2=REAR, 3=SUBWOOFER. FRONT uses LARGE=0/SMALL=1; CENTER and REAR use LARGE=0/SMALL=1/OFF=2; SUBWOOFER uses OFF=0/ON=1. Applying SUBWOOFER sends audio action 6 and then reapplies the packed full speaker topology through action 0x17 / command family 0x2300.
-- Speaker-delay controls are now tied to their runtime state slots and hardware wrapper. Control 0xD1 uses state slot 0x18 (DAT_80006828) and reapplies CENTER delay as selection-2. Control 0xD2 uses state slot 0x19 (DAT_80006829) and reapplies REAR delay as selection*3-6. Both reach audio action 0x0B, command family 0x0C00|channel, with the signed 16-bit delay in the auxiliary parameter slot.
-- DIGITAL SETUP is instruction-linked into the common output-mode command path. OP MODE control 0xF9 maps option 0xFA to mode 0x20 and option 0xFB to mode 0x10. DUAL MONO control 0xFC maps STEREO/MONO L/MONO R/MIX MONO options to modes 0x90/0x91/0x92/0x93. DYNAMIC RANGE computes a 16-bit auxiliary value from its runtime state and uses generic decoder/output mode 0x80. ReapplyDigitalAndSpeakerDelayControls reapplies OP MODE, conditional DYNAMIC RANGE, DUAL MONO, then CENTER and REAR delay in one runtime reconfiguration route.
-- DispatchAudioHardwareAction writes the internal SPHE audio-service command word at s6+0x4C0 (0xBFFE84C0) and auxiliary value at s6+0x4C4, then normally commits through a direct raw JAL to runtime entry 0x88001C78 with arguments (1,0,0,100000). Raw instructions are authoritative here; they also distinguish gain-table command families 0x1A00 and 0x1B00 on the relevant action branches.
-- The loaded modules do not map executable/readable bytes for 0x88001C78, and the runtime gain table at 0x88012CA0 is likewise not available as ordinary module memory. Therefore the current implementation proof ends at the internal SPHE audio-service contract. It does not prove which downstream DAC/interface block, PCB trace, 4558 stage, TOSLINK/coax path or six-channel connector is driven by each command. Closing that edge requires another retained firmware/runtime provider or board-level observation; no physical routing is inferred from command semantics alone.
-- Master volume remains a runtime state at 0x80003332 with mute at 0x800032B5. Narrow reference review continues to show volume adjustment/reapply paths, but no direct generic control-selection/NVRAM write from the VOL+/VOL- handlers. Persistence is still open rather than assumed absent, because several affected regions have imperfect action boundaries and helper invokes still need independent validation.
-
-
-
-### UART ROM-loader / RAM diagnostics — 2026-09-23
-
-Implementation-level behavior recovery now covers the target SPHE UART ROM-loader path far enough to support a headless read/execute workflow:
-
-- canonical STK analysis program is now `stk`, backed by the verified rev-8203R executable SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`;
-- serial framing is 8N1 at 57600 / 115200 / 230400 with recovered UART-divisor values `0x74 / 0x3A / 0x1D`;
-- Boot-ROM/session handshake is `A/A`, followed by the target system/SDRAM register script and `C/C`;
-- target image SDRAM descriptor is `8202 Non Share Mode`, 16-bit; the physical SPI-ROM-loader path uses the separate `8202L_128_SPI` profile while retaining the same recovered 16-bit SDRAM register script;
-- canonical embedded helper for this profile is STK VA `0x004E5960`, size `0x2878`; the earlier `0x004E4960` value belonged to a different legacy analysis copy and is invalid for canonical rev-8203R;
-- `W + addr32le + value32le` and lower-case streaming `w + dword` are recovered; `R + addr32le` is confirmed in the post-`S` transition sequence but is not exposed pre-start without separate proof;
-- READ mode is produced by controlled modification the common embedded flash-service helper. For the target branch it uses memory-mapped flash at `0xA8000000`, stages data at `0x8001E000`, emits a NUL ready marker, then transfers `size32 + image` with one host flow-control byte per 16-byte block;
-- standalone UART MMIO is recovered as data `0xBFFE8900`, status `0xBFFE8904`, TX-ready bit 0 and RX-ready bit 1;
-- `tools/sphe_romloader.py` now implements `info`, `probe`, `write32`, `upload-ram`, `read-flash`, `restore-stock`, `run-ram` and `monitor`; `read-flash` prints SHA-256 and can enforce an expected digest; `restore-stock` accepts only the exact preserved stock image and still requires board-proven recovery before use;
-- `the runtime-probe toolset/sphe_rom_uart.h` plus the standalone RAM diagnostic image provide a flash-independent execution/logging path.
-
-The vendor SPI-write helper issues JEDEC command `0x9F`, performs chip erase and word programming, but no mandatory full-image post-write readback comparison is present in the recovered route. Flash write therefore remains intentionally unexposed until recovery/rollback is proven and post-write readback+SHA verification is mandatory.
-
-Current validation level is implementation proof only. The remaining immediate board gate is locating/confirming the physical SPHE UART path; the known captured UART header belongs to the secondary controller. The likely SPHE UART pin candidates from reference-design evidence remain package pins 11/12 and 33/45 until continuity/execution evidence resolves them.
-
-Debugger feasibility improved: AP1 contains a common exception frame that saves CP0 EPC and restores context through `rfe`, but a dedicated BREAK/debug route has not yet been proven.
-
-
-## ROM-loader behavior handoff — 2026-09-23
-
-This is the active continuation point for the next agent. Do not restart STK identity/profile discovery.
-
-### Canonical analysis state
-
-- canonical analysis project: `sphe8202r_decoder_p25d80`;
-- canonical STK program: `stk`, verified rev-8203R SHA-256 `e58d7d6f6f9cff67cbcf7f2b1191afbf0ffc2de4ca63c4dbda30c486c82dbc89`;
-- legacy STK copies were moved under `/tools/legacy`;
-- current RAM helper analysis program: `sphe8202_read_loader.bin`;
-- both programs were explicitly saved before handoff.
-
-### Recovered host transport
-
-CONFIRMED implementation behavior:
-- serial transport is exact-length synchronous read/write with 8N1;
-- baud choices are 57600 / 115200 / 230400;
-- Boot-ROM synchronization is `A/A`, configuration writes, then `C/C`;
-- direct write packet is `W + address32le + value32le`, acknowledged by `W`;
-- lower-case streaming is `w + dword`, acknowledged by `w`;
-- post-upload execution begins with `S/S` and the recovered system-switch sequence;
-- READ and WRITE both use the same uploaded RAM-helper execution path;
-- readback sends a little-endian size followed by 16-byte blocks, with one host flow-control byte after the size and after every block;
-- STK rejects a reported readback size above 2 MiB.
-
-Named STK action nodes currently include:
-- `OpenRomLoaderSerialPort`;
-- `ConfigureRomLoaderUartBaud`;
-- `InitializeRomLoaderSystemProfile`;
-- `ConnectAndUploadRomLoaderStub`;
-- `WriteRomLoaderRegister32`;
-- `SerialReadExact`;
-- `SerialWriteExact`;
-- `StartUploadedRamCode`;
-- `UploadFirmwareBlobToRomLoader`;
-- `ReceiveFirmwareReadback`;
-- `ReadFirmwareViaRomLoader`;
-- `WriteFirmwareViaRomLoader`;
-- `WaitForRomLoaderTextStatus`;
-- `NotifyRomLoaderTransferStarted`;
-- `NotifyRomLoaderProgress`;
-- `HandleRomLoaderUiEvents`;
-- `AppendRomLoaderStatusLine`;
-- `ReplaceRomLoaderStatusLine`;
-- `ResetRomLoaderStatusAndNotify`.
-
-The UI/progress/status nodes are not part of the physical protocol and can be replaced by normal CLI logging/callbacks.
-
-### Profile split — do not collapse these
-
-The firmware image metadata and the ROM-loader flash interface are separate selectors:
-
-- image SDRAM descriptor: `8202 Non Share Mode`, 16-bit;
-- ROM-loader flash-interface profile for the physical P25D80SH board: `8202L_128_SPI`;
-- the two paths share the recovered 16-bit SDRAM initialization script;
-- the SPI profile selects helper flash mode word 2;
-- using the non-shared SDRAM descriptor directly as the flash-interface selector incorrectly enters the separate non-SPI probe path.
-
-This distinction is now reflected in `tools/sphe_romloader.py` and `the runtime-probe toolset/ROM_LOADER.md`.
-
-### RAM helper and SPI behavior
-
-CONFIRMED from the uploaded helper:
-- helper validates the staged image before dispatching the flash-upgrade route;
-- JEDEC ID is read with command 0x9F;
-- flash-family selection chooses a controller/program profile;
-- the SPI write route performs full-chip erase before sequential programming;
-- programming is 32-bit-word based and polls controller readiness;
-- the recovered vendor write route does not perform mandatory full-image post-write comparison;
-- completion is signaled through the existing UART console/terminator path.
-
-Therefore generic modified-image flash write must remain unavailable until recovery/rollback and post-write full readback+SHA verification are hardware-proven.
-
-### Headless tooling status
-
-`tools/sphe_romloader.py` is the current Python implementation. It contains:
-- canonical STK verification/extraction;
-- target SDRAM initialization;
-- SPI helper-mode selection;
-- ROM-monitor write primitive;
-- RAM-helper upload;
-- RAM execution;
-- factory logical firmware read;
-- separate project-specific full physical flash read;
-- stock-only recovery guarded by exact size/SHA and explicit erase acknowledgement;
-- UART monitor support.
-
-Important validation distinction:
-- container reconstruction: implementation proof complete for no-change byte-identical rebuild and changed-module structural reopen;
-- ROM-loader protocol/tool: implementation proof;
-- actual SPHE UART execution: not yet board-proven in this repository state;
-- stock restore: implemented but must not be treated as safe until recovery entry + two independent reads + rollback are board-proven;
-- generic modified-image flashing: intentionally not exposed;
-- debugger/GDB-level behavior: still UNKNOWN.
-
-### Immediate continuation
-
-1. With the new MCP setup, continue behavior recovery from the RAM helper rather than re-reading STK GUI code.
-2. Finish naming/documenting the remaining SPI-helper actions around readiness polling, program-profile selection, completion signaling and READ-mode path.
-3. Cross-check the Python helper selection/profile constants against those recovered helper routes; keep image-SDRAM and flash-interface selectors separate.
-4. Run only offline/source validation until hardware UART is connected: syntax/import checks, helper extraction hash checks, READ-controlled modification checks and command construction tests.
-5. First board acceptance remains: prove boot-trap entry, run `probe`, perform two independent complete `read-full-flash` captures and compare both against the canonical 1 MiB dump. Factory `read-flash` remains the logical STK-equivalent route.
-6. Only after that consider `restore-stock`; generic modified-image flash stays gated.
-7. After ROM-loader/readback/recovery is board-proven, return to custom RAM logging and then debugger feasibility.
-
-Approximate useful STK behavior coverage at handoff: **about 67%** of the project-relevant STK behavior lane. This denominator is the useful ROM-loader/container/control behavior needed by this project, not total executable nodes or GUI/library code.
-
-
-## Factory ROM-loader baseline convergence — 2026-09-30
-
-The project-relevant STK/ROM-loader behavior lane is now treated as
-**behavior-complete for the current factory baseline**. This is implementation
-evidence, not board acceptance.
-
-Newly closed factory details:
-- `OpenRomLoaderSerialPort` uses synchronous Win32 serial I/O, 8N1, exact
-  baud choices, recovered COMMTIMEOUTS and `PurgeComm(0x0F)`;
-- `SerialReadExact` clears only the first byte of the shared destination,
-  ignores the Win32 BOOL result and reports success only when the actual byte
-  count equals the requested count;
-- `SerialWriteExact` likewise ignores the Win32 BOOL result and reports
-  success only from the actual byte count;
-- `WaitForRomLoaderTextStatus` accepts text bytes only in inclusive range
-  `0x20..0x7A`, uses CR as the line transition, NUL as stop/completion and an
-  inactivity timeout reset by every successful byte;
-- for target profile `8202L_128_SPI`, factory READ preserves the helper's SPI
-  word-read action. The direct-memory replacement belongs only to
-  lower-numbered non-SPI profiles;
-- factory READ returns the checksum-delimited logical firmware extent. Full
-  physical 1 MiB acquisition is a project extension, not the factory route.
-
-`tools/sphe_romloader.py` on the current factory-baseline branch now reflects
-those distinctions:
-- `read-flash` = factory logical READ;
-- `read-full-flash` = explicit project extension;
-- hardware commands default to the recovered synchronous Win32 transport;
-- `--transport pyserial` remains available only as an explicitly
-  non-factory portable extension;
-- shared-buffer/short-I/O behavior is mirrored instead of converting every
-  short operation into an immediate low-level exception.
-
-Validation state:
-- STK behavior contract: implementation proof complete for the project-relevant
-  ROM-loader lane;
-- Python source: implementation updated, hardware execution not yet proven;
-- physical UART entry, repeated readback and rollback remain board gates;
-- generic modified-image flashing remains gated.
-
-
-### Parallel-analysis reconciliation — 2026-09-30
-
-A second analysis pass refined, rather than invalidated, the factory ROM-loader
-baseline. The live canonical project now additionally confirms:
-
-- factory serial open truncates the selected port text to 15 characters before
-  widening it into a 16-WCHAR local buffer;
-- only the `CreateFileW` handle result determines open success;
-- `GetCommState`, `SetCommState`, `GetCommTimeouts`,
-  `SetCommTimeouts` and `PurgeComm` BOOL results are ignored;
-- `WaitForRomLoaderTextStatus` uses whole-second `time(NULL)` timestamps,
-  resets the inactivity origin after every successful byte including ignored
-  bytes, and times out only when elapsed seconds is strictly greater than the
-  supplied limit;
-- `SetRomLoaderTransferCancelled` sets the same stop flag used by NUL
-  completion; the readback route clears that flag before its data-block loop;
-- both RAM-helper upload and firmware staging streamed upload loops also stop
-  on the shared cancel flag after each acknowledged 4-byte transfer step.
-
-These refinements are implementation-level evidence. They do not change the
-separate board-proof gate for physical UART, repeated readback or recovery.
-
-
-### Portable host tooling — 2026-09-30
-
-The canonical headless ROM-loader is now platform-selectable:
-
-- `--transport auto` is default;
-- Windows auto-selects the exact recovered synchronous Win32 backend;
-- Linux/POSIX auto-selects pyserial and supports USB serial adapters or native
-  UART device paths;
-- the portable backend preserves protocol/exact-length semantics and follows
-  the recovered size-dependent timeout model as closely as pyserial permits;
-- exact COMMTIMEOUTS/error behavior remains a Windows reference distinction,
-  not a claim about POSIX kernel serial semantics.
-
-The obsolete duplicate `tools/sunplus_romloader.py` was removed to avoid two
-conflicting target/profile implementations.
-
-No broad test suite is being introduced at this stage. The intended automated
-gate is only a fast cross-platform smoke: Python compilation/import plus the
-offline `info` integrity path. Physical UART and recovery remain separate
-board-proof gates.
-
-Current tooling blocker: the active GitHub App can write repository contents
-but GitHub denies writes under `.github/workflows/` because the installation
-does not expose workflow-write permission. The CI workflow itself therefore
-cannot be committed through the current Koba GitHub authority until that
-permission is granted.
-
-
-### Audio spatial/input control milestone — 2026-09-30
-
-Fresh canonical semantic naming coverage across the main firmware modules is
-**209 / 4143 = 5.04%**. This is naming coverage, not feature coverage.
-
-Confirmed audio/control progress:
-
-- `HandleGm5ControlOption` is now named and documented. AUDIO SETUP control
-  `0x9E` has three translated options:
-  - `0x7B = OFF`
-  - `0x9F = MODE 1`
-  - `0xA0 = MODE 2`
-- `ApplyPackedAudioModeControl` was recovered as a missing AP1 action node.
-  Its input high nibble selects a field inside the packed runtime audio-mode
-  word; the low nibble updates that field. Families `0x10..0x60` modify
-  distinct packed fields, then commit through audio hardware action `0x0E`.
-- GM5 applies the following packed-mode sequences:
-  - OFF -> `0x10`, then `0x23`
-  - MODE 1 -> `0x11`, then `0x23`
-  - MODE 2 -> `0x11`, then `0x22`
-- DOWNMIX control `0xF5` has translated options:
-  - `LT/RT` -> internal mode 8
-  - `STEREO` -> internal mode 7
-  - `VSS` -> internal mode 9
-  - `OFF` uses a separate restore/reapply branch rather than being equivalent
-    to VSS despite adjacent mode-9 logic.
-- A runtime preset route was recovered that switches between:
-  - GM5 MODE 2 + DOWNMIX OFF
-  - GM5 OFF + DOWNMIX STEREO
-  then reapplies decoder/audio state.
-- `HandleSpatialAudioPresetTrigger` was recovered as a previously missing AP1
-  action node. It selects between external-input mode stepping and the
-  GM5/stereo spatial preset route according to runtime state.
-- External-input mode is a validated 0..3 code:
-  - modes 0..2 select the S/PDIF-input path;
-  - mode 3 selects AUXIN.
-- `ApplyExternalInputHardwareMode`,
-  `WriteExternalInputModeCode`, and
-  `ApplyExternalInputSourceTransition` are now named. Together with
-  `PollExternalInputModeCode` they define the software-side external-input
-  read/write/apply contract.
-
-Analysis-quality correction:
-- a previously used high-level path around decoder output-profile application
-  was proven to contain stale stored flow targets shifted into a data table.
-  Raw low-level operations are authoritative in that region. No broad repair
-  was applied; the affected route was followed through valid raw targets only.
-
-Next audio priorities:
-1. tie the spatial preset trigger to its exact user/runtime event semantics;
-2. continue source -> decoder/DSP -> hardware-output routing;
-3. recover remaining standalone audio action 4 / action 0x0A step controls;
-4. map packed audio-mode fields to concrete DSP behavior where evidence exists;
-5. preserve board-level output routing as a separate execution/board proof.
+State: current hardware mode `gp+0x12B`, previous mode `gp+0x12C`, external subsource `gp+0x7FA`, higher source state `gp+0x7A5`.
+
+Source transition at `0x806FED0C`:
+- unchanged mode returns early;
+- modes `0..2` -> subsource 2, transient state `0x0D`, S/PDIF-input route;
+- mode `3` -> subsource 1, transient state `0x0B`, AUX route;
+- transitions involving AUX use `0x806FABA0` anti-pop preparation before committing the new mode.
+
+`0x806FABA0` first applies master volume 0 and invokes the runtime busy-wait helper with outer count `0x1F4` (500 iterations, not a proved duration). A later nonzero-subsource branch performs another volume-zero step and `0x64`-iteration wait before source state `0x0A`.
+
+Mode 3 is confirmed AUX. Modes 0..2 program distinct SPHE bit patterns and are all S/PDIF-input-side configurations, but they remain physically unnamed; do not infer optical/coax ownership.
+
+AUX transition `0x8071E4F0`: volume 0 -> source/status refresh -> current decoder reapply -> audio-format mode 2 -> decoder state `0x40000` -> ECHO profile `(0,0)` -> decoder reapply -> `ClearMuteAndRestoreVolume` -> transient state `0x0B` -> service/transition loop.
+
+S/PDIF-input transition `0x8071EE94`: gated by subsource 2 -> S/PDIF decoder preparation -> transient state `0x0D` -> transition loop -> restore previous downsample selection.
+
+S/PDIF preparation `0x8071E1B0`: reapply decoder, save downsample at `gp+0x584`, temporarily apply downsample mode 1, reset/update/copy decoder status, reapply decoder, conditionally render status, restore mute/volume.
+
+Source-state table `0x8070B4E0` dispatches states 1..9 to `0x8071E6F4, 0x8071E704, 0x8071E714, 0x8071E724, 0x8071E734, 0x8071E61C, 0x8071E744, 0x8071E61C, 0x8071E754`. States 6 and 8 deliberately share the common handler. Product-level names for every state remain open.
+
+## Decoder audio-status block
+
+Block `0x800022E4` is 16 bytes. `0x80700558` copies all 16 bytes; `0x80700590` writes the first word; parser `0x8070059C` consumes the hardware decoder/status word.
+
+Confirmed fields:
+- bits 2:0 select decoder type/path: 0=PCM, 1=AC-3, 2/3=DTS-family; values >=4 use fallback/reconfiguration;
+- bits 5:3 are written to status block `+8`;
+- bits 15:8 index an additional status table;
+- type changes can mute, stop, change decoder state/profile and restart the pipeline.
+
+## Common audio-action dispatcher
+
+`DispatchAudioHardwareAction @ 0x806FFD1C` action IDs `0..26`:
+
+| ID | Staged family / behavior |
+|---:|---|
+| 0 | `0x0200|value`, sub-value validation |
+| 1 | `0x0300|value`, auxiliary forwarded |
+| 2 | master-volume worker -> `0x1100|gainByte` |
+| 3 | `0x0500|value` |
+| 4 | `0x0600|value` — ECHO hardware profile |
+| 5 | `0x0700|value` — SRND |
+| 6 | `0x0800|value` — SUBWOOFER |
+| 7 | `0x0900|value`, target-specific normalization |
+| 8 | `0x0A00|value` |
+| 9 | `0x0D00|value` |
+| 10 | `0x1200|table2[index]`, aux `0xFFFF` for nonzero index |
+| 11 | `0x0C00|value`, delay in aux |
+| 12–13 | invalid/default |
+| 14 | `0x0E00|value` — packed audio-mode control |
+| 15 | gain-table family `0x1A00` |
+| 16 | gain-table family `0x1B00` |
+| 17 | gain-table family `0x1C00` |
+| 18 | gain-table family `0x1D00` |
+| 19 | gain-table family `0x1500` |
+| 20 | gain-table family `0x1E00` |
+| 21 | constant `0x0B01` |
+| 22 | `0x1700|table2[0]` |
+| 23 | `0x2300|value` — speaker topology |
+| 24 | constant `0x2700` |
+| 25 | `0x2800|value` |
+| 26 | constant `0x2900` |
+
+`a2` is written to `s6+0x4C4` before range validation; accepted routes stage `s6+0x4C0` then normally enter runtime `0x88001C78(1,0,0,100000)`. A `gp+0x698 & 0x800` gate can return 1 without staging a new command.
+
+## ECHO control correction
+
+Control ID `0x57` is confirmed **ECHO**. Its apply branch computes `index=selection-2`, stores it at `gp+0x83A`, and calls the wrapper currently saved as `ApplyRegionCodeProfile @ 0x80702C8C`.
+
+That saved name is wrong. `0x80702C8C` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
+
+Direct wrapper `0x80702CC8` dispatches action 4 from explicit `(mode,aux)` and AUX uses it with `(0,0)`. Documentation aliases: `ApplyEchoProfileIndex`, `ApplyEchoHardwareProfile`; saved renames have not yet been applied.
+
+Other established wrappers:
+- KEY accepts 1..15 and dispatches action 3 / `0x0500`;
+- `ApplySpdifHardwareOutputMode` saves mode at `gp+0x17B3` and dispatches action 7 / `0x0900`;
+- `ApplyDecoderOutputMode(mode,aux)` dispatches action 1 / `0x0300`;
+- GM5 decoder-service slot is `0x23`; AC-3 DOWNMIX slot is `0x21`.
+
+## Known metadata hazards
+
+1. AP1 was rebased to `0x8067B800` after older analysis state existed. Stored high-level links may still be shifted by `+0x800`, even when the wrong target is itself a valid action node.
+2. Several logical routes are split into artificial adjacent action boundaries, notably decoder profile loading and master-volume apply.
+3. Raw/native transitions win whenever high-level behavior disagrees.
+4. `ApplyRegionCodeProfile` is semantically wrong; it is ECHO.
+5. Documentation may use semantic aliases for proven routes whose Analysis rename has not yet been persisted.
+
+## Readiness for custom firmware
+
+Controlled modification can begin on isolated behavior-preserving action nodes now. A replacement/custom firmware effort is **not yet product-ready**.
+
+Remaining gates:
+1. reproduce container/module reconstruction, integrity/checksum and write path;
+2. prove safe recovery/rollback on hardware;
+3. finish resident runtime/backend ownership below the service mailbox and map six physical output lanes;
+4. obtain DSP clock/free-cycle/free-memory budget evidence;
+5. finish product-level names for remaining source-state handlers and any command families needed by the planned feature;
+6. perform at least one intentional modified-firmware hardware acceptance cycle.
+
+## Immediate continuation
+
+1. Resolve product-level meaning of remaining `gp+0x7A5` source-state handlers.
+2. Reopen saved `/runtime/rom12-runtime.bin` when a session-local runtime handle is needed and continue below the service mailbox.
+3. Connect recovered command families and codec parameters to resident high-DM/backend consumers.
+4. Close physical six-channel output ownership with board/runtime evidence.
+5. Then move from controlled patching toward rebuild/repack/recovery acceptance.
+
+Safety/provider incident reproduction belongs to `ArthurKoba/mcp-bridge` issues and is not duplicated here.
