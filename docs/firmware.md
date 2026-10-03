@@ -1220,6 +1220,10 @@ The external-input hardware mode code is validated as 0..3:
 `ApplyExternalInputSourceTransition` updates the higher-level source/subsource
 state.
 
+The front-panel step behavior is now instruction-backed. `HandleSpatialAudioPresetTrigger` uses the external-input branch when its normalized hardware-event code is 0: it increments `gp+0x12B`, wraps values >=4 back to zero, applies the hardware mode, and persists it. Therefore the stock input step order is exactly `0 -> 1 -> 2 -> 3 -> 0`, not a lookup-table permutation. Combined with target-board LED/source observation, this maps mode 0 to the first TOSLINK/D1 state, mode 1 to the second TOSLINK/D2 state, mode 2 to coaxial S/PDIF/D3, and mode 3 to AUX with all three blue source LEDs off.
+
+`UpdateHardwareInputEventCode` samples two active-low SPHE hardware inputs. Hardware status bit 13 low becomes event code 0 and reaches the external-input step; hardware status bit 14 low becomes event code 1 and reaches `ToggleSpatialAudioPreset`. The latter alternates between the already recovered GM5 MODE 2 + DOWNMIX OFF preset and GM5 OFF + DOWNMIX STEREO. This establishes the front-panel source button and spatial 2.0/5.1 button as SPHE-observed hardware inputs at implementation-proof level. Exact GPIO/package-pin ownership is still open.
+
 The runtime spatial-preset trigger and external-input stepping share one
 control path, but the currently recovered state selector governing which branch
 runs is not yet semantically identified. Do not infer that GM5 is automatically

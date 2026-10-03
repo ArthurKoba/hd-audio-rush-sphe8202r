@@ -115,6 +115,28 @@ Do not currently claim:
 | Secondary firmware | AC695N/BR23-family identity is supported by runtime logs. | Raw firmware dump/preservation and pi32v2 analysis. |
 
 The secondary UART log contains `ALINK_SR = 44100`, `spdif_dec_start`, DAC and Bluetooth/application activity. Those strings establish behavior inside the secondary firmware, but **do not by themselves identify the electrical/data link between the two processors**.
+### Front-panel source and spatial controls — 2026-10-04
+
+Target-board observation and instruction-level behavior now close the physical source-order contract substantially further:
+
+- repeated presses of the source button cycle the three blue source LEDs as **D1 -> D2 -> D3 -> all three off -> D1**;
+- target-board observation identifies D1 as the first TOSLINK input, D2 as the second TOSLINK input, D3 as coaxial S/PDIF, and the all-off blue-LED state as AUX;
+- `HandleSpatialAudioPresetTrigger` increments the persisted external-input mode code, accepts values `0..3`, wraps `3 -> 0`, then calls `ApplyExternalInputHardwareMode` and `WriteExternalInputModeCode`;
+- the existing source contract proves mode `3 = AUX` and modes `0..2 = S/PDIF input`, so the combined implementation + board mapping is now:
+  - mode 0 -> D1 -> first TOSLINK;
+  - mode 1 -> D2 -> second TOSLINK;
+  - mode 2 -> D3 -> coaxial S/PDIF;
+  - mode 3 -> no blue source LED -> AUX.
+
+The same SPHE route also proves two local active-low hardware inputs. `UpdateHardwareInputEventCode` samples hardware status bit 13 first and emits event code 0 when it is low; otherwise it samples bit 14 and emits event code 1 when that bit is low. Downstream behavior maps event code 0 to the external-input step and event code 1 to the spatial preset toggle. This is implementation proof that the SPHE observes the two front-panel control inputs directly; the exact package pins remain **UNKNOWN** until the s6-relative GPIO/status register block is mapped to package GPIO numbers or continuity is measured.
+
+The second branch calls `ToggleSpatialAudioPreset`, which alternates between:
+- GM5 MODE 2 + DOWNMIX OFF; and
+- GM5 OFF + DOWNMIX STEREO.
+
+This matches the observed 5.1-spatialized vs 2.0/stereo front-panel behavior at the control-contract level. It does not by itself mean every non-front speaker is hard-muted in the stereo preset; speaker topology, bass management and other downstream state remain separate controls.
+
+LED ownership is still **UNKNOWN**. No independent SPHE reader of the external mode code has yet been identified solely as an LED renderer. The LEDs may be driven from the same hardware-control lines, by a separate front-panel path, or by another device. Do not assign D1/D2/D3 GPIO ownership until register/pin or continuity evidence exists.
 
 ## Component references
 
