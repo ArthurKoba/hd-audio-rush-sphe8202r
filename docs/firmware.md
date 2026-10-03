@@ -1229,11 +1229,7 @@ The raw hardware event is not consumed immediately. The event-state layer compar
 
 The 2.0/5.1 front-panel behavior is therefore a DSP preset toggle rather than a hard speaker-count switch. The stock pair is GM5 MODE 2 + DOWNMIX OFF versus GM5 OFF + DOWNMIX STEREO; speaker topology, subwoofer policy and bass management remain separate state. Residual CENTER/SUB behavior in the nominal stereo position is therefore not inconsistent with the recovered control contract.
 
-The runtime spatial-preset trigger and external-input stepping share one
-control path, but the currently recovered state selector governing which branch
-runs is not yet semantically identified. Do not infer that GM5 is automatically
-enabled by AUX merely from this shared route; that exact event policy remains
-to be recovered.
+The runtime spatial-preset trigger and external-input stepping share one control path. The selector is now identified as a normalized hardware-event code produced from the two active-low front-panel inputs: code 0 selects the external-input step and code 1 selects the spatial preset toggle. Do not infer that GM5 is automatically enabled by AUX merely from this shared dispatcher; source selection and the spatial preset remain distinct button actions.
 
 ### Stale-flow correction in audio profile region
 
