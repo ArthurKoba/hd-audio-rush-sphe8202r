@@ -137,6 +137,11 @@ The second branch calls `ToggleSpatialAudioPreset`, which alternates between:
 This matches the observed 5.1-spatialized vs 2.0/stereo front-panel behavior at the control-contract level. It does not by itself mean every non-front speaker is hard-muted in the stereo preset; speaker topology, bass management and other downstream state remain separate controls.
 
 LED ownership is still **UNKNOWN**. No independent SPHE reader of the external mode code has yet been identified solely as an LED renderer. The LEDs may be driven from the same hardware-control lines, by a separate front-panel path, or by another device. Do not assign D1/D2/D3 GPIO ownership until register/pin or continuity evidence exists.
+The runtime system base is independently recovered as `s6 = 0xBFFE8000`. Therefore the two front-panel input samplers read the same SPHE status register at absolute `0xBFFE89F0`: source-step uses bit 13 and spatial-preset uses bit 14. Their setup path configures the corresponding `0x2000` / `0x4000` bit families through `0xBFFE94D0`, `0xBFFE8990`, and `0xBFFE89B0`. These absolute MMIO addresses are implementation proof; the mapping from those bit positions to package GPIO numbers is still **UNKNOWN**.
+
+The external-input mode apply path also reduces modes 0..3 to four combinations of two persistent hardware-control bits. This is structurally compatible with a two-select-line 4-way mux such as the HCF4052-family device observed on the board, but the target PCB continuity from those SPHE control bits to the HCF4052 select pins has not been measured. Treat that connection as **LIKELY**, not confirmed.
+
+The button path includes software filtering: a newly sampled hardware-event code is first compared with the previous sample; a changed code is only stored and processing returns, while a repeated identical sample is promoted into the next candidate state. Thus at least two consecutive matching samples are required before the higher-level button state machine can proceed. The exact sampling period and therefore the time in milliseconds are still unknown.
 
 ## Component references
 
