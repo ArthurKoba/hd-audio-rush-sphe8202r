@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "pyserial>=3.5",
+# ]
+# ///
 """Read-only BR23 UART Boot-ROM probe.
 
 This tool deliberately does not implement flash erase/write or arbitrary memory
