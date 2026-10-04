@@ -115,6 +115,11 @@ Do not currently claim:
 | Secondary firmware | AC695N/BR23-family identity is supported by runtime logs. | Raw firmware dump/preservation and pi32v2 analysis. |
 
 The secondary UART log contains `ALINK_SR = 44100`, `spdif_dec_start`, DAC and Bluetooth/application activity. Those strings establish behavior inside the secondary firmware, but **do not by themselves identify the electrical/data link between the two processors**.
+### Secondary stereo-audio link evidence — 2026-10-04
+
+The target secondary-controller execution log proves that its audio initialization starts an ALINK output at 44.1 kHz. The public AC695N/BR23 `board_ac695x_demo` source is used only as a semantic oracle for that firmware family: when IIS output is enabled it configures ALINK as stereo I2S, 16-bit samples, 64 SCLK per frame, with 44.1-kHz output; the demo configuration selects `ALINK0_PORTA`, data port 0 and master role. The target build path explicitly identifies the customized `LineIn_IIS` variant, but the exact target ALINK port and master/slave override are not printed by the captured log, so those electrical details remain **LIKELY**, not confirmed target state.
+
+Independent SPHE8202R reference schematics establish the complementary SoC-side serial-audio input contract: external stereo PCM sources connect through `AMCLK`, `ABCLK`, `ALRCK` and `ADATA0` (schematic aliases `I2S_MCLK`, `I2S_BCLK`, `I2S_LRCK`, `I2S_DATA_IN`). In the target firmware, AUX selects the 44.1-kHz format family and the AUX DSP profile consumes two resident input streams. Together these facts make `JieLi ALINK TX -> SPHE serial-audio input -> AUX stereo resident streams` the current strongest inter-chip audio model. Target-PCB continuity between the JieLi ALINK pins and the SPHE serial-audio pins is still **UNKNOWN** and remains the board-proof gate.
 
 ## Component references
 
