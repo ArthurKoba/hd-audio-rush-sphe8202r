@@ -18,10 +18,14 @@
 #define SPHE_USB_REG_02AC     REG32(SPHE_USB_BASE + 0x2ACU)
 
 static void
-spin_delay(volatile uint32_t count)
+stock_short_delay(uint32_t count)
 {
     while (count-- != 0U) {
-        __asm__ volatile("nop");
+        volatile uint32_t inner = 50U;
+
+        while (inner-- != 0U) {
+            __asm__ volatile("nop");
+        }
     }
 }
 
@@ -61,11 +65,11 @@ recovered_usb_host_init(void)
 
     value = SPHE_SYS_CTRL;
     SPHE_SYS_CTRL = value | 0x1000U;
-    spin_delay(200000U);
+    stock_short_delay(100U);
 
     value = SPHE_SYS_CTRL;
     SPHE_SYS_CTRL = value & ~0x1000U;
-    spin_delay(200000U);
+    stock_short_delay(100U);
 
     SPHE_USB_REG_0284 = 4U;
 
