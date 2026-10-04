@@ -411,3 +411,19 @@ Public JieLi GitLab branch `feature_sdk_310_UART0_RX` confirms for `board_ac695x
 This is important because the target's 115200 `UserUartInit success` path is therefore not the stock demo debug UART. Treat it as a product-specific UART initialization until its implementation is found. Candidate package scoring should check whether the physical runtime pair can map to plausible PA2/PA3, PA5/PA6, DP/DM, or another explicitly recovered custom pair under one orientation transform.
 
 The official/public SDK lineage also confirms the exact 3.1.0 release tree and a dedicated `feature_sdk_310_UART0_RX` branch, so source-level recovery of update/testbox UART behavior is a viable route independent of exact package naming.
+
+
+## 18. Source-tree correlation — 2026-10-04
+
+Public JieLi GitLab API was used to enumerate the full `feature_sdk_310_UART0_RX` tree (1938 objects) and inspect the update/UART sources directly.
+
+Confirmed source facts:
+- `apps/common/update/uart_update.c` starts at 9600 baud and implements framed UART update commands `START/READ/END/UPDATE_LEN/KEEP_ALIVE/READY`; the update parameters persist both TX and RX GPIO numbers.
+- `apps/common/update/testbox_update.c` emits the exact log family `[TEST-UPDATE] testbox msg handle reg` and registers the Bluetooth-controller testbox update callback. Therefore the target runtime log proves this stock update subsystem is present, not a product-specific printf.
+- `feature_sdk_310_UART0_RX` board demo uses debug UART PA5/PA6 and a separate optional USER UART UPDATE path PA2/PA3.
+- The public `LINEIN-IIS-INPUTE` branch configures soundbox-tool UART on `TX=DP, RX=DM`. Thus seeing UART traffic on package pins that another datasheet labels USB D+/D- is entirely plausible in this software lineage.
+- That branch is **not** treated as the target source: its line-in path uses IIS input (48 kHz / WM8978-oriented configuration), whereas target runtime evidence shows stereo LADC line-in plus ALINK 44.1 kHz. It is a semantic/source-family oracle only.
+
+A useful contradiction is now explicit for AC6951C under the literal orientation: its public pinout places USB DM/DP at 23/24, which fits a DP/DM UART role, but pin 12 is BT_RF rather than hard ground. Because the target physically has hard ground at observed position 12, AC6951C cannot be accepted without resolving that contradiction; matching UART alone is insufficient.
+
+Public branch inventory also contains `AC695N_soundbox_sdk_release_3.1.0_HDMI_ARC`, confirming JieLi used branch names of the same `AC695N_soundbox_sdk_release_3.1.0_<feature>` form seen in the target build path. No currently public branch named exactly `...LineIn_IIS` was found; the target directory may correspond to a historical/private/deleted branch or a local project clone.
