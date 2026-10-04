@@ -464,3 +464,27 @@ Next evidence path:
 1. recover historical/removed F8/T8 documents via CDN filenames, archived product pages, reseller mirrors and schematic attachments;
 2. compare full ground/power/USB/UART maps under the orientation matrix;
 3. if public pinout recovery still fails, derive the missing package mapping from SDK I/O-function tables plus a minimal additional physical power-pin fingerprint rather than from top-mark text.
+
+
+## 21. AC6951B exclusion and current BR23 shortlist — 2026-10-04
+
+A complete AC6951B Datasheet V1.1 and the matching automotive reference schematic were recovered from Yunthinker mirrors.
+
+AC6951B LQFP48 package evidence:
+- pin 12 = BT_RF;
+- pin 23 = USBDM;
+- pin 24 = USBDP;
+- package ground-class pins are VSSIO and DACVSS only (two explicit package grounds).
+
+Because the target has three independent hard-ground physical positions, AC6951B cannot satisfy the orientation-aware three-ground fingerprint under any rotation/reflection: orientation transforms permute pin positions but cannot create a third ground-class package pin.
+
+This closes AC6951B as a target candidate even though its USB/UART-adjacent layout is otherwise similar to the AC695N family.
+
+Current BR23 LQFP48 status:
+- AC6951B: excluded by ground-count/package fingerprint.
+- AC6951C: excluded by ground-count/package fingerprint (two ground-class pins only).
+- AC6951G: excluded by ground-count/package fingerprint (two ground-class pins only in recovered datasheet).
+- AC6951F: unresolved; live TOME page confirms eLQFP48 7x7x1.4, 8 Mbit flash, 4-channel DAC; pinout document still missing.
+- AC6951T: unresolved; family tables confirm LQFP48 / 8 Mbit, but no trustworthy full pinout recovered yet.
+
+The active identification task is therefore no longer a broad AC695N search. It is specifically to recover F/T package maps or prove that neither can supply the target's three-ground physical fingerprint.
