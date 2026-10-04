@@ -261,16 +261,17 @@ A successful acquisition is accepted only after:
 
 ## 10. Current continuation priority
 
-The next agent should **not** re-prove the AC695N runtime log or ALINK 44.1 kHz.
+The next agent should **not** re-prove the AC695N runtime log, ALINK 44.1 kHz, package-marking research, or any CLOSED/PARKED candidate in section 5.
 
 Priority order:
 
-1. Search for exact or adjacent `AK24 / BB24 / 230` top-mark mapping.
-2. Search 48-pin JieLi packages/schematics/datasheets and score them against the **orientation-aware** physical fingerprint. For the observed hard grounds `{12,13,36}`, the eight LQFP48 top/bottom-orientation hypotheses map to datasheet-number sets `{12,13,36}`, `{24,25,48}`, `{12,36,37}`, `{1,24,48}`, `{14,37,38}`, `{1,2,26}`, `{13,14,38}`, `{2,25,26}`. The observed runtime-serial pair `{23,24}` maps under the same hypotheses to `{23,24}`, `{35,36}`, `{47,48}`, `{11,12}`, `{26,27}`, `{38,39}`, `{2,3}`, `{14,15}` respectively.
-3. Require one *single* transform to make the candidate's ground pins and plausible serial-capable pins agree simultaneously before using that datasheet for Boot-ROM/update UART/USB pin selection.
-4. If no public mapping exists, use non-destructive target fingerprinting next (additional GND/power/known UART continuity) rather than guessing a model.
-5. Build/enable a read-only UART RAM dumper only once the correct Boot-ROM transport and post-loader return protocol are grounded.
-6. After dump acquisition, create the pi32v2 static-analysis target and recover the remaining control/status transport to SPHE.
+1. Recover a complete **AC6951F8** pinout/reference schematic, starting from TOME's historical CMS attachment id 248 and legitimate public mirrors/caches/CDN traces.
+2. Recover a complete **AC6951T8** pinout/reference schematic.
+3. Score only newly recovered complete package maps against the orientation-aware physical fingerprint. For the observed hard grounds `{12,13,36}`, the eight LQFP48 orientation hypotheses map to datasheet sets `{12,13,36}`, `{24,25,48}`, `{12,36,37}`, `{1,24,48}`, `{14,37,38}`, `{1,2,26}`, `{13,14,38}`, `{2,25,26}`; the observed runtime-serial pair `{23,24}` maps under the same transforms to `{23,24}`, `{35,36}`, `{47,48}`, `{11,12}`, `{26,27}`, `{38,39}`, `{2,3}`, `{14,15}`.
+4. Require one *single* transform to explain all hard grounds and the runtime-serial pair before selecting Boot-ROM/update UART/USB pins.
+5. If F8/T8 fail, expand from finite JieLi/LCSC/TOME package catalogs and strengthen the target fingerprint with additional non-destructive GND/power/USB/audio continuity. Do **not** return to top-mark decoding.
+6. Build/enable a read-only UART RAM dumper only once the correct Boot-ROM transport and post-loader return protocol are grounded.
+7. After dump acquisition, create the pi32v2 static-analysis target and recover the remaining control/status transport to SPHE.
 
 ## 11. Current project-level percentages
 
@@ -378,7 +379,7 @@ Candidate status after applying this correction is maintained only in the canoni
 Do not recompute closed or parked candidates with another manual one-PDF/one-pin pass. Orientation scoring should now be performed only when a genuinely new complete package table is recovered.
 
 
-## 17. New marking and SDK evidence — 2026-10-04 continued search
+## 17. Historical marking evidence and active SDK evidence — 2026-10-04
 
 Two higher-value evidence paths now supersede simple top-mark searching.
 
@@ -412,7 +413,7 @@ Confirmed source facts:
 - The public `LINEIN-IIS-INPUTE` branch configures soundbox-tool UART on `TX=DP, RX=DM`. Thus seeing UART traffic on package pins that another datasheet labels USB D+/D- is entirely plausible in this software lineage.
 - That branch is **not** treated as the target source: its line-in path uses IIS input (48 kHz / WM8978-oriented configuration), whereas target runtime evidence shows stereo LADC line-in plus ALINK 44.1 kHz. It is a semantic/source-family oracle only.
 
-A useful contradiction is now explicit for AC6951C under the literal orientation: its public pinout places USB DM/DP at 23/24, which fits a DP/DM UART role, but pin 12 is BT_RF rather than hard ground. Because the target physically has hard ground at observed position 12, AC6951C cannot be accepted without resolving that contradiction; matching UART alone is insufficient.
+AC6951C is **CLOSED** by the full package ground-count contradiction in section 5. Its public pinout placing USB DM/DP at 23/24 is retained only as an example showing that UART activity on USB-capable pins is plausible in this SDK lineage; that apparent UART match does not reopen AC6951C as a target candidate.
 
 Public branch inventory also contains `AC695N_soundbox_sdk_release_3.1.0_HDMI_ARC`, confirming JieLi used branch names of the same `AC695N_soundbox_sdk_release_3.1.0_<feature>` form seen in the target build path. No currently public branch named exactly `...LineIn_IIS` was found; the target directory may correspond to a historical/private/deleted branch or a local project clone.
 
