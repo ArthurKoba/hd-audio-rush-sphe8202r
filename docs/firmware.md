@@ -754,7 +754,7 @@ Closed B/C/G variants cannot produce the target's three independent hard-ground 
 
 Package marking is not a valid candidate filter. Enumerate candidates from JieLi/LCSC/TOME family catalogs and identify them by the target electrical fingerprint.
 
-Boot/dump references:Boot/dump references:
+Boot/dump references:
 
 - jl-uboot-tool: https://github.com/kagaimiq/jl-uboot-tool
 - enter UBOOT / USB_KEY: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/how-to-enter-uboot.md
