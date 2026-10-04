@@ -4,7 +4,7 @@
 
 This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
-Validation levels remain separate:
+Secondary-controller continuation authority: `docs/jieli-secondary-controller-handoff-20261004.md`; UART capture evidence: `evidence/jieli-uart-probes-20261004.md`. The exact JieLi silicon model is UNKNOWN; AC695N/BR23 is software-lineage evidence only.\n\nValidation levels remain separate:
 - **implementation proof** — static/native behavior recovered from target firmware or the saved Analysis project;
 - **execution proof** — the path has been observed executing;
 - **board proof** — target PCB ownership/routing is physically established;
