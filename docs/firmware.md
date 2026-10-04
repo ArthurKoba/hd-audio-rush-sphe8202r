@@ -1294,3 +1294,65 @@ Firmware acquisition remains read-only-first. The active research order is:
 2. only then select the correct Boot-ROM/update transport pins;
 3. use RAM/read-only acquisition before any erase/program operation;
 4. accept the dump only after two independent identical reads.
+
+
+## SPHE AUX backend and fixed digital-ingress hypothesis — 2026-10-04
+
+The new three-line board-continuity observation was tested against the SPHE firmware instead of continuing exact JieLi-part identification.
+
+### AUX is a distinct SPHE decoder/DSP profile
+
+The external AUX transition at raw AP1 `0x8071E4F0` performs:
+
+1. effective master level -> 0;
+2. reapply current decoder state;
+3. `CommitAudioFormatMode(2)`;
+4. `SetAudioDecoderState(0x40000)`;
+5. apply ECHO profile `(0,0)`;
+6. reapply the decoder state and restore volume;
+7. remain in external-source transition state `0x0B` while the external-input transition is serviced.
+
+`CommitAudioFormatMode(2)` maps mode 2 to internal audio-service field value **0x700** in `s6+0x4F4[11:8]`.
+
+The decoder-state profile table at RAM `0x80002264` independently proves:
+- bit 15 / state `0x8000` -> ordinary **PCM** descriptor `0x807A9170`;
+- bit 16 / `0x10000` -> AC-3 descriptor;
+- bit 17 / `0x20000` -> DTS descriptor;
+- bit 18 / state `0x40000` -> dedicated **AUX** descriptor `0x807B55DC`.
+
+The AUX and PCM descriptors are materially different. Their packed descriptor headers are:
+- AUX: source pointer `0x807B3218`, fields A/B/C = `0x17 / 0x5F / 0x0009`;
+- PCM: source pointer `0x807A5C34`, fields A/B/C = `0x19 / 0xAE / 0x0009`.
+
+`LoadDecoderDspProfile @ 0x807002FC` consumes these descriptors, configures decoder-service memory pages, then sends the packed profile source to the runtime loader for transfer into DSP RAM. Therefore AUX is a real dedicated SPHE DSP/backend profile, not merely a UI alias for ordinary PCM decode.
+
+### No AUX-time receiver-pin setup was found
+
+The AUX transition itself contains no dedicated GPIO or serial-pin initialization. The helper called while state `0x0B` is active (`0x80681F14`) services internal audio state/counters and does not configure pins.
+
+`ApplyExternalInputHardwareMode @ 0x806FED88` manipulates `s6+0x9C0/+0x9D0/+0x9D4`. Generic GPIO code elsewhere proves the `0x980/0x9A0/0x9C0/0x14C0 + bank*4` family is addressed as GPIO banks with `1 << pinBit`. The external-input routine touches bank-0 bits 0..2 and other control bits; this is consistent with external source/mux control and must **not** be confused with the provisional three-line audio link at GPIO19/20/21.
+
+For GPIO19/20/21 specifically (encoded as bank 1 bits 3/4/5):
+- the corresponding fixed register bank is `s6+0x984/+0x9A4/+0x9C4/+0x14C4`;
+- the only fixed AP1 initialization found on those second-bank registers uses mask `0x1C00` (bits 10..12), not bits 3..5;
+- no fixed `0x38` mask was found for that GPIO bank;
+- no explicit hard-coded pin IDs `0x13/0x14/0x15` were found in the checked AP1 paths;
+- ROM/runtime, `drv_other`, `cdrom` and `wma` contain no fixed accesses to those second-bank GPIO registers in the checked corpus.
+
+This is **static negative evidence**, not proof of absence: generic GPIO helpers can still receive runtime-configured pin IDs, and an undocumented alternate peripheral function may not use the ordinary GPIO register path.
+
+### Current integration interpretation
+
+The combined evidence now strongly favors:
+
+```text
+Bluetooth / stereo AUX / optional secondary-side S/PDIF
+        -> JieLi source/audio front-end
+        -> ALINK TX, 44.1 kHz stereo
+        -> [provisional three-wire synchronous link]
+        -> SPHE dedicated AUX profile (state 0x40000, service format 0x700)
+        -> SPHE DSP / GM5 / EQ / 2.0->5.1
+        -> SPHE six-channel DAC outputs
+```
+
+Exact `BCLK / LRCLK / DATA` assignment remains a board/runtime acceptance item. Exact JieLi commercial SKU is no longer required to continue reconstructing the SPHE-side contract.

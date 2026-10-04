@@ -37,7 +37,7 @@ Current approximate behavior/reconstruction coverage:
 | AUX / stereo ingress | **87%** | Active only through the missing SPHE-side receiver / inter-chip contract |
 | Resident audio services | **93%** | Low priority unless required by replacement-source architecture |
 | Clock / sample-format contract | **80%** | Active where firmware can still resolve real clock/rate families; board-only validation is deferred |
-| SPHE <-> JieLi audio/control boundary | **72%** | **HIGH PRIORITY** |
+| SPHE <-> JieLi audio/control boundary | **78%** | **HIGH PRIORITY**; new three-wire digital-ingress model is strongly supported but exact signal roles remain unproven |
 | JieLi firmware/control domain | **45%** | **HIGH PRIORITY**; full dump/static analysis would materially increase coverage |
 | DSP resources / PM/DM/cycle headroom | **55%** | **HIGH PRIORITY** |
 | ECHO processing engine | **70%** | Medium priority; recover if needed for original behavior parity |
@@ -49,8 +49,8 @@ Current approximate behavior/reconstruction coverage:
 
 ### Active priority order
 
-1. **Recover the SPHE <-> JieLi boundary completely enough to replace it.** Resolve the SPHE-side receiver for the proven JieLi ALINK stream and separate that audio path from the still-open control/status transport.
-2. **Recover the JieLi firmware domain.** Preserve/dump the secondary-controller firmware when practical, bring up the pi32v2 analysis path, and recover startup, audio routing, Bluetooth/source control and inter-chip behavior required by the system.
+1. **Close the provisional three-wire JieLi -> SPHE audio ingress.** Record the exact three PCB nets, determine their clock/frame/data roles, and identify the SPHE receiver contract. Current evidence supports a permanently connected synchronous stereo stream into the dedicated AUX backend.
+2. **Treat JieLi firmware acquisition as secondary unless the three-wire contract remains ambiguous.** Preserve/dump it when practical, but do not block SPHE-side replacement work on exact JieLi SKU identification.
 3. **Finish firmware-only DSP resource recovery.** Establish PM/DM ownership, resident allocation, cycle/headroom constraints and the limits relevant to a replacement implementation.
 4. **Finish replacement-image construction.** Reproduce module/container rebuild, packing, integrity/checksum rules and the software side of rollback/recovery.
 5. **Close remaining firmware-only Sunplus gaps.** Finish clock/sample-rate semantics, backend ownership and any still-unexplained live source/control routes that materially affect original behavior.
@@ -282,9 +282,9 @@ Remaining gates:
 
 ## Immediate continuation
 
-1. Resolve product-level meaning of remaining `gp+0x7A5` source-state handlers.
-2. Reopen saved `/runtime/rom12-runtime.bin` when a session-local runtime handle is needed and continue below the service mailbox.
-3. Connect recovered command families and codec parameters to resident high-DM/backend consumers.
+1. Close the exact three-wire JieLi -> SPHE net mapping and determine whether the lines are frame clock / bit clock / serial data.
+2. Continue the SPHE AUX state `0x40000` / service-format `0x700` path below the service mailbox until the receiver peripheral is identified.
+3. Resolve product-level meaning of remaining `gp+0x7A5` source-state handlers only where needed by the replacement control plane.
 4. Close physical six-channel output ownership with board/runtime evidence.
 5. In parallel, turn the recovered behavior contracts into maintainable replacement-source modules while rebuild/repack/recovery acceptance is completed.
 

@@ -201,3 +201,29 @@ Already checked/parked comparison candidates include AC6921A, JL7031C, AC4601, A
 The active unresolved BR23/LQFP48 candidates are AC6951F8 and AC6951T8.
 
 Package top text is not used for model identification. JieLi production/lot markings do not reliably encode the commercial SKU; the target text `AK24 / BB24 / 230` is retained only as a physical observation.
+
+
+## Provisional three-wire secondary-controller -> SPHE audio link — 2026-10-04
+
+New target-board continuity work indicates that the secondary JieLi device may have only **three signal connections** to the SPHE8202R. The user currently places the SPHE ends approximately at physical package pins **7/8/9**; this exact pin numbering is still **PROVISIONAL** until the three nets are individually recorded.
+
+Reference-package mapping for SPHE8202R-128:
+- package pin 7 = `IR / GPIO19`;
+- package pin 8 = `GPIO20`;
+- package pin 9 = `GPIO21`.
+
+The reference schematic does **not** label these three pins as I2S/IIS/PCM, so the physical role is not proven from the datasheet alone.
+
+However, this continuity observation aligns with independent runtime/static evidence:
+- JieLi runtime initializes stereo line input on two LADC channels and reports `ALINK_SR = 44100`;
+- the matching JieLi SDK lineage uses ALINK as a digital audio transport;
+- SPHE firmware has a dedicated AUX decoder/profile path rather than treating AUX as its on-chip analog ADC path;
+- visible SPHE MIPS code does not currently show GPIO19/20/21 being hard-coded as ordinary GPIO pins.
+
+The leading integration hypothesis is therefore a permanently connected **three-wire synchronous stereo audio transport** from JieLi to SPHE, consistent with a `DATA + bit clock + frame/LR clock` topology. Exact signal-to-pin assignment is **not yet proven**.
+
+Do not promote this to board proof until:
+1. the three JieLi -> SPHE nets are individually recorded with exact package positions at both ends; and
+2. at least one runtime electrical observation distinguishes a frame-rate line, a bit-clock line and a data line (logic analyzer/scope), or an SPHE register contract proves the receiver mapping.
+
+If this model is confirmed, the secondary JieLi should be treated as a **source/audio front-end** (Bluetooth/A2DP, stereo AUX ADC, and possibly S/PDIF handling), while SPHE remains the main system/audio processor.

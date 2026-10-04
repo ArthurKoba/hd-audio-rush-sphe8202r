@@ -474,3 +474,25 @@ Current BR23 LQFP48 status:
 - AC6951T: unresolved; family tables confirm LQFP48 / 8 Mbit, but no trustworthy full pinout recovered yet.
 
 The active identification task is therefore no longer a broad AC695N search. It is specifically to recover F/T package maps or prove that neither can supply the target's three-ground physical fingerprint.
+
+
+## 22. Priority shift after three-wire board continuity — 2026-10-04
+
+New board work indicates that only about three signal nets may connect the secondary JieLi controller to SPHE, with the SPHE endpoints provisionally near package pins 7/8/9 (GPIO19/20/21). Exact net-by-net numbering is still pending.
+
+This changes the acquisition priority:
+
+- exact JieLi SKU identification and firmware dumping remain useful, but they are **no longer the primary blocker** for system reconstruction;
+- the primary task is now to close the three-wire JieLi -> SPHE audio transport from physical continuity + SPHE firmware + runtime electrical behavior;
+- F8/T8 document recovery remains a secondary research track and should not block SPHE-side work.
+
+SPHE static analysis now proves a dedicated AUX backend:
+- AUX transition selects audio-format mode 2 -> service profile `0x700`;
+- AUX selects decoder state `0x40000`;
+- state `0x40000` resolves through the decoder profile table to dedicated AUX descriptor `0x807B55DC`, distinct from ordinary PCM descriptor `0x807A9170`;
+- no AUX-time pin initialization is present in the transition path;
+- fixed ordinary-GPIO use of provisional SPHE GPIO19/20/21 has not been found in the checked MIPS corpus.
+
+The leading system model is now that JieLi acts as a stereo **source/audio front-end** and SPHE is the main system/audio processor.
+
+Do not call the three physical lines BCLK/LRCLK/DATA as a proven mapping yet. Accept that mapping only after exact continuity and waveform/register evidence.
