@@ -427,3 +427,23 @@ Confirmed source facts:
 A useful contradiction is now explicit for AC6951C under the literal orientation: its public pinout places USB DM/DP at 23/24, which fits a DP/DM UART role, but pin 12 is BT_RF rather than hard ground. Because the target physically has hard ground at observed position 12, AC6951C cannot be accepted without resolving that contradiction; matching UART alone is insufficient.
 
 Public branch inventory also contains `AC695N_soundbox_sdk_release_3.1.0_HDMI_ARC`, confirming JieLi used branch names of the same `AC695N_soundbox_sdk_release_3.1.0_<feature>` form seen in the target build path. No currently public branch named exactly `...LineIn_IIS` was found; the target directory may correspond to a historical/private/deleted branch or a local project clone.
+
+
+## 19. Direct top-mark sightings outside datasheets — 2026-10-04
+
+The search was deliberately shifted away from datasheet-first identification toward real-world top-mark sightings in products, sales listings and repair material.
+
+New direct sightings:
+
+- A modern generic S1 MP3 player teardown shows a 48-pin Jerry/JieLi chip physically marked `AK24BP2D054-51C8`. The package photo is quad 48-pin (12 leads per side). This proves that an `AK24BP...` production code is genuinely used on JieLi/Jerry silicon in the same broad package class as the target; it is not merely a database artifact.
+- Alibaba listings explicitly sell `AC6951C8 QFP48 AC24BP20882-51C8`, directly mapping one production mark to the commercial model AC6951C8.
+- Repair-community material also reports `AC24BP20882-51C8` on an automotive DSP/head-unit board and treats it as the AC6951C8 replacement context.
+- Marking-index pages contain neighboring 2024 codes including `AK24BP24178-51C8` and `AK24BP24220-C8` / `AK24BP24220-51C8`. The index does not provide a trustworthy model mapping for those exact AK codes, but their existence is now supported independently of the target transcription.
+
+Interpretation:
+- The prefix/body `A?24BP...` behaves like a 2024 production/lot code rather than a public part number.
+- The suffix `-51C8` is strongly associated with AC6951C8 in at least one explicit commercial mapping, but it must not be generalized to every `AK24BP...` sighting without independent confirmation.
+- The target transcription `AK24 / BB24 / 230` may be an incomplete/misread line-wrapped production code. Variants such as `AK24BP24230[-suffix]` remain plausible search forms, but no exact public hit has yet been found.
+- Exact leading-code search is therefore still useful as an occurrence search (devices/photos/BOMs), even when it cannot directly name the silicon.
+
+This evidence path should continue through teardown photos, repair forums, marketplace listings, BOMs and code/text corpora, not only datasheets.
