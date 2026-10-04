@@ -357,6 +357,39 @@ Raw MIPS flow now closes the stock USB host control path below the removable-med
 - the enumeration chain reads a short device descriptor to establish `bMaxPacketSize0`, allocates a USB address, sends `SET_ADDRESS`, reads the full device descriptor, stores VID/PID fields, reads the 9-byte configuration header, re-reads the complete `wTotalLength`, parses interfaces/endpoints, then sends `SET_CONFIGURATION(bConfigurationValue)`;
 - downstream class creation confirms class `0x08` Mass Storage with SCSI/CBW/CSW/READ(10)/WRITE(10) behavior and a separate class `0x09` Hub context.
 
+### Minimal USB host bring-up contract — 2026-10-04
+
+For a first target bring-up, the stock firmware does **not** require the removable-media, Mass Storage, SCSI or filesystem layers. The minimum useful acceptance boundary is controller initialization plus EP0 enumeration through `SET_CONFIGURATION`.
+
+Instruction-backed controller initialization is concentrated in the action beginning at `0x806AB7F8` and its caller at `0x806AB8F4`:
+
+- zero the 32-byte root/controller state at `0x80009860`, then seed state words `+24=3` and `+28=7`;
+- toggle `s6+0x0C` bit `0x1000` with the stock delay helper between set/clear phases; with the established `s6=0xBFFE8000`, this is the system register at `0xBFFE800C`;
+- write `4` to `0xBC020284`;
+- clear bit `0x1000` in `0xBC020294`;
+- write `0x30` to `0xBC0202A0`;
+- clear `0xBC020080`;
+- initialize the local controller/context pools;
+- publish the seeded state values to `0xBC0202A4=3` and `0xBC020194=7`;
+- the higher-level initializer then writes `0x46` to `0xBC0202AC`, copies the board/runtime halfword into `s6+0x1804` (`0xBFFE9804`) and marks the USB subsystem initialized.
+
+The stock root-port reset/presence route is separate. It uses `0xBC020290` as an active reset/control register, waits for its low control bit to clear after reset phases, samples `0xBC0202A0` status bits, and selects follow-up programming in `0xBC020294`. The exact physical names of those status bits are still **UNKNOWN**; preserve the stock sequence rather than renaming them speculatively.
+
+The minimal EP0 enumeration route is now closed at implementation-proof level:
+
+1. Allocate/initialize the device context and both EP0 direction contexts with a provisional 64-byte packet size.
+2. Issue `GET_DESCRIPTOR(Device, index 0, length 8)`.
+3. Read byte 7 as `bMaxPacketSize0`; the stock code accepts 8, 16, 32 or 64 and applies it to both EP0 directions.
+4. Allocate a USB address from the stock address bitmap, issue `SET_ADDRESS`, store the address, then wait the stock settle delay.
+5. Issue `GET_DESCRIPTOR(Device, index 0, length bLength)`; the normal result is the complete device descriptor. The stock route stores VID/PID from descriptor bytes 8..11.
+6. Issue `GET_DESCRIPTOR(Configuration, index 0, length 9)`.
+7. Read `wTotalLength` from configuration bytes 2..3 and reissue the configuration descriptor request for that complete length.
+8. Parse only the configuration/interface/endpoint records required to retain the control contract.
+9. Issue `SET_CONFIGURATION(bConfigurationValue)` using configuration byte 5.
+10. Stop here for the first USB-host acceptance. Class creation, MSC/SCSI and filesystem/media activation are downstream and are not required to prove controller + EP0 operation.
+
+The generic control-transfer wrapper builds a standard 8-byte setup packet and delegates it to the common USB transaction engine. Therefore a minimal diagnostic can use the recovered controller initialization and EP0 path without carrying any storage/filesystem code.
+
 This is implementation proof for the stock firmware's USB **host** role. A separate static pass found no structurally valid embedded USB Device Descriptor, no gadget/UAC/CDC/HID strings, and no second independent `0xBC020xxx` MMIO cluster attributable to a USB device controller. That negative evidence is not a silicon-capability claim: the SPHE8202R documentation available here only establishes USB 2.0 capability, while the target firmware and reference board are host-oriented. Device/OTG/UAC capability therefore remains **UNKNOWN** until a device-controller register contract, ROM/alternate firmware path, or hardware experiment proves it.
 
 ### Audio-core findings retained with address caveats
