@@ -388,3 +388,26 @@ Newly checked with this method:
 - **AC6901A / AC6921A / AC4601 / AC6951C**: retained as comparison corpus; their full ground/power/serial maps should be scored under the same transform matrix before any final exclusion statement is reused.
 
 Research should now prefer collecting complete pin tables into a small comparison corpus and scoring transforms mechanically, instead of repeating manual one-PDF/one-pin checks.
+
+
+## 17. New marking and SDK evidence — 2026-10-04 continued search
+
+Two higher-value evidence paths now supersede simple top-mark searching.
+
+### Production-mark format is proven on AC6951C8
+
+A retail AC6951C8 LQFP48 has been photographed/listed with top mark `AC23BP11419-51C8`; another listing identifies `AC24BP20882-51C8` as AC6951C8. Independent teardown material identifies `AC21BP0H728-51C8` as AC6951C. This proves that the leading `AC/AKyyBP...` string is not the public model name and that the suffix such as `-51C8` can encode the actual AC6951C8 variant.
+
+Implication for target mark `AK24 / BB24 / 230`: do not try to derive the exact silicon from the leading production code alone. A missing/worn/unread suffix remains a plausible explanation and should be checked on a macro photo, but package electrical fingerprint still outranks marking inference.
+
+AC6951C itself still does **not** fit the target ground fingerprint because its documented LQFP48 package exposes only VSSIO pin 13 and DACVSS pin 36 as ground-class pins; three independent hard-ground positions cannot be produced by orientation alone.
+
+### SDK 3.1.0 exposes multiple distinct UART roles
+
+Public JieLi GitLab branch `feature_sdk_310_UART0_RX` confirms for `board_ac695x_demo`:
+- debug UART0: TX=PA5, RX=PA6, 1,000,000 baud;
+- optional `USER_UART_UPDATE_ENABLE` route: RX=PA2, TX=PA3.
+
+This is important because the target's 115200 `UserUartInit success` path is therefore not the stock demo debug UART. Treat it as a product-specific UART initialization until its implementation is found. Candidate package scoring should check whether the physical runtime pair can map to plausible PA2/PA3, PA5/PA6, DP/DM, or another explicitly recovered custom pair under one orientation transform.
+
+The official/public SDK lineage also confirms the exact 3.1.0 release tree and a dedicated `feature_sdk_310_UART0_RX` branch, so source-level recovery of update/testbox UART behavior is a viable route independent of exact package naming.
