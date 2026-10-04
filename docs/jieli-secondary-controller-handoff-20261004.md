@@ -447,3 +447,20 @@ Interpretation:
 - Exact leading-code search is therefore still useful as an occurrence search (devices/photos/BOMs), even when it cannot directly name the silicon.
 
 This evidence path should continue through teardown photos, repair forums, marketplace listings, BOMs and code/text corpora, not only datasheets.
+
+
+## 20. F8/T8 narrowing and removed-document evidence — 2026-10-04
+
+The current search treats package marking as secondary and uses family/package/electrical evidence first.
+
+New findings:
+- TOME's live product page for **AC6951F8** identifies it as **eLQFP48 (7x7x1.4), 8 Mbit flash, 4-channel DAC**. This materially distinguishes F8 from AC6951C8 and makes F8 a stronger board-class candidate for a multi-audio-interface design.
+- TOME still renders a DOWNLOAD section listing AC6951B8/C8/F8/D4, but the HTML contains no actual download href for those rows. The page presents static "download" labels only. This is consistent with the report that documentation was removed or access-disabled rather than the product itself disappearing.
+- TOME does not currently expose AC6951T8 in its public AC695N product list even though independent BR23 family tables list AC6951T as LQFP48 / 8 Mbit. Treat T8 as a valid family candidate with weaker current public commercial-document coverage.
+- Image/search results for AC6951F8 are mostly product renders; no trustworthy F8 pinout has yet been recovered.
+- Therefore F8/T8 remain the highest-value unresolved LQFP48 BR23 variants, while C/G have stronger public pinout evidence but conflict with the target physical fingerprint.
+
+Next evidence path:
+1. recover historical/removed F8/T8 documents via CDN filenames, archived product pages, reseller mirrors and schematic attachments;
+2. compare full ground/power/USB/UART maps under the orientation matrix;
+3. if public pinout recovery still fails, derive the missing package mapping from SDK I/O-function tables plus a minimal additional physical power-pin fingerprint rather than from top-mark text.
