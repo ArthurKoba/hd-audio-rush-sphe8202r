@@ -30,6 +30,38 @@ stock_short_delay(uint32_t count)
 }
 
 static void
+stock_long_delay(uint32_t count)
+{
+    while (count-- != 0U) {
+        volatile uint32_t inner = 26998U;
+
+        while (inner-- != 0U) {
+            __asm__ volatile("nop");
+        }
+    }
+}
+
+static void
+cpu_irq_disable(void)
+{
+    uint32_t status;
+
+    __asm__ volatile("mfc0 %0, $12\n\tnop" : "=r"(status));
+    status &= ~1U;
+    __asm__ volatile("mtc0 %0, $12" :: "r"(status));
+}
+
+static void
+cpu_irq_enable(void)
+{
+    uint32_t status;
+
+    __asm__ volatile("mfc0 %0, $12\n\tnop" : "=r"(status));
+    status |= 1U;
+    __asm__ volatile("mtc0 %0, $12" :: "r"(status));
+}
+
+static void
 log_usb_registers(const char *phase)
 {
     sphe_uart_puts(phase);
@@ -85,19 +117,74 @@ recovered_usb_host_init(void)
     SPHE_USB_REG_02AC = 0x46U;
 }
 
+static uint32_t
+recovered_usb_root_reset(uint32_t alternate)
+{
+    uint32_t value;
+    uint32_t branch;
+
+    value = SPHE_USB_REG_0294;
+    SPHE_USB_REG_0294 = value & ~0x1000U;
+    SPHE_USB_REG_0080 = 0U;
+
+    SPHE_USB_REG_0290 = 3U;
+    stock_long_delay(200U);
+    SPHE_USB_REG_0290 = 0U;
+    while ((SPHE_USB_REG_0290 & 1U) != 0U) {
+    }
+    stock_long_delay(200U);
+
+    value = SPHE_USB_REG_0290;
+    value |= alternate != 0U ? 3U : 1U;
+    SPHE_USB_REG_0290 = value;
+    stock_long_delay(150U);
+
+    cpu_irq_disable();
+    SPHE_USB_REG_0290 = 0U;
+    while ((SPHE_USB_REG_0290 & 1U) != 0U) {
+    }
+    stock_short_delay(200U);
+
+    branch = (SPHE_USB_REG_0290 & 0x10U) != 0U ? 1U : 0U;
+    if (branch == 0U) {
+        SPHE_USB_REG_0080 = 0U;
+        SPHE_USB_REG_0294 = 0x02001003U;
+    } else {
+        SPHE_USB_REG_0080 = 0x80000000U;
+        SPHE_USB_REG_0294 = 0x08001003U;
+    }
+
+    cpu_irq_enable();
+    stock_long_delay(500U);
+    return branch;
+}
+
 void
 ram_main(void)
 {
-    sphe_uart_puts("[sphe] USB host init probe\n");
+    sphe_uart_puts("[sphe] USB host root probe\n");
 
     log_usb_registers("[sphe] before");
 
     recovered_usb_host_init();
 
-    log_usb_registers("[sphe] after");
+    log_usb_registers("[sphe] after-init");
+
+    if ((SPHE_USB_REG_02A8 & 0x100U) != 0U) {
+        sphe_uart_puts(
+            "[sphe] status 0x2A8 bit0x100 set; stock attach skips root reset\n"
+        );
+    } else {
+        sphe_uart_log_u32(
+            "[sphe] root-reset branch=",
+            recovered_usb_root_reset(0U)
+        );
+    }
+
+    log_usb_registers("[sphe] after-root");
 
     sphe_uart_puts(
-        "[sphe] init-only; no flash/media/filesystem access\n"
+        "[sphe] no EP0/media/filesystem access\n"
     );
     sphe_uart_log_done();
 
