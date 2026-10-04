@@ -10,7 +10,7 @@ PCB: **SPHE8202RD_SPDIF_V02**
 | Main SoC | `SUNPLUS SPHE8202R` | Sunplus multimedia/audio SoC | **CONFIRMED** physical marking |
 | External SDRAM | reported as `PMS3064 / 16BTR-60N` | External SDRAM; exact manufacturer and capacity still unresolved | **LIKELY** transcription; STK independently reports `SDRAM 32M`, 16-bit, non-shared |
 | SPI NOR | `P25D80SH` | Puya 8-Mbit / 1-MiB SPI NOR; raw dump is in `firmware/P25D80SH@SOP8.BIN` | **CONFIRMED** marking + dump size |
-| Secondary controller | `AK24BP24230` | Controller running JieLi AC695N/BR23-family software | physical marking **CONFIRMED**; exact public SKU **UNKNOWN** |
+| Secondary controller | JieLi/JL logo; top text `AK24 / BB24 / 230` (line joining unresolved; **not a model identifier**) | Controller running JieLi AC695N/BR23-family software | package/logo + runtime lineage **CONFIRMED**; exact public SKU **UNKNOWN** |
 | Analog switch | `HCF4052` family marking reported | HCF4052B is a dual 4-channel analog multiplexer/demultiplexer, not a shift register or inverter | part action node **CONFIRMED** by device documentation; exact board routing **UNKNOWN** |
 | Logic IC | `74HC04D` marking reported | Six CMOS inverters in one package | part action node **CONFIRMED** by device documentation; exact board role **UNKNOWN** |
 | Analog output ICs | `4558D` marking on 8-pin devices near outputs | 4558-family devices are dual operational amplifiers; likely used for analog buffering/filtering/preamplification | part family action node **CONFIRMED**; exact product-board circuit role **LIKELY** |
@@ -187,12 +187,17 @@ Confirmed target-board ground pins by direct continuity to board ground with pow
 
 The currently exposed runtime/debug serial connection traces to target package pins 23 and 24 and produces coherent 115200-baud logs. This fact is **not** used to force an identification: pins 23/24 may be muxed GPIO/USB/UART on different JieLi families.
 
-Public LQFP48 JieLi candidates checked so far do **not** match the complete target fingerprint:
-- AC6951C: pin 36 is DACVSS and pin 13 is VSSIO, but pin 12 is BT_RF — rejected against confirmed target pin-12 ground;
-- AC6921A: pin 12 is VSSIO, but pin 13 is BT_OSCI and pin 36 is DACR — rejected;
-- JL7031C: pin 13 is VSS, but pin 12 is BTRF — rejected;
-- AC4601: pin 12 is FMVSS, but pin 13 is USBDM and pin 36 is PA9 — rejected.
+Candidate status is maintained centrally in `docs/jieli-secondary-controller-handoff-20261004.md`.
 
-Therefore the exact silicon/package variant remains **UNKNOWN**. Do not use an AC6951C/AC6921A/JL7031C pin number for boot/UART/USB probing until a datasheet or schematic matches all three confirmed ground pins.
+Closed and not to be re-checked:
+- AC6951B/B8;
+- AC6951C/C8;
+- AC6951G.
 
-Marking research found real JieLi-style production/top-mark strings in the `AK24BP...` family (for example `AK24BP24178`, `AK24BP24220`, `AK24BP0H003`), which supports treating `AK24...` as a production/top-mark lineage rather than a public retail part number. No public mapping from the exact target mark to a commercial model has yet been proven.
+Each is impossible against the target because its recovered LQFP48 package map cannot supply three independent ground-class pins under any orientation transform.
+
+Already checked/parked comparison candidates include AC6921A, JL7031C, AC4601, AC6901A and AC6351B/D. Do not repeat their old literal-pin checks; only re-open one if new complete pin-table evidence enables a materially stronger orientation-aware test.
+
+The active unresolved BR23/LQFP48 candidates are AC6951F8 and AC6951T8.
+
+Package top text is not used for model identification. JieLi production/lot markings do not reliably encode the commercial SKU; the target text `AK24 / BB24 / 230` is retained only as a physical observation.

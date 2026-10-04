@@ -114,128 +114,114 @@ Not proven:
 - that the current accessible UART can enter Boot ROM/update mode;
 - that the exact 1 MiB physical flash can already be read through that UART.
 
-## 5. Rejected LQFP48 / 48-pin candidates
+## 5. Canonical candidate ledger — checked models and no-repeat policy
 
-Historical candidate rejections below used the initial literal numbering assumption. They remain useful only where the candidate also fails the new orientation-aware test. From 2026-10-04 onward, candidates are checked against all square-package orientation transforms using both anchors: hard-ground physical positions `12/13/36` and runtime-serial physical positions `23/24`.
+This section is the authority for candidate status. Future agents must consult it before opening another datasheet or repeating pin checks.
 
-### AC6951C
-Rejected.
-- public pinout: pin 13 = VSSIO, pin 36 = DACVSS;
-- but pin 12 = BT_RF, not ground.
-Therefore it cannot be used as the target package pinout.
+Status meanings:
 
-### AC6921A
-Rejected.
-- pin 12 = VSSIO;
-- pin 13 = BT_OSCI;
-- pin 36 = DACR.
-Does not match.
+- **CLOSED / DO NOT REVISIT** — the candidate has a decisive package-level contradiction that survives every allowed orientation transform. Do not re-check it unless new physical evidence invalidates the target fingerprint or a genuinely different package revision is found.
+- **CHECKED / PARKED** — the model was already investigated, but the historical rejection was based on incomplete/literal pin-number comparison rather than a complete orientation-aware pin table. Do not repeat the same manual pin checks. Re-open only if a new complete pin table or a new target-board anchor allows a materially stronger test.
+- **ACTIVE** — still worth resolving because the required package map has not been recovered.
 
-### JL7031C
-Rejected.
-- pin 13 = VSS;
-- pin 12 = BTRF.
-Does not match.
+### CLOSED / DO NOT REVISIT
 
-### AC4601
-Rejected.
-- pin 12 = FMVSS;
-- pin 13 = USBDM;
-- pin 36 = PA9.
-Does not match.
+| Candidate | Status | Decisive evidence |
+|---|---|---|
+| **AC6951B / AC6951B8** | **CLOSED** | Complete V1.1 datasheet + automotive reference schematic recovered. LQFP48 exposes only two explicit ground-class package pins (VSSIO and DACVSS). The target has three independent hard-ground physical positions, so no rotation/reflection can make this package match. |
+| **AC6951C / AC6951C8** | **CLOSED** | Complete public LQFP48 pinout recovered. Ground-class package pins are VSSIO and DACVSS only. Three hard grounds on the target are therefore impossible under every orientation transform. The apparent 23/24 USB-DM/DP similarity is not sufficient. |
+| **AC6951G** | **CLOSED** | Authentic LQFP48 datasheet recovered. Only two ground-class package pins are present in the package map. This cannot satisfy the target's three-hard-ground fingerprint under any transform. |
 
-Any older statement assigning a target boot pin from one of these candidates is withdrawn.
+These three models are excluded as target silicon. Do not spend time verifying them again.
 
-## 6. Marking-code research
+### CHECKED / PARKED — do not repeat the historical test
 
-The exact literal `AK24BP24230` has not been found in a trustworthy public datasheet or model mapping.
+| Candidate | Existing check | Why it is parked instead of active |
+|---|---|---|
+| **AC6921A** | Historical literal check found pin 12=VSSIO, pin 13=BT_OSCI, pin 36=DACR. | Already investigated and not a current BR23/AC695N favorite. The old literal check must not be repeated. Only re-open with a complete pin table and one-pass orientation scoring. |
+| **JL7031C** | Historical literal check found pin 13=VSS and pin 12=BTRF. | Already investigated; not an active target candidate. Do not repeat the same pin-number comparison. |
+| **AC4601** | Historical literal check found pin 12=FMVSS, pin 13=USBDM, pin 36=PA9. | Already investigated; use only as comparison corpus. Do not repeat the same pin-number comparison. |
+| **AC6901A** | Compared during the earlier 48-pin search as a neighboring JieLi generation. | Not supported by the target's BR23/AC695N runtime lineage. Keep only as comparison corpus; do not restart manual verification. |
+| **AC6351B / AC6351D** | Checked as neighboring BR23/AC63-family LQFP48 variants during catalog/datasheet search. | No target fingerprint match was established and the observed target runtime/storage/software evidence favors the AC695N branch. Do not re-run broad manual checks unless F/T are exhausted and a complete package map adds new evidence. |
 
-However, multiple real marking/top-code strings with the same `AK24BP...` shape were found in marking-code/search databases, including:
+### ACTIVE unresolved candidates
 
-- `AK24BP24178-51C8`
-- `AK24BP24220-C8` / `AK24BP24220-51C8`
-- `AK24BP0H003`
-- `AK24BP0K599`
-- `AK24BP21078`
-- `AK24BP27485-51C8`
+| Candidate | Why it remains active | Current blocker |
+|---|---|---|
+| **AC6951F8** | Live TOME data: eLQFP48 7x7x1.4, 8 Mbit flash, 4-channel DAC; same BR23/AC695N family and a plausible board class. | Full package pinout has not been recovered. TOME's English product page still exposes a direct CMS download record (product attachment id 248), but the attachment currently returns the site's error path. |
+| **AC6951T8** | Family tables identify it as an LQFP48 / 8 Mbit BR23/AC695N variant. | No trustworthy full pinout/reference schematic recovered yet. |
 
-Related JieLi-looking contemporary marks also occur as `AC24BP...`, `AB24BP...`, `AS24BP...`, `AG24BP...`.
+**Active search is F8/T8 only.** Broad AC695N-family enumeration is complete enough that closed/parked models must not be cycled through again.
 
-What this supports:
-- `AK24...` is plausibly a production/top-mark family, not a normal public model name.
+## 6. Package-marking policy — top text is not a model identifier
 
-What it does **not** support:
-- a direct mapping from the target mark to one specific retail model;
-- any exact target pinout.
+The JieLi/Jerry package text is **not a reliable commercial part-number key**. The physical target transcription `AK24 / BB24 / 230` is retained only as an observed artifact.
+
+Observed market/teardown evidence shows that:
+- commercial models can carry production/lot/date-style top codes that do not contain the public model name;
+- the same general top-code namespace appears across different JieLi parts and products;
+- a suffix can correlate with a model in an individual listing, but that correlation cannot be generalized into a stable decoding rule;
+- joining the target lines into `AK24BP24230` was an inference and is withdrawn as an identification method.
+
+Therefore:
+
+1. **Do not select, accept, reject, or prioritize a silicon candidate from the package marking.**
+2. Do not spend another research cycle trying to decode `AK24...` into a model number.
+3. Marking searches are allowed only as weak discovery aids for locating board photos, reseller pages, archived documents or schematics.
+4. Exact identification must come from the electrical/package fingerprint: package type, hard-ground set, known runtime-serial pair, then additional power/USB/audio anchors under one consistent orientation transform.
+5. Candidate enumeration should come from product catalogs/family tables, not from top-mark databases.
+
+The authoritative target anchors remain:
+- physical hard-ground positions: `12,13,36`;
+- physical runtime-serial pair: `23,24`;
+- one single square-package transform must explain all anchors simultaneously.
 
 ## 7. External sources / sites inspected
 
-### Primary / technically useful
+### Candidate enumeration and document recovery — preferred order
 
-1. **kagaimiq/jl-uboot-tool**
-   - https://github.com/kagaimiq/jl-uboot-tool
-   - https://github.com/kagaimiq/jl-uboot-tool/blob/main/README.md
-   - https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/uart-protocol.md
-   - https://github.com/kagaimiq/jl-uboot-tool/blob/main/data/uart-loaders.yaml
-   - https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/what-is-uboot.md
+1. **LCSC JieLi Tech catalog**
+   - https://www.lcsc.com/brand-detail/959.html
+   - Use as a finite product-family/catalog enumeration surface, especially for package filtering.
+   - Do not infer identity from a listing name alone; use its datasheet/package map when available.
 
-   Useful findings:
-   - BR23/AC695N is supported by the project in its established UBOOT workflow;
-   - public BR23 Boot-ROM UART-loader framing exists;
-   - upstream metadata includes a BR23 UART loader and a RAM-load address/encryption description.
-
-   Limitation:
-   - the project's normal complete flash-reading flow is centered on UBOOT/USB;
-   - the post-RAM-loader UART flash-return/read transport is not sufficiently established in our project to invent a complete UART dumper safely.
-
-2. **Official JieLi documentation / repositories**
-   - https://doc.zh-jieli.com/
-   - https://doc.zh-jieli.com/AW33/zh-cn/master/update/testbox_update/testbox_update.html
-   - https://doc.zh-jieli.com/AC63/zh-cn/release_v2.3.0/module_demo/ota/ota_introduce.html
-   - https://github.com/Jieli-Tech
-   - https://github.com/Jieli-Tech/fw-Bootloader
-   - https://github.com/Jieli-Tech/AD24N
-
-   Useful findings:
-   - confirms JieLi update/testbox/boot infrastructure as a real platform concept;
-   - supports treating the runtime `[TEST-UPDATE]` string as meaningful software infrastructure rather than random application text.
-
-   Limitation:
-   - no public document inspected so far maps target top mark `AK24 / BB24 / 230` to an exact 48-pin model/pinout.
+2. **TOME / Shenzhen TOME**
+   - Chinese catalog: https://www.tome-sz.com/
+   - English catalog: http://en.tome-sz.com/
+   - Old technical-document index and CMS download records are especially valuable.
+   - The English AC6951F8 product page still contains a direct CMS Download record for product/attachment id **248**, proving that an F8 downloadable artifact existed; the artifact currently resolves to the site's error path.
+   - The older technical index still exposes working CMS records for models such as AC6951G and AC6951C. Use these records/CDN paths to recover historical documents rather than assuming deleted product-card links mean the files never existed.
 
 3. **Yunthinker JieLi document archive**
    - https://www.yunthinker.com/
    - https://www.yunthinker.net/
-   - example archive PDF opened during research:
-     https://www.yunthinker.com/static/upload/file/20250104/1735974520457924.pdf
+   - High-value mirror for complete datasheets and reference schematics.
+   - Used to recover/validate AC6951B and other 48-pin package material.
 
-   Useful:
-   - large collection of JieLi datasheets/reference material;
-   - used to search/compare 48-pin candidates and ground/power layouts.
+4. **Official JieLi documentation, GitLab and GitHub**
+   - https://doc.zh-jieli.com/
+   - https://github.com/Jieli-Tech
+   - https://github.com/Jieli-Tech/fw-Bootloader
+   - public JieLi GitLab AC695N soundbox SDK
+   - Source authority for SDK lineage, UART/update/testbox behavior and board configuration; software lineage is not exact silicon identity.
 
-   Limitation:
-   - no exact target fingerprint match was obtained in the current pass.
+5. **kagaimiq/jielie and jl-uboot-tool**
+   - https://github.com/kagaimiq/jielie
+   - https://github.com/kagaimiq/jl-uboot-tool
+   - Useful for BR23/AC695N family inventory, architecture, UBOOT behavior and read-only acquisition tooling.
 
-4. **Shenzhen Guanrong marking-code database**
-   - https://www.tvs-gr.com/code/
-   - https://www.tvs-gr.com/en/code/
+6. **Qingyue / blevoice and Chinese schematic/repair forums**
+   - http://www.blevoice.com/
+   - https://bbs.ntpcb.com/
+   - Useful for hidden/unindexed product pages, reference-board context and schematic attachment names.
+   - Respect access controls: search public mirrors/caches for protected attachments rather than bypassing forum permissions.
 
-   Useful:
-   - search/index pages expose many `AK24BP...` / `AC24BP...` style strings;
-   - supports the top-mark-family hypothesis.
+### Low-value / discovery-only surfaces
 
-   Important negative result:
-   - direct exact lookup for `AK24BP24220` returned no structured model row even though the string is indexed in the site's popular/search corpus;
-   - therefore these strings must not be treated as proven model mappings.
+- Marking-code databases such as Shenzhen Guanrong are **not** an identification authority. They may prove that a production code exists, but not what target silicon it maps to.
+- Search engines, image search, marketplaces and repair forums are discovery surfaces only until a datasheet, schematic, package table or direct board evidence supports the claim.
+- Exact `AK24...` searches are no longer an active identification path.
 
-### Search engines / discovery surfaces
-
-- Google Search and Google Images: many query variants for exact mark, Chinese JieLi terms, LQFP48, GND/VSS fingerprint, adjacent AK24BP codes.
-- Bing: exact/variant marking queries; no useful exact model mapping found.
-- Baidu: attempted through the MCP browser; repeated upstream timeout, no usable result from this pass.
-- Google searches scoped to GitHub, Gitee and GitCode for `AK24BP`: no useful source-code mapping found.
-
-These search-engine summaries are discovery aids only, not evidence for a part-number claim.
 
 ## 8. Acquisition tooling currently in repository
 

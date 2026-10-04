@@ -735,26 +735,26 @@ Because ROM has no direct transitions into WMA/CDROM/`drv_other`, those dependen
 
 ## Secondary BR23 / AC695N side
 
-The board's secondary package is marked `AK24BP24230`. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
+The board's secondary package carries the JieLi/JL logo and top text transcribed as `AK24 / BB24 / 230`. That text is treated as a production/trace marking, **not** as a commercial model identifier. The UART log proves that running firmware contains AC695N/BR23 soundbox SDK paths and runtime messages, but the exact public SKU is still unresolved.
 
 BR23 / AC695N uses JieLi's `pi32v2` architecture, not MIPS and not SCORE7.
 
-### Public references / pinout
+### Package-identification authority
 
-Working public pinout candidate for the secondary LQFP48 device:
+Do not use a single AC6951C-style pinout as a working target pinout. The canonical checked-candidate ledger is `docs/jieli-secondary-controller-handoff-20261004.md`.
 
-- AC6951C datasheet V1.3 mirror: https://opendevices.ru/wp-content/uploads/2021/08/AC6951C-Datasheet-V1.3.pdf
-- alternate rendered datasheet: https://manuals.plus/m/f01af517c489b4b9a7162705aa1868219f1b5cd871d130e08f0c0d601858c359
+Current status:
+- AC6951B/B8 — closed/excluded;
+- AC6951C/C8 — closed/excluded;
+- AC6951G — closed/excluded;
+- AC6921A, JL7031C, AC4601, AC6901A, AC6351B/D — already checked/parked; do not repeat their historical literal-pin checks;
+- AC6951F8 and AC6951T8 — active unresolved package-map candidates.
 
-For AC6951C LQFP48:
-- pin 23 = `USBDM`
-- pin 24 = `USBDP`
-- pin 25 = `PA10` (also has `SPDIF_IN_B`)
-- pin 26 = `PA9` (also has `SPDIF_IN_A`)
+Closed B/C/G variants cannot produce the target's three independent hard-ground package positions under any allowed orientation transform. Pins 23/24 on the actual target are proven runtime serial at 115200 and must not be assigned USB semantics from another variant's datasheet.
 
-The physical package marking on this board is `AK24BP24230`; the exact mapping of that marking to AC6951C is still unproven. Use pins 23/24 only after continuity/visual package orientation confirms that this board's secondary device matches the AC6951C LQFP48 pinout.
+Package marking is not a valid candidate filter. Enumerate candidates from JieLi/LCSC/TOME family catalogs and identify them by the target electrical fingerprint.
 
-Boot/dump references:
+Boot/dump references:Boot/dump references:
 
 - jl-uboot-tool: https://github.com/kagaimiq/jl-uboot-tool
 - enter UBOOT / USB_KEY: https://github.com/kagaimiq/jl-uboot-tool/blob/main/docs/how-to-enter-uboot.md
@@ -813,7 +813,7 @@ It contains:
 - `spdif_dec_start`
 - max/default volume configuration and `VOL_SAVE`
 
-This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exact public SKU behind `AK24BP24230`, its internal-flash dump path and the inter-chip protocol remain open.
+This strongly ties the secondary side to JieLi AC695N/BR23 software, but the exact public SKU, its internal-flash dump path and the inter-chip protocol remain open. The package top text is not used to infer that SKU.
 
 ## Firmware-control acceptance
 
@@ -1290,7 +1290,7 @@ Before selecting a Boot-ROM UART pin or USB pin, the exact 48-pin package varian
 Earlier AC6951C-based pin assumptions are withdrawn for hardware probing because AC6951C does not satisfy that three-ground fingerprint. The 115200-baud runtime log still remains useful software evidence for firmware lineage and behavior, but it is not sufficient silicon-identification evidence.
 
 Firmware acquisition remains read-only-first. The active research order is:
-1. identify the exact JieLi package/top-mark mapping or a pin-compatible datasheet matching GND 12/13/36;
+1. enumerate remaining package candidates from catalog/family sources and match a complete pinout to the orientation-aware electrical fingerprint; do **not** use package top-mark decoding as an identification gate;
 2. only then select the correct Boot-ROM/update transport pins;
 3. use RAM/read-only acquisition before any erase/program operation;
 4. accept the dump only after two independent identical reads.
