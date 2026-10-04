@@ -343,6 +343,22 @@ The USB/removable-media path is now separated into controller, context and sourc
 
 Callback `0x8075A850` lives in `cdrom.bin` and is a shared media-stream initialization action rather than proven USB-exclusive behavior. Its raw path reaches `ReapplyAudioDecoderState` under one media-context condition, providing a concrete bridge from media initialization into the common audio decoder state. The lower USB transport layer is separate: `ProgramUsbHostTransfer @ 0x806A9AA8` programs `0xBC0201xx/0xBC0202xx` transaction registers and should not be conflated with media/source activation.
 
+### USB host control-plane boundary — 2026-10-04
+
+Raw MIPS flow now closes the stock USB host control path below the removable-media layer:
+
+- `ProgramUsbHostTransfer` is a host transaction engine: device address and endpoint number select endpoint contexts, IN/OUT directions use separate context tables, and `0xBC0201xx/0xBC0202xx` controller registers stage host transactions and data movement;
+- root/controller initialization and presence/reset handling are in the same MMIO subsystem; all direct `0xBC020xxx` accesses found in the active MIPS modules are concentrated in the host-transfer, root/reset, controller-presence and USB device-context action routes;
+- raw control-transfer wrapper `0x806C9410` builds standard request `GET_DESCRIPTOR` (`bmRequestType=0x80`, `bRequest=6`, descriptor type/index in `wValue`);
+- raw wrapper `0x806C9478` builds `SET_ADDRESS` (`bmRequestType=0`, `bRequest=5`);
+- raw wrapper `0x806C94C4` builds standard `GET_STATUS` (`bmRequestType=0x80`, `bRequest=2`, two-byte data stage);
+- raw wrapper `0x806C9514` builds `SET_CONFIGURATION` (`bmRequestType=0`, `bRequest=9`);
+- the configuration parser beginning at raw `0x806C95A0` requires `bDescriptorType=2`, walks subordinate descriptors, recognizes type 4 INTERFACE and type 5 ENDPOINT records, splits endpoint contexts by endpoint-address direction bit 7, and preserves endpoint number, transfer attributes and `wMaxPacketSize`;
+- the enumeration chain reads a short device descriptor to establish `bMaxPacketSize0`, allocates a USB address, sends `SET_ADDRESS`, reads the full device descriptor, stores VID/PID fields, reads the 9-byte configuration header, re-reads the complete `wTotalLength`, parses interfaces/endpoints, then sends `SET_CONFIGURATION(bConfigurationValue)`;
+- downstream class creation confirms class `0x08` Mass Storage with SCSI/CBW/CSW/READ(10)/WRITE(10) behavior and a separate class `0x09` Hub context.
+
+This is implementation proof for the stock firmware's USB **host** role. A separate static pass found no structurally valid embedded USB Device Descriptor, no gadget/UAC/CDC/HID strings, and no second independent `0xBC020xxx` MMIO cluster attributable to a USB device controller. That negative evidence is not a silicon-capability claim: the SPHE8202R documentation available here only establishes USB 2.0 capability, while the target firmware and reference board are host-oriented. Device/OTG/UAC capability therefore remains **UNKNOWN** until a device-controller register contract, ROM/alternate firmware path, or hardware experiment proves it.
+
 ### Audio-core findings retained with address caveats
 
 CDROM `0x8074C800`, previously named `ApplyCdromAudioModeFromSubtype`, maps a byte subtype as `0 -> 2`, `1..5 -> 1`, `6..10 -> 2`, `>=11 -> 4`. Its encoded invokes are `0x80701A44` and conditionally `0x807017A8`. It reads `gp+0x774 = 0x80003274`, first as a byte and later as a halfword; the exact storage contract should be retained rather than simplified silently.
