@@ -29,7 +29,7 @@ These are physical observations from the actual HD Audio Rush board and override
 - Existing accessible serial header/adapter traces to package pins **23 and 24**.
 - The pins 23/24 connection produces a coherent runtime/debug log at **115200 baud**.
 
-The three hard-ground pins are a mandatory fingerprint. A candidate package is rejected if any of pins 12, 13, or 36 is documented as a non-ground signal.
+The three hard-ground observations are a mandatory **physical-position fingerprint**, but the current user numbering is not yet proven to share the datasheet pin-1 orientation. Do not reject a candidate from literal `12/13/36` alone until all allowed LQFP48 orientation transforms have been checked. The known runtime-serial pair at physical positions `23/24` must be transformed by the same mapping and used as a second anchor.
 
 ## 3. UART observations from the target
 
@@ -116,7 +116,7 @@ Not proven:
 
 ## 5. Rejected LQFP48 / 48-pin candidates
 
-Candidates are rejected against the mandatory target fingerprint GND=12/13/36.
+Historical candidate rejections below used the initial literal numbering assumption. They remain useful only where the candidate also fails the new orientation-aware test. From 2026-10-04 onward, candidates are checked against all square-package orientation transforms using both anchors: hard-ground physical positions `12/13/36` and runtime-serial physical positions `23/24`.
 
 ### AC6951C
 Rejected.
@@ -280,9 +280,8 @@ The next agent should **not** re-prove the AC695N runtime log or ALINK 44.1 kHz.
 Priority order:
 
 1. Search for exact or adjacent `AK24 / BB24 / 230` top-mark mapping.
-2. Search 48-pin JieLi packages/schematics/datasheets for exact hard-ground fingerprint:
-   `pin12=GND, pin13=GND, pin36=GND`.
-3. Only after a package matches all three grounds, identify that variant's Boot-ROM/update UART/USB pins.
+2. Search 48-pin JieLi packages/schematics/datasheets and score them against the **orientation-aware** physical fingerprint. For the observed hard grounds `{12,13,36}`, the eight LQFP48 top/bottom-orientation hypotheses map to datasheet-number sets `{12,13,36}`, `{24,25,48}`, `{12,36,37}`, `{1,24,48}`, `{14,37,38}`, `{1,2,26}`, `{13,14,38}`, `{2,25,26}`. The observed runtime-serial pair `{23,24}` maps under the same hypotheses to `{23,24}`, `{35,36}`, `{47,48}`, `{11,12}`, `{26,27}`, `{38,39}`, `{2,3}`, `{14,15}` respectively.
+3. Require one *single* transform to make the candidate's ground pins and plausible serial-capable pins agree simultaneously before using that datasheet for Boot-ROM/update UART/USB pin selection.
 4. If no public mapping exists, use non-destructive target fingerprinting next (additional GND/power/known UART continuity) rather than guessing a model.
 5. Build/enable a read-only UART RAM dumper only once the correct Boot-ROM transport and post-loader return protocol are grounded.
 6. After dump acquisition, create the pi32v2 static-analysis target and recover the remaining control/status transport to SPHE.
@@ -331,7 +330,7 @@ Recovered target behavior places SOURCE and 2.0/5.1 physical buttons on the SPHE
 
 Do not resurrect these without new evidence:
 
-- AC6951B/AC6951C identification by package appearance: rejected by physical GND fingerprint.
+- AC6951B/AC6951C identification by package appearance: not accepted. Earlier literal-number rejection is no longer sufficient by itself; any reconsideration must pass the orientation-aware ground+runtime-serial transform test.
 - Pins 23/24 = USB D-/D+ because one AC6951C datasheet says so: invalid for this target; target pins 23/24 are observed as runtime serial at 115200.
 - One `0x0C` byte at 9600 = Boot ROM: not proven.
 - 196 binary bytes after BR23-style sync = successful Boot ROM: not proven.
@@ -359,3 +358,33 @@ Do not resurrect these without new evidence:
 4. identify second serial/test/update pads only after pinout evidence, not by energizing unknown pins;
 5. preserve raw UART captures in repository once uploaded;
 6. once a read-only dump is obtained, move immediately into pi32v2 firmware analysis unless exact package naming is still needed electrically.
+
+
+## 16. Orientation-aware package fingerprinting — 2026-10-04 correction
+
+The physical numbering used during continuity probing may be rotated relative to the real datasheet pin-1 marker, and a mirrored numbering can arise if a drawing/board view is interpreted from the opposite side. Therefore package identification now uses the full square-package orientation set instead of assuming the observed `12/13/36` are literal datasheet numbers.
+
+For a 48-pin package with 12 pins per side, the observed anchors transform as follows:
+
+| Hypothesis | Physical GND `12,13,36` -> datasheet pins | Physical runtime UART `23,24` -> datasheet pins |
+|---|---|---|
+| 0° | 12,13,36 | 23,24 |
+| 90° | 24,25,48 | 35,36 |
+| 180° | 12,36,37 | 47,48 |
+| 270° | 1,24,48 | 11,12 |
+| mirrored 0° | 14,37,38 | 26,27 |
+| mirrored 90° | 1,2,26 | 38,39 |
+| mirrored 180° | 13,14,38 | 2,3 |
+| mirrored 270° | 2,25,26 | 14,15 |
+
+A candidate is useful only if one single hypothesis simultaneously explains:
+1. all three hard-ground observations as documented ground-family pins; and
+2. the observed adjacent runtime-serial pair as pins that can plausibly carry the measured serial path in that firmware/package.
+
+This replaces the older one-axis method of opening a datasheet and checking literal pins 12/13/36 only.
+
+Newly checked with this method:
+- **AC6951G**: authentic datasheet obtained; literal pin 12=VSS, 13=OSCI, 36=MIC, 37=AGND. It fails the literal mapping, and remains under orientation-aware scoring rather than being rejected solely from literal numbering.
+- **AC6901A / AC6921A / AC4601 / AC6951C**: retained as comparison corpus; their full ground/power/serial maps should be scored under the same transform matrix before any final exclusion statement is reused.
+
+Research should now prefer collecting complete pin tables into a small comparison corpus and scoring transforms mechanically, instead of repeating manual one-PDF/one-pin checks.
