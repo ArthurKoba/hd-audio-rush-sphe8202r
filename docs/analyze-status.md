@@ -1,6 +1,6 @@
 # Analysis status
 
-## Current authority — 2026-10-02 late pass
+## Current authority — 2026-10-04 firmware-reconstruction phase
 
 This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
@@ -17,6 +17,46 @@ Validation levels remain separate:
 - Codec-profile processor coverage: **AUX 5451/5451**, **PCM 7787/7787**, **AC-3 10339/10339**, **DTS 9651/9651** vector-seeded reachable words decoded with zero gaps.
 - Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
 - The previous `97–98%` whole-audio estimate is retired.
+
+## Current project stage — firmware reconstruction first
+
+The active stage is **maximum firmware reconstruction without new board work**. Static/native analysis, source-level behavior recovery, firmware-domain mapping and rebuild understanding take priority over hardware acceptance.
+
+A direction that has reached a hardware-only boundary is **paused**, not treated as unfinished priority work. It is resumed only when:
+- static evidence exposes a new meaningful branch;
+- another firmware-domain dependency requires it; or
+- the project deliberately enters hardware-acceptance phase.
+
+Current approximate behavior/reconstruction coverage:
+
+| Area | Current | Active status |
+|---|---:|---|
+| USB host bring-up / EP0 contract | **93%** | **PAUSED at hardware boundary** — controller init, root reset, EP0 enumeration and descriptors are recovered; next meaningful proof is target execution |
+| SPHE UART / ROM-loader software | **90%** | **PAUSED at hardware boundary** — software contract is recovered; physical target access/execution proof remains |
+| DAC / six-channel output behavior | **90%** | **PAUSED where only board continuity/levels remain** |
+| AUX / stereo ingress | **87%** | Active only through the missing SPHE-side receiver / inter-chip contract |
+| Resident audio services | **93%** | Low priority unless required by replacement-source architecture |
+| Clock / sample-format contract | **80%** | Active where firmware can still resolve real clock/rate families; board-only validation is deferred |
+| SPHE <-> JieLi audio/control boundary | **72%** | **HIGH PRIORITY** |
+| JieLi firmware/control domain | **45%** | **HIGH PRIORITY**; full dump/static analysis would materially increase coverage |
+| DSP resources / PM/DM/cycle headroom | **55%** | **HIGH PRIORITY** |
+| ECHO processing engine | **70%** | Medium priority; recover if needed for original behavior parity |
+| USB device / UAC capability | **48%** | Deferred while original firmware reconstruction has larger gaps; not required for stock behavior parity |
+| Front-panel SOURCE / 2.0-5.1 behavior | **93%** | Paused; remaining work is mainly board/GPIO detail |
+| LED / residual front-panel ownership | **38%** | Low priority unless firmware analysis exposes its owner |
+| Rebuild / repack / integrity contract | **65%** | **HIGH PRIORITY** for replacement firmware |
+| Recovery / rollback software path | **70%** | Static/software work may continue; hardware acceptance remains deferred |
+
+### Active priority order
+
+1. **Recover the SPHE <-> JieLi boundary completely enough to replace it.** Resolve the SPHE-side receiver for the proven JieLi ALINK stream and separate that audio path from the still-open control/status transport.
+2. **Recover the JieLi firmware domain.** Preserve/dump the secondary-controller firmware when practical, bring up the pi32v2 analysis path, and recover startup, audio routing, Bluetooth/source control and inter-chip behavior required by the system.
+3. **Finish firmware-only DSP resource recovery.** Establish PM/DM ownership, resident allocation, cycle/headroom constraints and the limits relevant to a replacement implementation.
+4. **Finish replacement-image construction.** Reproduce module/container rebuild, packing, integrity/checksum rules and the software side of rollback/recovery.
+5. **Close remaining firmware-only Sunplus gaps.** Finish clock/sample-rate semantics, backend ownership and any still-unexplained live source/control routes that materially affect original behavior.
+6. **Only after the firmware reconstruction stage is exhausted, enter hardware acceptance.** Then run the prepared USB RAM probe, prove SPHE UART access, close board continuity/output levels and validate a rebuilt image.
+
+Do **not** spend analysis time increasing already-high percentages by re-proving established behavior. Closed or hardware-gated areas stay frozen unless they become dependencies of an active gap.
 
 ## Toolchain and canonical project
 

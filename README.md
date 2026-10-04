@@ -87,17 +87,27 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-analysis 
 - SCORE7 is useful general analysis workspace work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
 - The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 analysis workspace processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
 
-## Current work order
+## Current work order — firmware reconstruction phase
 
-The active scope is the useful audio/runtime behavior of the board, not exhaustive naming of unrelated legacy media code.
+The project is currently in a **firmware-first reconstruction phase**. New board measurements and execution tests are deferred. Areas that already require target execution, continuity, analog measurements or flash acceptance are frozen until the static/software gaps below are exhausted.
 
-1. **Close the remaining Sunplus audio-equivalence gaps.** Finish resident backend ownership, physical six-channel output ownership and the source-state details required to reproduce original audio behavior.
-2. **Make replacement-firmware construction and recovery real.** Reproduce container/module rebuild, integrity/checksum, safe flash/readback and rollback; then hardware-validate one intentional change.
-3. **Bring up the SPHE UART on the target PCB.** The ROM-loader/diagnostic software contract is recovered; the remaining boundary is physical target-board access and execution proof.
-4. **Resolve USB architecture before designing around it.** Host support is established; device/dual-role/UAC capability is not. Do not build the replacement architecture around computer-facing USB until that is proved.
-5. **Recover the secondary-controller boundary.** Dump/preserve its firmware when practical, identify the SPHE <-> controller transport/framing, and map only the Bluetooth/control/status behavior needed by the replacement system.
+Current priorities:
 
-Legacy DVD/CD/UI behavior is analyzed only when it is on a live route required by audio, startup, diagnostics or inter-chip control.
+1. **SPHE <-> JieLi boundary.** Resolve the SPHE-side receiver for the proven JieLi ALINK audio stream and recover the separate control/status transport between processors.
+2. **JieLi firmware domain.** Preserve/dump the secondary-controller firmware when practical, bring up pi32v2 static analysis, and recover the startup/audio/Bluetooth/control behavior required by the product.
+3. **DSP resource model.** Recover PM/DM ownership, resident allocations, cycle/headroom constraints and the practical limits for replacement DSP behavior.
+4. **Replacement image construction.** Finish module/container rebuild, packing and integrity/checksum reproduction, plus the software side of recovery/rollback.
+5. **Remaining firmware-only Sunplus gaps.** Finish clock/sample-rate semantics, backend ownership and unexplained live source/control routes only where they materially affect original behavior.
+
+Currently frozen at hardware boundary:
+- USB Host bring-up: **93%** — controller/root/EP0/descriptors are recovered; next useful proof is the prepared RAM probe on target hardware;
+- SPHE UART software path: **90%** — next useful proof is physical target access and execution;
+- DAC/six-channel behavior: **90%** — remaining uncertainty is mainly board continuity/levels;
+- front-panel SOURCE / 2.0-5.1 behavior: **93%** — remaining work is mostly physical GPIO/board detail.
+
+USB Device/UAC is a later extension, currently about **48%** capability understanding. It is not a prerequisite for reconstructing the stock firmware and should not displace the larger original-system gaps.
+
+Legacy DVD/CD/UI behavior is analyzed only when it is on a live route required by startup, audio, diagnostics or inter-chip control. Do not spend time polishing already-established audio behavior merely to raise a percentage.
 
 ## Hardware platform
 
