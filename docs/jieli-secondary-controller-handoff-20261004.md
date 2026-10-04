@@ -299,3 +299,63 @@ These are approximate behavior/reconstruction coverage, not hardware/product rea
 - DSP resource/headroom model: ~55%, active firmware-analysis gap.
 
 The firmware-first project policy remains: areas already blocked only on hardware acceptance stay frozen while software/reconstruction gaps such as JieLi acquisition and SPHE<->JieLi integration are attacked.
+
+
+## 12. Secondary-controller role in the product
+
+Current recovered audio model:
+
+```text
+Bluetooth / analog AUX L/R / PCM S/PDIF
+        -> secondary JieLi firmware
+        -> LADC line-in channels [2],[3] / common mixer / digital volume
+        -> ALINK TX @ 44.1 kHz
+        -> [SPHE-side receiver still unidentified]
+        -> SPHE PCM/AUX processing / GM5 / EQ / 2.0->5.1
+        -> six-channel SPHE output
+```
+
+The recovered direction is secondary controller -> external receiver: the matching SDK lineage opens ALINK as TX and the target runtime prints `ALINK_SR = 44100`.
+
+The target secondary firmware also starts an S/PDIF decoder path, but recovered runtime/SDK evidence for the observed route selects PCM. Current architecture therefore keeps original AC-3/DTS multichannel decode on the SPHE side.
+
+Two separate inter-chip contracts remain open and must not be conflated:
+1. audio transport: JieLi common mixer -> ALINK TX -> unknown SPHE receiver;
+2. control/status transport: source/state/status/control messages between processors.
+
+The exposed 115200 debug UART does not prove that inter-chip control uses UART.
+
+Recovered target behavior places SOURCE and 2.0/5.1 physical buttons on the SPHE side. Historical JieLi `key_event:276` was corrected to an internal LINEIN-start event, not a front-panel button.
+
+## 13. Important corrections / dead ends
+
+Do not resurrect these without new evidence:
+
+- AC6951B/AC6951C identification by package appearance: rejected by physical GND fingerprint.
+- Pins 23/24 = USB D-/D+ because one AC6951C datasheet says so: invalid for this target; target pins 23/24 are observed as runtime serial at 115200.
+- One `0x0C` byte at 9600 = Boot ROM: not proven.
+- 196 binary bytes after BR23-style sync = successful Boot ROM: not proven.
+- AC695N/BR23 build path = exact chip model: false; software lineage only.
+- `AK24/BB24/230` = literal `AK24BP24230` public model: not proven.
+- USB as immediate acquisition route: deferred because actual target USB pins are unknown; physically accessible interface is UART.
+- Guessing PB5/LDO_IN from a different BR23 package: prohibited until matching pinout is found.
+
+## 14. Research methods with little/no value
+
+- Exact English search for `AK24BP24230`: no authoritative hit.
+- `AK24BB24230` and spacing variants: no authoritative hit.
+- Google-scoped GitHub/Gitee/GitCode searches for `AK24BP`: no useful model-to-pinout source.
+- Bing exact queries: no useful model mapping.
+- Baidu through MCP browser: repeated timeout.
+- Marking-code databases: useful only to prove similar AK24BP marks exist; no target model mapping.
+- Google AI/search summaries: discovery-only, not evidence.
+- Searching only old public AC695N family: too narrow because physical fingerprint contradicts known AC6951C layout.
+
+## 15. Best next evidence paths
+
+1. retain a clear macro photo of entire top mark and pin-1 indicator;
+2. search Chinese board/schematic/service material by visual top mark and adjacent AK24BP codes;
+3. if public mapping remains absent, build a stronger non-destructive package fingerprint from additional GND/power/known-UART continuity;
+4. identify second serial/test/update pads only after pinout evidence, not by energizing unknown pins;
+5. preserve raw UART captures in repository once uploaded;
+6. once a read-only dump is obtained, move immediately into pi32v2 firmware analysis unless exact package naming is still needed electrically.
