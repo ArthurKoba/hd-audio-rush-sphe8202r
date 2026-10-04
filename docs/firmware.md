@@ -1282,3 +1282,15 @@ high-level route followed stale stored targets into a data table. The actual
 raw MIPS targets differ and include runtime-state helpers. Therefore raw
 low-level operations are authoritative in that local region until the analysis
 metadata is repaired. No broad repair has been applied.
+
+## JieLi acquisition identification gate — 2026-10-04
+
+Before selecting a Boot-ROM UART pin or USB pin, the exact 48-pin package variant must match the physical ground fingerprint recorded in `docs/hardware.md`: target pins 12, 13 and 36 are all hard ground by continuity with the board unpowered.
+
+Earlier AC6951C-based pin assumptions are withdrawn for hardware probing because AC6951C does not satisfy that three-ground fingerprint. The 115200-baud runtime log still remains useful software evidence for firmware lineage and behavior, but it is not sufficient silicon-identification evidence.
+
+Firmware acquisition remains read-only-first. The active research order is:
+1. identify the exact JieLi package/top-mark mapping or a pin-compatible datasheet matching GND 12/13/36;
+2. only then select the correct Boot-ROM/update transport pins;
+3. use RAM/read-only acquisition before any erase/program operation;
+4. accept the dump only after two independent identical reads.

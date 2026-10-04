@@ -175,3 +175,24 @@ Safe first target-board measurement is therefore continuity only:
 4. use a 3.3 V TTL USB-UART for RX/TX; do not apply RS-232 levels and do not infer 5 V UART signaling from the demo connector's +5 V supply pin.
 
 Do not strap pin 1 or power-cycle the target until continuity/pin orientation is independently confirmed on the actual PCB.
+
+## Secondary JieLi package fingerprint — 2026-10-04
+
+Physical continuity on the target PCB is now the authority for package identification. The secondary controller is a 48-pin quad flat package with JieLi/JL logo and top marking transcribed as `AK24 / BB24 / 230` (exact line joining remains uncertain).
+
+Confirmed target-board ground pins by direct continuity to board ground with power removed:
+- pin 12 = GND;
+- pin 13 = GND;
+- pin 36 = GND.
+
+The currently exposed runtime/debug serial connection traces to target package pins 23 and 24 and produces coherent 115200-baud logs. This fact is **not** used to force an identification: pins 23/24 may be muxed GPIO/USB/UART on different JieLi families.
+
+Public LQFP48 JieLi candidates checked so far do **not** match the complete target fingerprint:
+- AC6951C: pin 36 is DACVSS and pin 13 is VSSIO, but pin 12 is BT_RF — rejected against confirmed target pin-12 ground;
+- AC6921A: pin 12 is VSSIO, but pin 13 is BT_OSCI and pin 36 is DACR — rejected;
+- JL7031C: pin 13 is VSS, but pin 12 is BTRF — rejected;
+- AC4601: pin 12 is FMVSS, but pin 13 is USBDM and pin 36 is PA9 — rejected.
+
+Therefore the exact silicon/package variant remains **UNKNOWN**. Do not use an AC6951C/AC6921A/JL7031C pin number for boot/UART/USB probing until a datasheet or schematic matches all three confirmed ground pins.
+
+Marking research found real JieLi-style production/top-mark strings in the `AK24BP...` family (for example `AK24BP24178`, `AK24BP24220`, `AK24BP0H003`), which supports treating `AK24...` as a production/top-mark lineage rather than a public retail part number. No public mapping from the exact target mark to a commercial model has yet been proven.
