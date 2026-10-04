@@ -49,6 +49,12 @@ The mechanically recovered action map is maintained in `docs/analyze-status.md`.
 
 Control ID `0x57` is ECHO. Saved `ApplyEchoProfileIndex @ 0x80702C8C` indexes runtime table `0x88012CC0`, stores the ECHO working index at `gp+0x83A`, and dispatches action 4. Saved `ApplyEchoHardwareProfile @ 0x80702CC8` is the direct action-4 wrapper used by AUX with `(0,0)`.
 
+### Audio core-boundary continuation — 2026-10-04
+
+- `CommitAudioFormatMode` raw MIPS flow now directly reaches the hardware format-programming action. The recovered rate-family mapping is: candidate `1` / class `k0` = 8/16/32-kHz family, candidate `2` / `k1` = 11.025/22.05/44.1-kHz family, candidate `4` / `k2` = 12/24/48-kHz family, and candidate `0x40` / `k6` = 96-kHz class. Hardware class tables at `drv_other:0x8078EC38/0x8078EC54` and the class-specific register sequences are instruction-backed. Classes `k5/k9/k10` remain physically unnamed.
+- AUX and PCM both consume service slots `0x13..0x1A` as the eight resident output selector IDs. Runtime initialization fixes those slots to `0,1,2,3,4,5,7,6`. Combined with the recovered DSP lane topology, this gives selector roles: `0/1` stereo pair, `2/3` front pair, `4/5` rear pair, `7` CENTER, `6` SUB. A/B-to-left/right orientation inside the stereo/front/rear pairs is still open.
+- AUX copies service slot `0x32` into `DM:07D0`. Runtime service initialization explicitly writes slot `0x32 = 5`; therefore the normal target AUX startup follows the `DM:07D0 != 4` backend branch and uses auxiliary selectors `0x10/0x11`. The `==4` branch remains an alternate path, not the default target route.
+- ECHO control is now closed through the resident boundary: control ID `0x57` stores `selection-2` at the persistent runtime state, indexes `0x88012CC0`, and dispatches action 4 / family `0x0600`. Profiles 0..8 are OFF `(0,0)` then modes `0x07,0x0F,0x17,0x1F,0x27,0x2F,0x37,0x3F` with auxiliary value `0x2710`. AUX/PCM codec profiles only acknowledge family `0x0600`; the actual sample-processing engine is therefore below the local codec profiles at the resident DSP boundary.
 ### Replacement-firmware boundary
 
 The recovered contracts are sufficient to start implementing isolated replacement-source components and host-side tooling. They are not sufficient to claim a flashable full replacement. Remaining firmware gates are reproducible container/module reconstruction and integrity, target-board SPHE UART execution proof, recovery/rollback, resident backend ownership, DSP resource budget and hardware validation of the six analog channels.

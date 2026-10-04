@@ -18,6 +18,12 @@ Validation levels remain separate:
 - Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
 - The previous `97–98%` whole-audio estimate is retired.
 
+### 2026-10-04 core-boundary delta
+
+- Audio format programming is now tied from rate-family classification through `CommitAudioFormatMode` into hardware class tables. Directly proved classes: 32-kHz family=`k0`, 44.1-kHz family=`k1`, 48-kHz family=`k2`, 96 kHz=`k6`; higher enabled classes remain unnamed.
+- Shared resident output selectors are fixed by service slots `0x13..0x1A = 0,1,2,3,4,5,7,6`, giving stereo `0/1`, front `2/3`, rear `4/5`, CENTER `7`, SUB `6`. Pair orientation A/B -> L/R remains open.
+- AUX service slot `0x32` initializes to `5`, proving the target's normal backend path is the non-4 branch with auxiliary selectors `0x10/0x11`.
+- ECHO UI/control/profile dispatch is recovered through family `0x0600`; local codec profiles only acknowledge this family, placing the unresolved sample engine at the resident DSP boundary.
 ## Toolchain and canonical project
 
 - Canonical project: `sphe8202r_decoder_p25d80`.
