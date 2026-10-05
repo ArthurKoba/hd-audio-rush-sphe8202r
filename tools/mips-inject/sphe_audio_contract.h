@@ -229,20 +229,27 @@ enum sphe_control_descriptor_layout {
     SPHE_CONTROL_SELECTION_GROUP_SIZE = 9,
 };
 
-enum sphe_persistent_storage_layout {
-    /* Byte-addressed persistent namespace used by the recovered control/source state. */
-    SPHE_PERSIST_NAMESPACE_MAIN                     = 0x00A0,
-    SPHE_PERSIST_OFFSET_FIRMWARE_SIGNATURE          = 0x0001,
-    SPHE_PERSIST_FIRMWARE_SIGNATURE_SIZE            = 3,
-    SPHE_PERSIST_OFFSET_CONTROL_SELECTIONS          = 0x0004,
-    SPHE_PERSIST_OFFSET_CONTROL_CHECKSUM             = 0x0045,
-    SPHE_PERSIST_CONTROL_CHECKSUM_SIZE              = 2,
-    SPHE_PERSIST_OFFSET_AUXILIARY_CONTROL_STATE     = 0x0047,
-    SPHE_PERSIST_AUXILIARY_CONTROL_STATE_SIZE       = 0x001C,
-    SPHE_PERSIST_OFFSET_UNMAPPED_BLOCK_0102         = 0x0102,
-    SPHE_PERSIST_UNMAPPED_BLOCK_0102_SIZE           = 0x0034,
-    SPHE_PERSIST_OFFSET_EXTERNAL_INPUT_MODE         = 0x0136,
-    SPHE_PERSIST_EXTERNAL_INPUT_MODE_SIZE           = 1,
+enum sphe_persistent_namespace {
+    /* Byte-addressed persistent namespace used by recovered control/source state. */
+    SPHE_PERSIST_NAMESPACE_MAIN = 0x00A0,
+};
+
+enum sphe_persistent_offset {
+    SPHE_PERSIST_OFFSET_FIRMWARE_SIGNATURE      = 0x0001,
+    SPHE_PERSIST_OFFSET_CONTROL_SELECTIONS      = 0x0004,
+    SPHE_PERSIST_OFFSET_CONTROL_CHECKSUM        = 0x0045,
+    SPHE_PERSIST_OFFSET_AUXILIARY_CONTROL_STATE = 0x0047,
+    SPHE_PERSIST_OFFSET_UNMAPPED_BLOCK_0102     = 0x0102,
+    SPHE_PERSIST_OFFSET_EXTERNAL_INPUT_MODE     = 0x0136,
+};
+
+enum sphe_persistent_size {
+    SPHE_PERSIST_FIRMWARE_SIGNATURE_SIZE        = 3,
+    SPHE_PERSIST_CONTROL_SELECTIONS_SIZE        = SPHE_CONTROL_STATE_SLOT_LIMIT,
+    SPHE_PERSIST_CONTROL_CHECKSUM_SIZE          = 2,
+    SPHE_PERSIST_AUXILIARY_CONTROL_STATE_SIZE   = 0x001C,
+    SPHE_PERSIST_UNMAPPED_BLOCK_0102_SIZE       = 0x0034,
+    SPHE_PERSIST_EXTERNAL_INPUT_MODE_SIZE       = 1,
 };
 
 enum sphe_audio_service_state {
