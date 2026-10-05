@@ -29,7 +29,7 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 
 These items are **not** part of the active transfer denominator unless they are already documented semantics that still need to be installed into the saved project. They are recorded here so the transfer can continue without turning into a new behavior-recovery pass.
 
-- MUSIC MODE table metadata: the saved project still carries the historical `seven_band_eq_preset_bank` symbol at `0x8070B37A`. The documented correction is page table `0x8070B35C` (4 x 11 bytes) and fixed EQ preset bank `0x8070B388` (5 x 7 bytes). Removing the stale symbol is currently mutation-blocked; do not resize the page table around the wrong symbol.
+- MUSIC MODE table metadata is mostly reconciled: `audio_preset_menu_page_table @ 0x8070B35C` is labeled/documented and `g_abSevenBandEqFixedPresetBank @ 0x8070B388` is typed as 35 bytes (5 x 7). Historical primary symbol `seven_band_eq_preset_bank @ 0x8070B37A` remains deletion-blocked, but its comment now explicitly marks it as a known-bad arithmetic origin inside the page table.
 - Runtime GP restore metadata is reconciled in the saved project: `g_pRuntimeGpRestoreWord @ 0x88012200` is the confirmed restore pointer and is fully documented. Historical shifted address `0x88012A00` no longer carries the stale symbol and is explicitly annotated as known-bad.
 - External-input continuation `0x806FED18`: known to write external-input selector values from the broader transition route, but its complete behavior contract is intentionally deferred.
 - Shared-media runtime candidates produced by the paused GP scan remain a later behavior-recovery queue unless their meaning was already closed during the refactor.

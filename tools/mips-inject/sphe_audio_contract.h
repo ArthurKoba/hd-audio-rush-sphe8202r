@@ -543,6 +543,15 @@ struct sphe_resident_audio_descriptor {
     unsigned short runtime_counter;
 };
 
+enum sphe_audio_preset_table_layout {
+    SPHE_AUDIO_PRESET_PAGE_COUNT        = 4,
+    SPHE_AUDIO_PRESET_PAGE_RECORD_SIZE  = 11,
+    SPHE_EQ_FIXED_PRESET_COUNT          = 5,
+};
+
+#define SPHE_AUDIO_PRESET_MENU_PAGE_TABLE 0x8070B35CU
+#define SPHE_EQ_FIXED_PRESET_BANK         0x8070B388U
+
 /* Canonical control-descriptor/table addresses. */
 #define SPHE_CONTROL_DESCRIPTOR_BASE              0x80707EACU
 #define SPHE_CONTROL_DISPATCH_JUMP_TABLE          0x807081E0U
