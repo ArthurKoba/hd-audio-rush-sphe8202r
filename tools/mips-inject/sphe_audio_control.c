@@ -6,42 +6,14 @@
 #define REG16(addr) (*(volatile uint16_t *)(uintptr_t)(addr))
 #define REG32(addr) (*(volatile uint32_t *)(uintptr_t)(addr))
 
-/*
- * Recovered AP1 live-state addresses.  These are target-specific to the
- * preserved 02R-D-02 image and intentionally bypass the legacy DVD/UI layer.
- */
-#define SPHE_STATE_EXTERNAL_MODE         0x80002C2BU
-#define SPHE_STATE_EXTERNAL_MODE_PREV    0x80002C2CU
-
-#define SPHE_STATE_DECODER              0x80003198U
-#define SPHE_STATE_MASTER_MUTE          0x800032B5U
-#define SPHE_STATE_SOURCE_MEDIA         0x800032A5U
-#define SPHE_STATE_EXTERNAL_INPUT       0x800032FAU
-#define SPHE_STATE_SPEAKER_SUB          0x800032D6U
-#define SPHE_STATE_SPEAKER_CENTER       0x800032DCU
-#define SPHE_STATE_SPEAKER_REAR         0x8000330EU
-#define SPHE_STATE_MIC2                 0x80003324U
-#define SPHE_STATE_SPEAKER_FRONT        0x80003327U
-#define SPHE_STATE_MIC1                 0x80003297U
-#define SPHE_STATE_MASTER_VOLUME        0x80003332U
-#define SPHE_STATE_ECHO                 0x8000333AU
-#define SPHE_STATE_DOWNSAMPLE_MASK      0x80003244U
-#define SPHE_STATE_SPDIF_HW_MODE        0x800042B3U
-
-#define SPHE_STATE_SURROUND_SELECTION   0x80002B0CU
-#define SPHE_STATE_EQ_SELECTION         0x80002B0DU
-#define SPHE_STATE_USER_EQ7             0x80002B10U
-
-#define SPHE_STATE_ECHO_SLOT            0x8000681DU
-#define SPHE_STATE_MIC1_SLOT            0x8000681EU
-
-
+/* Recovered AP1 state addresses and semantic values come from
+ * sphe_audio_contract.h.  Keep this file behavior-only. */
 bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 {
     const uint8_t next = (uint8_t)mode;
     const uint8_t previous = REG8(SPHE_STATE_EXTERNAL_MODE_PREV);
 
-    if (next > 3U) {
+    if (next > (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         return false;
     }
 
@@ -57,16 +29,17 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
      * Stock behavior performs the mute/delay transition whenever AUX is one
      * side of the change: entering mode 3 or leaving previous mode 3.
      */
-    if (next == 3U || previous == 3U) {
+    if (next == (uint8_t)SPHE_EXTERNAL_MODE_AUX ||
+        previous == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         sphe_prepare_external_input_transition();
     }
 
-    if (next == 3U) {
-        REG8(SPHE_STATE_EXTERNAL_INPUT) = 1U;
-        REG8(SPHE_STATE_SOURCE_MEDIA) = 0x0BU;
+    if (next == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
+        REG8(SPHE_STATE_EXTERNAL_INPUT) = SPHE_EXTERNAL_INPUT_AUX;
+        REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_AUX;
     } else {
-        REG8(SPHE_STATE_EXTERNAL_INPUT) = 2U;
-        REG8(SPHE_STATE_SOURCE_MEDIA) = 0x0DU;
+        REG8(SPHE_STATE_EXTERNAL_INPUT) = SPHE_EXTERNAL_INPUT_SPDIF;
+        REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_SPDIF_IN;
     }
 
     REG8(SPHE_STATE_EXTERNAL_MODE_PREV) = next;
@@ -76,14 +49,14 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 
 bool sphe_control_set_tuner_spdif(bool spdif)
 {
-    const uint8_t desired_selector = spdif ? 2U : 0U;
-    const uint8_t desired_state = spdif ? 0x0DU : 0x02U;
+    const uint8_t desired_selector = spdif ? SPHE_EXTERNAL_INPUT_SPDIF : SPHE_EXTERNAL_INPUT_TUNER;
+    const uint8_t desired_state = spdif ? SPHE_SOURCE_MEDIA_STATE_SPDIF_IN : SPHE_SOURCE_MEDIA_STATE_TUNER_ROUTE;
 
     /*
      * Mode 3 is the confirmed AUX route.  Do not silently choose one of the
      * still-unlabelled external hardware modes 0..2 on behalf of the caller.
      */
-    if (REG8(SPHE_STATE_EXTERNAL_MODE) == 3U) {
+    if (REG8(SPHE_STATE_EXTERNAL_MODE) == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         return false;
     }
 
@@ -130,7 +103,7 @@ void sphe_control_get_status(struct sphe_audio_status *out)
 
 bool sphe_control_set_master_volume(uint8_t level)
 {
-    if (level > 15U) {
+    if (level > SPHE_MASTER_VOLUME_MAX) {
         return false;
     }
 
@@ -160,7 +133,7 @@ bool sphe_control_set_surround(enum sphe_surround_mode mode)
         return false;
     }
 
-    REG8(SPHE_STATE_SURROUND_SELECTION) = (uint8_t)mode + 2U;
+    REG8(SPHE_STATE_SURROUND_SELECTION) = (uint8_t)mode + SPHE_CONTROL_SELECTION_BIAS;
     sphe_apply_surround_index((uint8_t)mode);
     return true;
 }
@@ -250,37 +223,37 @@ bool sphe_control_set_speaker_delay(
         return false;
     }
 
-    sphe_apply_speaker_delay((uint8_t)channel, (uint16_t)delay);
+    sphe_apply_speaker_delay(channel, (uint16_t)delay);
     return true;
 }
 
 bool sphe_control_set_echo(uint8_t index)
 {
-    if (index > 8U) {
+    if (index > SPHE_EFFECT_INDEX_MAX) {
         return false;
     }
 
     REG8(SPHE_STATE_ECHO) = index;
-    REG8(SPHE_STATE_ECHO_SLOT) = index + 2U;
+    REG8(SPHE_STATE_ECHO_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_echo();
     return true;
 }
 
 bool sphe_control_set_mic1(uint8_t index)
 {
-    if (index > 8U) {
+    if (index > SPHE_EFFECT_INDEX_MAX) {
         return false;
     }
 
     REG8(SPHE_STATE_MIC1) = index;
-    REG8(SPHE_STATE_MIC1_SLOT) = index + 2U;
+    REG8(SPHE_STATE_MIC1_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_mic1();
     return true;
 }
 
 bool sphe_control_set_mic2(uint8_t index)
 {
-    if (index > 8U) {
+    if (index > SPHE_EFFECT_INDEX_MAX) {
         return false;
     }
 
@@ -311,7 +284,7 @@ bool sphe_control_set_downsample(enum sphe_downsample_mode mode)
         return false;
     }
 
-    sphe_apply_downsample_mode((uint8_t)mode);
+    sphe_apply_downsample_mode(mode);
     return true;
 }
 
