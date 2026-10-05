@@ -21,6 +21,9 @@
 /* Shared 16-bit media/runtime flags; individual bit meanings remain contextual. */
 #define SPHE_STATE_MEDIA_RUNTIME_FLAGS       0x8000326AU
 
+/* Shared 32-bit code pointer used as the active media parser/continuation callback. */
+#define SPHE_STATE_MEDIA_CONTINUATION_CALLBACK 0x800031E4U
+
 /*
  * Shared media stream-buffer cursor contract.  AP1/CDROM/DRV/WMA use the
  * same base pointer with 16-bit limit/cursor offsets.
