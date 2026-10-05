@@ -179,12 +179,15 @@ enum sphe_setup_control_id {
     SPHE_CONTROL_ECHO            = 0x57,
     SPHE_CONTROL_DOWNSAMPLE      = 0x5B,
     SPHE_CONTROL_KEY             = 0x5C,
+    SPHE_CONTROL_DYNAMIC_RANGE   = 0x6A,
     SPHE_CONTROL_AUDIO_COMMAND_FAMILY = 0x6E,
     SPHE_CONTROL_SPDIF_OUTPUT    = 0x71,
     SPHE_CONTROL_SUBWOOFER       = 0x8B,
     SPHE_CONTROL_GM5             = 0x9E,
     SPHE_CONTROL_MIC1            = 0xB2,
     SPHE_CONTROL_MIC2            = 0xB3,
+    SPHE_CONTROL_CENTER_DELAY    = 0xD1,
+    SPHE_CONTROL_REAR_DELAY      = 0xD2,
     SPHE_CONTROL_CENTER_SPEAKER  = 0xCD,
     SPHE_CONTROL_REAR_SPEAKER    = 0xCE,
     SPHE_CONTROL_FRONT_SPEAKER   = 0xD3,
@@ -343,6 +346,7 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_CONTROL_STATE_BASE                   0x80006810U
 #define SPHE_ADDR_RESOLVE_CONTROL_ID_TO_GROUP_SLOT 0x80777E20U
 #define SPHE_ADDR_DISPATCH_CONTROL_OPTION          0x80776210U
+#define SPHE_ADDR_DISPATCH_SPECIAL_CONTROL_SELECTION 0x8077761CU
 
 /* Canonical recovered action-node addresses used by replacement-source code. */
 #define SPHE_ADDR_DISPATCH_AUDIO_HARDWARE_ACTION  0x806FFD1CU
