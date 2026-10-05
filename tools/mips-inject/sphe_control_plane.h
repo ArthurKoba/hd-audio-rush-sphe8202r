@@ -17,6 +17,13 @@ enum sphe_control_opcode {
     SPHE_CTRL_SET_EXTERNAL_SUBSOURCE = 0x0B,
 };
 
+enum sphe_control_result {
+    SPHE_CONTROL_OK = 0,
+    SPHE_CONTROL_NULL_COMMAND = -1,
+    SPHE_CONTROL_BAD_ARGUMENT = -2,
+    SPHE_CONTROL_BAD_OPCODE = -3,
+};
+
 struct sphe_control_command {
     uint8_t opcode;
     uint8_t value;

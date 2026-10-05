@@ -1,69 +1,70 @@
 #include "sphe_control_plane.h"
 #include "sphe_audio_api.h"
+#include "sphe_audio_control.h"
 
 int
 sphe_handle_control_command(const struct sphe_control_command *cmd)
 {
     if (cmd == (const struct sphe_control_command *)0) {
-        return -1;
+        return SPHE_CONTROL_NULL_COMMAND;
     }
 
     switch ((enum sphe_control_opcode)cmd->opcode) {
     case SPHE_CTRL_SET_MASTER_VOLUME:
-        return sphe_set_master_volume(cmd->value);
+        return sphe_control_set_master_volume(cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_TOGGLE_MASTER_MUTE:
         sphe_toggle_master_mute();
-        return 0;
+        return SPHE_CONTROL_OK;
 
     case SPHE_CTRL_SET_SURROUND:
-        return sphe_set_surround_mode(
-            (enum sphe_surround_mode)cmd->value
-        );
+        return sphe_control_set_surround((enum sphe_surround_mode)cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_EQ_SELECTION:
-        return sphe_set_eq_selection_stateful(
-            (enum sphe_eq_selection)cmd->value
-        );
+        return sphe_control_set_eq_selection((enum sphe_eq_selection)cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_DOWNSAMPLE:
-        if (cmd->value > (uint8_t)SPHE_DOWNSAMPLE_192K) {
-            return -2;
-        }
-        sphe_set_downsample_mode(cmd->value);
-        return 0;
+        return sphe_control_set_downsample((enum sphe_downsample_mode)cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_ECHO_LEVEL:
-        return sphe_set_echo_level_stateful(cmd->value);
+        return sphe_control_set_echo(cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_MIC1_LEVEL:
-        return sphe_set_mic1_level_stateful(cmd->value);
+        return sphe_control_set_mic1(cmd->value)
+            ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_APPLY_SPDIF_OPTION:
-        if (cmd->value != (uint8_t)SPHE_SPDIF_OFF &&
-            cmd->value != (uint8_t)SPHE_SPDIF_RAW &&
-            cmd->value != (uint8_t)SPHE_SPDIF_PCM) {
-            return -2;
-        }
-        sphe_apply_spdif_output_option(
+        return sphe_control_set_spdif_output(
             (enum sphe_spdif_output_option)cmd->value
-        );
-        return 0;
+        ) ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_DECODER_OUTPUT_MODE:
-        sphe_set_decoder_output_mode(cmd->value, cmd->aux);
-        return 0;
+        sphe_apply_decoder_output_mode(cmd->value, cmd->aux);
+        return SPHE_CONTROL_OK;
 
     case SPHE_CTRL_SET_EXTERNAL_INPUT_MODE:
-        return sphe_set_external_input_mode(cmd->value);
+        return sphe_control_set_external_mode(
+            (enum sphe_external_mode_code)cmd->value
+        ) ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
 
     case SPHE_CTRL_SET_EXTERNAL_SUBSOURCE:
-        return sphe_set_external_subsource(
-            (enum sphe_external_subsource)cmd->value
-        );
+        if (cmd->value == SPHE_EXTERNAL_INPUT_TUNER) {
+            return sphe_control_set_tuner_spdif(false)
+                ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
+        }
+        if (cmd->value == SPHE_EXTERNAL_INPUT_SPDIF) {
+            return sphe_control_set_tuner_spdif(true)
+                ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;
+        }
+        return SPHE_CONTROL_BAD_ARGUMENT;
 
     default:
-        return -3;
+        return SPHE_CONTROL_BAD_OPCODE;
     }
 }
 

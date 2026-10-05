@@ -21,9 +21,9 @@
 #define EXTERNAL_INPUT_SELECTOR REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR)
 #define DECODER_STATE           REG32(SPHE_STATE_DECODER)
 
-#define CONTROL_DESCRIPTOR_BASE ((volatile uint8_t *)(uintptr_t)0x80707EACU)
-#define CONTROL_SELECTION_BASE  ((volatile uint8_t *)(uintptr_t)0x800066B0U)
-#define CONTROL_STATE_BASE      ((volatile uint8_t *)(uintptr_t)0x80006810U)
+#define CONTROL_DESCRIPTOR_BASE ((volatile uint8_t *)(uintptr_t)SPHE_CONTROL_DESCRIPTOR_BASE)
+#define CONTROL_SELECTION_BASE  ((volatile uint8_t *)(uintptr_t)SPHE_CONTROL_SELECTION_BASE)
+#define CONTROL_STATE_BASE      ((volatile uint8_t *)(uintptr_t)SPHE_CONTROL_STATE_BASE)
 
 typedef uint32_t (*resolve_control_fn)(uint32_t control_id);
 typedef void (*dispatch_control_fn)(
@@ -32,10 +32,10 @@ typedef void (*dispatch_control_fn)(
     uint32_t side_effects
 );
 
-#define RESOLVE_CONTROL     ((resolve_control_fn)(uintptr_t)0x80777E20U)
-#define DISPATCH_CONTROL     ((dispatch_control_fn)(uintptr_t)0x80776210U)
+#define RESOLVE_CONTROL ((resolve_control_fn)(uintptr_t)SPHE_ADDR_RESOLVE_CONTROL_ID_TO_GROUP_SLOT)
+#define DISPATCH_CONTROL ((dispatch_control_fn)(uintptr_t)SPHE_ADDR_DISPATCH_CONTROL_OPTION)
 
-static int set_descriptor_option(uint8_t control_id, uint8_t option_id)
+static int set_descriptor_option(enum sphe_setup_control_id control_id, uint8_t option_id)
 {
     uint32_t resolved;
     uint32_t group;
@@ -45,31 +45,34 @@ static int set_descriptor_option(uint8_t control_id, uint8_t option_id)
     volatile uint8_t *descriptor;
 
     resolved = RESOLVE_CONTROL(control_id);
-    if ((resolved & 0xFFFFU) == 0xFFFFU) {
+    if ((resolved & SPHE_CONTROL_RESOLVE_INVALID) == SPHE_CONTROL_RESOLVE_INVALID) {
         return SPHE_CTL_BAD_ARGUMENT;
     }
 
-    group = (resolved >> 8) & 0xFFU;
-    slot = resolved & 0xFFU;
+    group = (resolved >> SPHE_CONTROL_RESOLVE_GROUP_SHIFT) & SPHE_CONTROL_RESOLVE_FIELD_MASK;
+    slot = resolved & SPHE_CONTROL_RESOLVE_FIELD_MASK;
     descriptor =
-        CONTROL_DESCRIPTOR_BASE + group * 0x75U + slot * 0x0DU;
+        CONTROL_DESCRIPTOR_BASE +
+        group * SPHE_CONTROL_GROUP_STRIDE +
+        slot * SPHE_CONTROL_DESCRIPTOR_SIZE;
 
-    position = 2U;
-    while (position < 10U && descriptor[position] != option_id) {
+    position = SPHE_CONTROL_OPTION_FIRST_OFFSET;
+    while (position < SPHE_CONTROL_OPTION_LIMIT_OFFSET &&
+           descriptor[position] != option_id) {
         ++position;
     }
-    if (position >= 10U) {
+    if (position >= SPHE_CONTROL_OPTION_LIMIT_OFFSET) {
         return SPHE_CTL_BAD_ARGUMENT;
     }
 
-    CONTROL_SELECTION_BASE[group * 9U + slot] = (uint8_t)position;
+    CONTROL_SELECTION_BASE[group * SPHE_CONTROL_SELECTION_GROUP_SIZE + slot] = (uint8_t)position;
 
-    state_slot = descriptor[0x0BU];
-    if (state_slot < 0x41U) {
+    state_slot = descriptor[SPHE_CONTROL_STATE_SLOT_OFFSET];
+    if (state_slot < SPHE_CONTROL_STATE_SLOT_LIMIT) {
         CONTROL_STATE_BASE[state_slot] = (uint8_t)position;
     }
 
-    DISPATCH_CONTROL(control_id, option_id, 1U);
+    DISPATCH_CONTROL(control_id, option_id, SPHE_CONTROL_DISPATCH_SIDE_EFFECTS);
     return SPHE_CTL_OK;
 }
 
@@ -81,7 +84,7 @@ static int set_master_volume(uint8_t level)
      * the externally selected value.
      */
     MASTER_VOLUME_LEVEL = level;
-    sphe_set_master_volume(level);
+    sphe_apply_master_volume_level(level);
     return SPHE_CTL_OK;
 }
 
@@ -106,7 +109,7 @@ static int set_surround(uint8_t mode)
      * reverting the externally chosen surround mode.
      */
     CURRENT_SURROUND_SEL = (uint8_t)(mode + SPHE_CONTROL_SELECTION_BIAS);
-    sphe_set_surround_index(mode);
+    sphe_apply_surround_index(mode);
     return SPHE_CTL_OK;
 }
 
@@ -129,11 +132,11 @@ static int set_eq_user7(const struct sphe_audio_control_command *command)
 {
     unsigned i;
 
-    if (command->length != 7U) {
+    if (command->length != SPHE_EQ_BAND_COUNT) {
         return SPHE_CTL_BAD_LENGTH;
     }
 
-    for (i = 0; i < 7U; ++i) {
+    for (i = 0; i < SPHE_EQ_BAND_COUNT; ++i) {
         USER_EQ7_BASE[i] = command->payload[i];
     }
     CURRENT_EQ_SEL = SPHE_EQ_USER;
@@ -153,7 +156,7 @@ static int set_speaker_state(uint8_t channel, uint8_t state)
     }
 
     if (channel == SPHE_SPEAKER_SUBWOOFER) {
-        if (state > 1U) {
+        if (state > SPHE_SPEAKER_SMALL) {
             return SPHE_CTL_BAD_ARGUMENT;
         }
         sphe_set_speaker_channel_state(SPHE_SPEAKER_SUBWOOFER, state);
@@ -191,25 +194,25 @@ int sphe_audio_control_apply(const struct sphe_audio_control_command *command)
         return set_master_mute(command->arg0);
 
     case SPHE_CTL_SPDIF_OUTPUT:
-        return set_descriptor_option(0x71U, command->arg0);
+        return set_descriptor_option(SPHE_CONTROL_SPDIF_OUTPUT, command->arg0);
 
     case SPHE_CTL_DOWNSAMPLE:
         if (command->arg0 == SPHE_DOWNSAMPLE_48K) {
-            return set_descriptor_option(0x5BU, 0x4FU);
+            return set_descriptor_option(SPHE_CONTROL_DOWNSAMPLE, SPHE_DOWNSAMPLE_OPTION_48K);
         }
         if (command->arg0 == SPHE_DOWNSAMPLE_96K) {
-            return set_descriptor_option(0x5BU, 0x50U);
+            return set_descriptor_option(SPHE_CONTROL_DOWNSAMPLE, SPHE_DOWNSAMPLE_OPTION_96K);
         }
         if (command->arg0 == SPHE_DOWNSAMPLE_192K) {
-            return set_descriptor_option(0x5BU, 0x51U);
+            return set_descriptor_option(SPHE_CONTROL_DOWNSAMPLE, SPHE_DOWNSAMPLE_OPTION_192K);
         }
         return SPHE_CTL_BAD_ARGUMENT;
 
     case SPHE_CTL_DOWNMIX:
-        return set_descriptor_option(0xF5U, command->arg0);
+        return set_descriptor_option(SPHE_CONTROL_DOWNMIX, command->arg0);
 
     case SPHE_CTL_GM5:
-        return set_descriptor_option(0x9EU, command->arg0);
+        return set_descriptor_option(SPHE_CONTROL_GM5, command->arg0);
 
     case SPHE_CTL_SURROUND:
         return set_surround(command->arg0);
@@ -223,47 +226,50 @@ int sphe_audio_control_apply(const struct sphe_audio_control_command *command)
     case SPHE_CTL_SPEAKER_STATE:
         if (command->arg0 == SPHE_SPEAKER_FRONT) {
             if (command->arg1 == SPHE_SPEAKER_LARGE) {
-                return set_descriptor_option(0xD3U, 0x24U);
+                return set_descriptor_option(SPHE_CONTROL_FRONT_SPEAKER, SPHE_SPEAKER_OPTION_LARGE);
             }
             if (command->arg1 == SPHE_SPEAKER_SMALL) {
-                return set_descriptor_option(0xD3U, 0x2AU);
+                return set_descriptor_option(SPHE_CONTROL_FRONT_SPEAKER, SPHE_SPEAKER_OPTION_SMALL);
             }
             return SPHE_CTL_BAD_ARGUMENT;
         }
         if (command->arg0 == SPHE_SPEAKER_CENTER ||
             command->arg0 == SPHE_SPEAKER_REAR) {
             uint8_t control_id =
-                command->arg0 == SPHE_SPEAKER_CENTER ? 0xCDU : 0xCEU;
+                command->arg0 == SPHE_SPEAKER_CENTER
+                    ? SPHE_CONTROL_CENTER_SPEAKER
+                    : SPHE_CONTROL_REAR_SPEAKER;
             if (command->arg1 == SPHE_SPEAKER_LARGE) {
-                return set_descriptor_option(control_id, 0x24U);
+                return set_descriptor_option((enum sphe_setup_control_id)control_id, SPHE_SPEAKER_OPTION_LARGE);
             }
             if (command->arg1 == SPHE_SPEAKER_SMALL) {
-                return set_descriptor_option(control_id, 0x2AU);
+                return set_descriptor_option((enum sphe_setup_control_id)control_id, SPHE_SPEAKER_OPTION_SMALL);
             }
             if (command->arg1 == SPHE_SPEAKER_OFF) {
-                return set_descriptor_option(control_id, 0x7BU);
+                return set_descriptor_option((enum sphe_setup_control_id)control_id, SPHE_SPEAKER_OPTION_OFF);
             }
             return SPHE_CTL_BAD_ARGUMENT;
         }
         if (command->arg0 == SPHE_SPEAKER_SUBWOOFER) {
             return set_descriptor_option(
-                0x8BU,
-                command->arg1 ? 0x8DU : 0x7BU
+                SPHE_CONTROL_SUBWOOFER,
+                command->arg1 ? SPHE_SUBWOOFER_OPTION_ON : SPHE_SPEAKER_OPTION_OFF
             );
         }
         return SPHE_CTL_BAD_ARGUMENT;
 
     case SPHE_CTL_SUBWOOFER:
         return set_descriptor_option(
-            0x8BU,
-            command->arg0 ? 0x8DU : 0x7BU
+            SPHE_CONTROL_SUBWOOFER,
+            command->arg0 ? SPHE_SUBWOOFER_OPTION_ON : SPHE_SPEAKER_OPTION_OFF
         );
 
     case SPHE_CTL_SPEAKER_DELAY:
-        if (command->arg0 != 1U && command->arg0 != 2U) {
+        if (command->arg0 != SPHE_SPEAKER_CENTER &&
+            command->arg0 != SPHE_SPEAKER_REAR) {
             return SPHE_CTL_BAD_ARGUMENT;
         }
-        sphe_set_speaker_delay(
+        sphe_apply_speaker_delay(
             command->arg0,
             (uint16_t)(command->payload[0] |
                        ((uint16_t)command->payload[1] << 8))
@@ -279,14 +285,14 @@ int sphe_audio_control_apply(const struct sphe_audio_control_command *command)
 static uint8_t current_downsample_mode(void)
 {
     switch (DOWNSAMPLE_MODE_MASK) {
-    case 0x0007:
+    case SPHE_DOWNSAMPLE_MASK_48K:
         return SPHE_DOWNSAMPLE_48K;
-    case 0x0067:
+    case SPHE_DOWNSAMPLE_MASK_96K:
         return SPHE_DOWNSAMPLE_96K;
-    case 0x0667:
+    case SPHE_DOWNSAMPLE_MASK_192K:
         return SPHE_DOWNSAMPLE_192K;
     default:
-        return 0xFFU;
+        return SPHE_CONTROL_VALUE_UNKNOWN;
     }
 }
 
@@ -303,9 +309,10 @@ void sphe_audio_control_snapshot(struct sphe_audio_control_snapshot *snapshot)
 
     surround_selection = CURRENT_SURROUND_SEL;
     snapshot->surround_mode =
-        (surround_selection >= 2U && surround_selection <= 7U)
-            ? (uint8_t)(surround_selection - 2U)
-            : 0xFFU;
+        (surround_selection >= SPHE_CONTROL_SELECTION_BIAS &&
+         surround_selection <= SPHE_CONTROL_SELECTION_BIAS + SPHE_SURROUND_LIVE)
+            ? (uint8_t)(surround_selection - SPHE_CONTROL_SELECTION_BIAS)
+            : SPHE_CONTROL_VALUE_UNKNOWN;
     snapshot->eq_selection = CURRENT_EQ_SEL;
 
     snapshot->speaker_front = SPEAKER_FRONT_STATE;

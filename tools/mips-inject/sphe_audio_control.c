@@ -11,7 +11,7 @@
 bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 {
     const uint8_t next = (uint8_t)mode;
-    const uint8_t previous = REG8(SPHE_STATE_EXTERNAL_MODE_PREV);
+    const uint8_t previous = REG8(SPHE_STATE_EXTERNAL_MODE_PREVIOUS);
 
     if (next > (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         return false;
@@ -35,14 +35,14 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
     }
 
     if (next == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
-        REG8(SPHE_STATE_EXTERNAL_INPUT) = SPHE_EXTERNAL_INPUT_AUX;
+        REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = SPHE_EXTERNAL_INPUT_AUX;
         REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_AUX;
     } else {
-        REG8(SPHE_STATE_EXTERNAL_INPUT) = SPHE_EXTERNAL_INPUT_SPDIF;
+        REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = SPHE_EXTERNAL_INPUT_SPDIF;
         REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_SPDIF_IN;
     }
 
-    REG8(SPHE_STATE_EXTERNAL_MODE_PREV) = next;
+    REG8(SPHE_STATE_EXTERNAL_MODE_PREVIOUS) = next;
     return true;
 }
 
@@ -60,13 +60,13 @@ bool sphe_control_set_tuner_spdif(bool spdif)
         return false;
     }
 
-    if (REG8(SPHE_STATE_EXTERNAL_INPUT) == desired_selector) {
+    if (REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) == desired_selector) {
         REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
         return true;
     }
 
     sphe_prepare_external_input_transition();
-    REG8(SPHE_STATE_EXTERNAL_INPUT) = desired_selector;
+    REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = desired_selector;
     REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
     return true;
 }
@@ -93,10 +93,10 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->speaker_front = REG8(SPHE_STATE_SPEAKER_FRONT);
     out->speaker_center = REG8(SPHE_STATE_SPEAKER_CENTER);
     out->speaker_rear = REG8(SPHE_STATE_SPEAKER_REAR);
-    out->speaker_subwoofer = REG8(SPHE_STATE_SPEAKER_SUB);
+    out->speaker_subwoofer = REG8(SPHE_STATE_SPEAKER_SUBWOOFER);
 
     out->external_mode = REG8(SPHE_STATE_EXTERNAL_MODE);
-    out->external_input_selector = REG8(SPHE_STATE_EXTERNAL_INPUT);
+    out->external_input_selector = REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR);
     out->source_media_state = REG8(SPHE_STATE_SOURCE_MEDIA);
     out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HW_MODE);
 }
@@ -138,23 +138,32 @@ bool sphe_control_set_surround(enum sphe_surround_mode mode)
     return true;
 }
 
-bool sphe_control_set_eq_preset(enum sphe_eq_selection selection)
+bool sphe_control_set_eq_selection(enum sphe_eq_selection selection)
 {
     if ((unsigned)selection < (unsigned)SPHE_EQ_STANDARD ||
-        (unsigned)selection > (unsigned)SPHE_EQ_POP) {
+        (unsigned)selection > (unsigned)SPHE_EQ_USER) {
         return false;
     }
 
     /*
      * Reapply the pair, not only the preset helper: coefficient upload can
      * locally clear surround and the stock paired action restores it.
+     * USER selects the already stored seven-band vector without replacing it.
      */
     REG8(SPHE_STATE_EQ_SELECTION) = (uint8_t)selection;
     sphe_reapply_eq_and_surround();
     return true;
 }
 
-bool sphe_control_set_user_eq7(const uint8_t coefficients[7])
+bool sphe_control_set_eq_preset(enum sphe_eq_selection selection)
+{
+    if (selection == SPHE_EQ_USER) {
+        return false;
+    }
+    return sphe_control_set_eq_selection(selection);
+}
+
+bool sphe_control_set_user_eq7(const uint8_t coefficients[SPHE_EQ_BAND_COUNT])
 {
     volatile uint8_t *dst =
         (volatile uint8_t *)(uintptr_t)SPHE_STATE_USER_EQ7;
@@ -163,7 +172,7 @@ bool sphe_control_set_user_eq7(const uint8_t coefficients[7])
         return false;
     }
 
-    for (unsigned i = 0; i < 7U; ++i) {
+    for (unsigned i = 0; i < SPHE_EQ_BAND_COUNT; ++i) {
         dst[i] = coefficients[i];
     }
 
@@ -179,20 +188,20 @@ bool sphe_control_set_speaker_state(
 {
     switch (channel) {
     case SPHE_SPEAKER_FRONT:
-        if (state > 1U) {
+        if (state > (uint8_t)SPHE_SPEAKER_SMALL) {
             return false;
         }
         break;
 
     case SPHE_SPEAKER_CENTER:
     case SPHE_SPEAKER_REAR:
-        if (state > 2U) {
+        if (state > (uint8_t)SPHE_SPEAKER_OFF) {
             return false;
         }
         break;
 
     case SPHE_SPEAKER_SUBWOOFER:
-        if (state > 1U) {
+        if (state > (uint8_t)SPHE_SPEAKER_SMALL) {
             return false;
         }
         sphe_control_set_subwoofer(state != 0U);
@@ -209,7 +218,7 @@ bool sphe_control_set_speaker_state(
 
 void sphe_control_set_subwoofer(bool enabled)
 {
-    REG8(SPHE_STATE_SPEAKER_SUB) = enabled ? 1U : 0U;
+    REG8(SPHE_STATE_SPEAKER_SUBWOOFER) = enabled ? 1U : 0U;
     sphe_apply_subwoofer_state(enabled ? 1U : 0U);
 }
 

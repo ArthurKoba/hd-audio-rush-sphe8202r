@@ -54,8 +54,9 @@ bool sphe_control_set_master_volume(uint8_t level);
 void sphe_control_set_master_mute(bool muted);
 
 bool sphe_control_set_surround(enum sphe_surround_mode mode);
+bool sphe_control_set_eq_selection(enum sphe_eq_selection selection);
 bool sphe_control_set_eq_preset(enum sphe_eq_selection selection);
-bool sphe_control_set_user_eq7(const uint8_t coefficients[7]);
+bool sphe_control_set_user_eq7(const uint8_t coefficients[SPHE_EQ_BAND_COUNT]);
 
 bool sphe_control_set_speaker_state(
     enum sphe_speaker_channel channel,

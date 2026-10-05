@@ -169,7 +169,57 @@ enum sphe_source_media_state {
 enum sphe_audio_control_limit {
     SPHE_MASTER_VOLUME_MAX = 15,
     SPHE_EFFECT_INDEX_MAX = 8,
+    SPHE_EQ_BAND_COUNT = 7,
     SPHE_CONTROL_SELECTION_BIAS = 2,
+    SPHE_CONTROL_VALUE_UNKNOWN = 0xFF,
+};
+
+
+enum sphe_setup_control_id {
+    SPHE_CONTROL_DOWNSAMPLE      = 0x5B,
+    SPHE_CONTROL_SPDIF_OUTPUT    = 0x71,
+    SPHE_CONTROL_SUBWOOFER       = 0x8B,
+    SPHE_CONTROL_GM5             = 0x9E,
+    SPHE_CONTROL_CENTER_SPEAKER  = 0xCD,
+    SPHE_CONTROL_REAR_SPEAKER    = 0xCE,
+    SPHE_CONTROL_FRONT_SPEAKER   = 0xD3,
+    SPHE_CONTROL_DOWNMIX         = 0xF5,
+};
+
+enum sphe_downsample_option_id {
+    SPHE_DOWNSAMPLE_OPTION_48K  = 0x4F,
+    SPHE_DOWNSAMPLE_OPTION_96K  = 0x50,
+    SPHE_DOWNSAMPLE_OPTION_192K = 0x51,
+};
+
+enum sphe_speaker_option_id {
+    SPHE_SPEAKER_OPTION_LARGE = 0x24,
+    SPHE_SPEAKER_OPTION_SMALL = 0x2A,
+    SPHE_SPEAKER_OPTION_OFF   = 0x7B,
+    SPHE_SUBWOOFER_OPTION_ON  = 0x8D,
+};
+
+enum sphe_downsample_state_mask {
+    SPHE_DOWNSAMPLE_MASK_48K  = 0x0007,
+    SPHE_DOWNSAMPLE_MASK_96K  = 0x0067,
+    SPHE_DOWNSAMPLE_MASK_192K = 0x0667,
+};
+
+enum sphe_control_descriptor_layout {
+    SPHE_CONTROL_RESOLVE_INVALID       = 0xFFFF,
+    SPHE_CONTROL_RESOLVE_GROUP_SHIFT   = 8,
+    SPHE_CONTROL_RESOLVE_FIELD_MASK    = 0xFF,
+    SPHE_CONTROL_DISPATCH_SIDE_EFFECTS = 1,
+    SPHE_CONTROL_GROUP_COUNT           = 7,
+    SPHE_CONTROL_SLOT_FIRST           = 1,
+    SPHE_CONTROL_SLOT_LIMIT           = 9,
+    SPHE_CONTROL_GROUP_STRIDE         = 0x75,
+    SPHE_CONTROL_DESCRIPTOR_SIZE      = 0x0D,
+    SPHE_CONTROL_OPTION_FIRST_OFFSET  = 0x02,
+    SPHE_CONTROL_OPTION_LIMIT_OFFSET  = 0x0A,
+    SPHE_CONTROL_STATE_SLOT_OFFSET    = 0x0B,
+    SPHE_CONTROL_STATE_SLOT_LIMIT     = 0x41,
+    SPHE_CONTROL_SELECTION_GROUP_SIZE = 9,
 };
 
 enum sphe_audio_service_state {
@@ -250,6 +300,14 @@ struct sphe_resident_audio_descriptor {
     unsigned short runtime_state;
     unsigned short runtime_counter;
 };
+
+/* Canonical control-descriptor/table addresses. */
+#define SPHE_CONTROL_DESCRIPTOR_BASE              0x80707EACU
+#define SPHE_CONTROL_DISPATCH_JUMP_TABLE          0x807081E0U
+#define SPHE_CONTROL_SELECTION_BASE               0x800066B0U
+#define SPHE_CONTROL_STATE_BASE                   0x80006810U
+#define SPHE_ADDR_RESOLVE_CONTROL_ID_TO_GROUP_SLOT 0x80777E20U
+#define SPHE_ADDR_DISPATCH_CONTROL_OPTION          0x80776210U
 
 /* Canonical recovered action-node addresses used by replacement-source code. */
 #define SPHE_ADDR_DISPATCH_AUDIO_HARDWARE_ACTION  0x806FFD1CU
