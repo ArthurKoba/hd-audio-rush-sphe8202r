@@ -180,6 +180,25 @@ enum sphe_audio_control_limit {
     SPHE_CONTROL_VALUE_UNKNOWN = 0xFF,
 };
 
+enum sphe_key_selection_contract {
+    SPHE_KEY_SELECTION_BIAS = 8,
+};
+
+enum sphe_user_eq_gain_contract {
+    SPHE_USER_EQ_ZERO_DB_GAIN_CODE = 13,
+};
+
+enum sphe_speaker_delay_kind {
+    SPHE_SPEAKER_DELAY_KIND_CENTER = 1,
+    SPHE_SPEAKER_DELAY_KIND_REAR   = 2,
+};
+
+enum sphe_speaker_delay_contract {
+    SPHE_CENTER_DELAY_SELECTION_BIAS = 2,
+    SPHE_REAR_DELAY_SELECTION_SCALE  = 3,
+    SPHE_REAR_DELAY_SELECTION_BIAS   = 6,
+};
+
 enum sphe_setup_control_id {
     SPHE_CONTROL_ECHO                 = 0x57,
     SPHE_CONTROL_DOWNSAMPLE           = 0x5B,
