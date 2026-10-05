@@ -3,7 +3,7 @@
 ## Scope and continuation authority
 
 Repository baseline: `1351bdd7d3cf8e761e0f1887deaa56670be39b9c`.
-Canonical Analysis project: `ghp_8847e7bcc4fa1ca3b69ff2f5`; AP1 `/modules_mipsle/ap1.bin`, base `0x8067B800`; runtime `/runtime/rom12-runtime.bin`, base `0x88000000`.
+Canonical Analysis project: `sphe8202r_decoder_p25d80`; AP1 `/modules_mipsle/ap1.bin`, base `0x8067B800`; runtime `/runtime/rom12-runtime.bin`, base `0x88000000`.
 
 This checkpoint supersedes the seven-fixed-EQ-curves description and the interpretation of configured decoder input-window sizes as DSP program-memory evidence in the 2026-10-01 handoff. It preserves the previously uncommitted correction and new native Analysis results. No firmware bytes are modified. Validation is CPU-side implementation proof, not execution/board proof or complete DSP algorithm recovery.
 
