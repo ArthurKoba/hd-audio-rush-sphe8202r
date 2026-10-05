@@ -15,7 +15,7 @@
  */
 
 typedef int (*sphe_audio_dispatch_fn)(
-    uint32_t action,
+    enum sphe_audio_action action,
     uint32_t value,
     uint32_t aux
 );
@@ -27,7 +27,7 @@ typedef void (*sphe_ptr_fn)(const void *);
 typedef void (*sphe_void_fn)(void);
 
 static inline int
-sphe_audio_dispatch(uint32_t action, uint32_t value, uint32_t aux)
+sphe_audio_dispatch(enum sphe_audio_action action, uint32_t value, uint32_t aux)
 {
     return ((sphe_audio_dispatch_fn)(uintptr_t)SPHE_ADDR_DISPATCH_AUDIO_HARDWARE_ACTION)(
         action, value, aux
@@ -61,7 +61,7 @@ sphe_apply_decoder_output_mode(uint8_t mode, uint16_t aux)
 }
 
 static inline void
-sphe_apply_speaker_delay(uint8_t channel, uint16_t delay)
+sphe_apply_speaker_delay(enum sphe_speaker_channel channel, uint16_t delay)
 {
     ((sphe_u8_u16_fn)(uintptr_t)SPHE_ADDR_APPLY_SPEAKER_DELAY)(channel, delay);
 }
@@ -85,7 +85,7 @@ sphe_apply_mic2_selection(uint8_t index)
 }
 
 static inline void
-sphe_apply_downsample_mode(uint8_t mode)
+sphe_apply_downsample_mode(enum sphe_downsample_mode mode)
 {
     ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_DOWNSAMPLE_MODE)(mode);
 }
@@ -173,7 +173,7 @@ sphe_reapply_eq_and_surround(void)
 static inline void
 sphe_set_speaker_channel_state(
     enum sphe_speaker_channel channel,
-    uint8_t state
+    enum sphe_speaker_state state
 )
 {
     ((sphe_u8_u8_fn)(uintptr_t)SPHE_ADDR_SET_SPEAKER_CHANNEL_STATE)(
