@@ -4,11 +4,7 @@
 
 This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
-Validation levels remain separate:
-- **implementation proof** — static/native behavior recovered from target firmware or the saved Analysis project;
-- **execution proof** — the path has been observed executing;
-- **board proof** — target PCB ownership/routing is physically established;
-- **integration proof** — modified/rebuilt firmware has been accepted on the target with rollback/recovery available.
+Validation terminology follows the universal `ai-agent-workflow` hardware-reverse behavior-analysis vocabulary. This status document uses implementation, execution, board and integration proof as distinct levels and does not promote one into another.
 
 ### Progress metrics
 

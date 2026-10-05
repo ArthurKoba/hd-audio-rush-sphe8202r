@@ -11,9 +11,9 @@ PCB: **SPHE8202RD_SPDIF_V02**
 | External SDRAM | reported as `PMS3064 / 16BTR-60N` | External SDRAM; exact manufacturer and capacity still unresolved | **LIKELY** transcription; STK independently reports `SDRAM 32M`, 16-bit, non-shared |
 | SPI NOR | `P25D80SH` | Puya 8-Mbit / 1-MiB SPI NOR; raw dump is in `firmware/P25D80SH@SOP8.BIN` | **CONFIRMED** marking + dump size |
 | Secondary controller | `AK24BP24230` | Controller running JieLi AC695N/BR23-family software | physical marking **CONFIRMED**; exact public SKU **UNKNOWN** |
-| Analog switch | `HCF4052` family marking reported | HCF4052B is a dual 4-channel analog multiplexer/demultiplexer, not a shift register or inverter | part action node **CONFIRMED** by device documentation; exact board routing **UNKNOWN** |
-| Logic IC | `74HC04D` marking reported | Six CMOS inverters in one package | part action node **CONFIRMED** by device documentation; exact board role **UNKNOWN** |
-| Analog output ICs | `4558D` marking on 8-pin devices near outputs | 4558-family devices are dual operational amplifiers; likely used for analog buffering/filtering/preamplification | part family action node **CONFIRMED**; exact product-board circuit role **LIKELY** |
+| Analog switch | `HCF4052` family marking reported | HCF4052B is a dual 4-channel analog multiplexer/demultiplexer, not a shift register or inverter | part identity/function **CONFIRMED** by device documentation; exact board routing **UNKNOWN** |
+| Logic IC | `74HC04D` marking reported | Six CMOS inverters in one package | part identity/function **CONFIRMED** by device documentation; exact board role **UNKNOWN** |
+| Analog output ICs | `4558D` marking on 8-pin devices near outputs | 4558-family devices are dual operational amplifiers; likely used for analog buffering/filtering/preamplification | part family identification **CONFIRMED**; exact product-board circuit role **LIKELY** |
 
 ### SDRAM marking
 
@@ -30,7 +30,7 @@ Confirmed behavior:
 - the log includes `UserUartInit success`, `audio_dec_init`, `audio_dac_init`, `ALINK_SR = 44100`, `spdif_dec_start` and volume state;
 - typing into the observed debug UART did not produce an interactive shell response.
 
-The RX action node/protocol therefore remains **UNKNOWN**; `UserUartInit success` may refer to another user-UART path.
+The RX path/protocol therefore remains **UNKNOWN**; `UserUartInit success` may refer to another user-UART path.
 
 ### SPHE UART candidates for inter-chip tracing
 
@@ -41,7 +41,7 @@ Reference-design evidence gives two multiplexed UART pin pairs on the SPHE8202R-
 - package pin 33 / GPIO25: `HSYNC(2) / RX(2) / CARD_SENSE(1)`;
 - package pin 45 / GPIO27: `VSYNC(2) / TX(2) / GAME_D1(1)`.
 
-The Sunplus demo board exposes its UART connector using the `V_H_SYNC` / `V_V_SYNC` pair, consistent with the GPIO22/23 alternate UART action node.
+The Sunplus demo board exposes its UART connector using the `V_H_SYNC` / `V_V_SYNC` pair, consistent with the GPIO22/23 alternate UART function.
 
 The available SPHE8202R design guide documents UART, USB, internal 5.1 DAC, ADC and S/PDIF output, but its searchable text contains no `I2S` or `IIS` interface description. This is **not proof that the silicon lacks another digital-audio interface**; it only means the current reference documentation does not establish one.
 
