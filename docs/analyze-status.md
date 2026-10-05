@@ -37,7 +37,7 @@ Current approximate behavior/reconstruction coverage:
 | AUX / stereo ingress | **87%** | Active only through the missing SPHE-side receiver / inter-chip contract |
 | Resident audio services | **93%** | Low priority unless required by replacement-source architecture |
 | Clock / sample-format contract | **80%** | Active where firmware can still resolve real clock/rate families; board-only validation is deferred |
-| SPHE <-> JieLi audio/control boundary | **86%** | **HIGH PRIORITY**; target resident capture pair 0x10/0x11 and AUX stereo block flow are now recovered; physical signal roles remain unproven |
+| SPHE <-> JieLi audio/control boundary | **90%** | **HIGH PRIORITY**; source-side common-mixer ALINK TX and SPHE resident capture pair 0x10/0x11 are recovered; exact physical pin ownership remains unproven |
 | JieLi firmware/control domain | **45%** | **HIGH PRIORITY**; full dump/static analysis would materially increase coverage |
 | DSP resources / PM/DM/cycle headroom | **55%** | **HIGH PRIORITY** |
 | ECHO processing engine | **70%** | Medium priority; recover if needed for original behavior parity |

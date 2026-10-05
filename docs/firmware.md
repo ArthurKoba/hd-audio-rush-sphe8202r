@@ -1450,3 +1450,55 @@ The two selector branches program distinct command families:
 This is stronger than the earlier generic three-wire hypothesis: the target firmware explicitly chooses one of two stereo resident capture pairs and commits a matching hardware route before normal AUX processing.
 
 The exact physical pin mapping of resident capture IDs `0x10/0x11` remains open. Static reconstruction can continue without the exact JieLi commercial SKU or a JieLi firmware dump.
+
+
+## JieLi common-mixer -> ALINK transmitter contract from local SDK lineage — 2026-10-05
+
+The locally preserved AC695N/BR23 SDK contains the driver family that emits the target boot string `ALINK_SR = 44100`.
+
+Target execution evidence:
+- `audio_dec_init` is reached at boot;
+- `ALINK_SR = 44100` appears immediately after audio DAC initialization and before later `pcm` / `spdif_dec_start` log entries.
+
+Source-lineage contract:
+- IIS output is attached to the common mixer via `audio_iis_output_start(...)`;
+- one ALINK TX data channel carries stereo;
+- the TX ISR treats one stereo frame as four bytes, i.e. two 16-bit samples;
+- output rate is normalized to `TCFG_IIS_OUTPUT_SR`; target runtime proves 44.1 kHz.
+
+The matching public `board_ac695x_demo` lineage uses IIS mode, 16-bit data, 64 SCLK/frame, falling-edge update/rising-edge sample, data channel 0, 44.1 kHz and master role in the available branch. The historical target `LineIn_IIS` branch is unavailable, so master/slave and exact port selection remain lineage evidence rather than target execution proof.
+
+For that source-family format: LRCK=44.1 kHz, BCLK=2.8224 MHz and MCLK family=11.2896 MHz. A three-wire board connection is naturally `DATA + BCLK + LRCK`, with MCLK not necessarily connected.
+
+The local SDK also shows LINEIN, Bluetooth A2DP and S/PDIF decoder paths attaching to the same mixer. Therefore the reconstructed source-side model is a standing stereo output transport rather than a source-specific SPHE control transaction.
+
+### Resident descriptor format
+
+Differential AUX/PCM analysis now establishes the resident audio descriptor layout:
+- field `+0`: hardware/resident channel ID;
+- field `+1`: resident ring/buffer base;
+- field `+2`: ring/buffer size;
+- fields `+3/+4`: runtime state/counters.
+
+PCM initializes playback descriptors using channel IDs `0..7` with matching base/size pairs. AUX adds two capture descriptors. The target AUX selector `5` chooses IDs `0x10/0x11`; selector `4` would choose `0x0E/0x0F`.
+
+The target capture descriptors are:
+- A: ID `0x10`, base `0x3E60`, size `0x0FC0`;
+- B: ID `0x11`, base `0x4E20`, size `0x0FC0`.
+
+Their runtime availability state is consumed by the AUX profile, while the resident layer owns the producer side.
+
+Combined software path:
+
+```text
+JieLi common stereo mixer
+ -> standing 44.1 kHz ALINK/IIS TX
+ -> SPHE resident capture IDs 0x10/0x11
+ -> command 0x63
+ -> two AUX DSP input blocks
+ -> GM5 / multichannel processing
+ -> command 0x62
+ -> resident playback channels
+```
+
+The remaining boundary unknown is exact SPHE peripheral/pin ownership below resident capture IDs `0x10/0x11`.
