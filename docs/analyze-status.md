@@ -18,6 +18,13 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 - Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
 - The previous `97–98%` whole-audio estimate is retired.
 
+### Refactor authority and paused side investigation — 2026-10-05
+
+- **Canonical semantic authority for the recovered target firmware is the saved Analysis project.** A recovered target-firmware fact is considered fully migrated only when its action/state/type/comment exists there. Markdown documentation is evidence, rationale and handoff context; replacement-source contract headers mirror confirmed semantics for code reuse but do not replace the Analysis project as the semantic source of truth.
+- Documentation-only names, raw `FUN_*`/`DAT_*` identifiers and confirmed state meanings that are not represented in Analysis are migration debt and belong to the active refactor queue.
+- The recent shared-media `$gp` scan is **paused as an incomplete side investigation**. It produced useful provisional media/runtime contracts (`media_state_word`, stream-buffer base/end/cursor, runtime flags/substate/mode and continuation/filter callbacks), but it is not the active completion denominator. Any of those findings not yet represented in Analysis remain provisional migration debt rather than completed refactor work.
+- Do not continue broad unknown-shared-state discovery until the already-understood documentation/source vocabulary has been reconciled into Analysis. New reverse work is allowed only when it is necessary to disambiguate an already-known item being migrated.
+
 ### Audio vocabulary/refactor checkpoint — 2026-10-05
 
 - The replacement-source audio/control layer now uses shared canonical contracts instead of local magic-value copies: `sphe_audio_contract.h`, `sphe_control_protocol.h` and `sphe_soc_contract.h`.
