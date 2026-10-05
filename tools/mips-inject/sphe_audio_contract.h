@@ -177,6 +177,7 @@ enum sphe_audio_control_limit {
 
 enum sphe_setup_control_id {
     SPHE_CONTROL_DOWNSAMPLE      = 0x5B,
+    SPHE_CONTROL_AUDIO_COMMAND_FAMILY = 0x6E,
     SPHE_CONTROL_SPDIF_OUTPUT    = 0x71,
     SPHE_CONTROL_SUBWOOFER       = 0x8B,
     SPHE_CONTROL_GM5             = 0x9E,
@@ -184,6 +185,12 @@ enum sphe_setup_control_id {
     SPHE_CONTROL_REAR_SPEAKER    = 0xCE,
     SPHE_CONTROL_FRONT_SPEAKER   = 0xD3,
     SPHE_CONTROL_DOWNMIX         = 0xF5,
+};
+
+enum sphe_audio_command_family_selector_option {
+    SPHE_AUDIO_COMMAND_FAMILY_OPTION_0C = 0x81,
+    SPHE_AUDIO_COMMAND_FAMILY_OPTION_0E = 0x82,
+    SPHE_AUDIO_COMMAND_FAMILY_OPTION_0D = 0x83,
 };
 
 enum sphe_downsample_option_id {
@@ -351,6 +358,7 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
 #define SPHE_STATE_DOWNSAMPLE_MASK                 0x80003244U
 #define SPHE_STATE_SPDIF_HW_MODE                   0x800042B3U
+#define SPHE_STATE_AUDIO_COMMAND_FAMILY             0x800042FEU
 #define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
 #define SPHE_STATE_EQ_SELECTION                    0x80002B0DU
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
