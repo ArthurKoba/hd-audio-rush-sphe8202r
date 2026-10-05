@@ -1,7 +1,9 @@
 #include <stdint.h>
 
+#include "sphe_audio_contract.h"
+
 extern int DispatchAudioHardwareAction(
-    uint32_t action,
+    enum sphe_audio_action action,
     uint32_t value,
     uint32_t aux
 );
@@ -11,7 +13,7 @@ extern int DispatchAudioHardwareAction(
  * ApplySurroundModeIndex @ 0x80702D0C.
  *
  * The C-visible contract is intentionally identical:
- *   DispatchAudioHardwareAction(5, index & 0xff, 0)
+ *   DispatchAudioHardwareAction(SPHE_AUDIO_ACTION_SURROUND, (uint8_t)index, 0)
  *
  * The linker binds DispatchAudioHardwareAction to its recovered absolute
  * address so the compiler emits the same direct JAL class used by stock code.
@@ -19,5 +21,5 @@ extern int DispatchAudioHardwareAction(
 __attribute__((used, noinline, aligned(4)))
 int injected_apply_surround(uint32_t index)
 {
-    return DispatchAudioHardwareAction(5U, index & 0xffU, 0U);
+    return DispatchAudioHardwareAction(\n        SPHE_AUDIO_ACTION_SURROUND,\n        (uint8_t)index,\n        0U\n    );
 }
