@@ -7,6 +7,8 @@
  * mirrors confirmed runtime constants for replacement-source reuse.
  */
 
+#define SPHE_RUNTIME_GP_RESTORE_WORD      0x88012200U
+
 #define SPHE_RUNTIME_MODULE_OFFSET_TABLE      0x88014260U
 #define SPHE_RUNTIME_PACKED_MODULE_DATA_BASE 0x880142CCU
 

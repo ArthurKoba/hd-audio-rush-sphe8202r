@@ -222,7 +222,7 @@ The shared GP remains `$gp = 0x80002B00`, independently supported by WMA absolut
 - `0x800035D8 = gp + 0xAD8`;
 - `0x80003684 = gp + 0xB84`.
 
-AP1 instruction pair `0x806D96F8: lui gp,0x8801` / `0x806D96FC: lw gp,0x2200(gp)` proves the runtime GP restore word is at absolute `0x88012200`. The canonical analysis project currently also contains a stale auxiliary block `runtime_gp_slot` at `0x88012A00`, shifted by the AP1 rebase; an attempt to create a corrected replacement block was blocked by the tool safety layer. Treat `0x88012200` as the instruction-backed address and the shifted block as known-bad metadata.
+AP1 instruction pair `0x806D96F8: lui gp,0x8801` / `0x806D96FC: lw gp,0x2200(gp)` proves the runtime GP restore word is at absolute `0x88012200`. The canonical Analysis project now carries `g_pRuntimeGpRestoreWord` at instruction-backed `0x88012200`. Historical shifted address `0x88012A00` no longer carries the stale restore symbol and is explicitly annotated as known-bad metadata.
 
 Cross-module helpers identified in `drv_other.bin`:
 - `0x80783F08` — byte-wise `memcmp`;
