@@ -11,13 +11,13 @@
 bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 {
     const uint8_t next = (uint8_t)mode;
-    const uint8_t previous = REG8(SPHE_STATE_EXTERNAL_MODE_PREVIOUS);
+    const uint8_t previous = REG8(SPHE_STATE_PREVIOUS_EXTERNAL_INPUT_MODE_CODE);
 
     if (next > (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         return false;
     }
 
-    REG8(SPHE_STATE_EXTERNAL_MODE) = next;
+    REG8(SPHE_STATE_EXTERNAL_INPUT_MODE_CODE) = next;
     sphe_apply_external_input_mode_code();
     sphe_save_external_input_mode_code();
 
@@ -42,7 +42,7 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
         REG8(SPHE_STATE_SOURCE_MEDIA_STATE) = SPHE_SOURCE_MEDIA_STATE_SPDIF_IN;
     }
 
-    REG8(SPHE_STATE_EXTERNAL_MODE_PREVIOUS) = next;
+    REG8(SPHE_STATE_PREVIOUS_EXTERNAL_INPUT_MODE_CODE) = next;
     return true;
 }
 
@@ -56,7 +56,7 @@ bool sphe_control_set_tuner_spdif(bool spdif)
      * Mode 3 is the confirmed AUX route.  Do not silently choose one of the
      * still-unlabelled external hardware modes 0..2 on behalf of the caller.
      */
-    if (REG8(SPHE_STATE_EXTERNAL_MODE) == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
+    if (REG8(SPHE_STATE_EXTERNAL_INPUT_MODE_CODE) == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         return false;
     }
 
@@ -80,8 +80,8 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->decoder_state = REG32(SPHE_STATE_AUDIO_DECODER_STATE);
     out->downsample_mask = REG16(SPHE_STATE_DOWNSAMPLE_STATE_MASK);
 
-    out->master_volume = REG8(SPHE_STATE_MASTER_VOLUME);
-    out->master_muted = REG8(SPHE_STATE_MASTER_MUTE);
+    out->master_volume = REG8(SPHE_STATE_MASTER_VOLUME_LEVEL);
+    out->master_muted = REG8(SPHE_STATE_MASTER_MUTE_FLAG);
 
     out->eq_selection = REG8(SPHE_STATE_EQ_PRESET_INDEX);
     out->surround_selection = REG8(SPHE_STATE_SURROUND_SELECTION);
@@ -90,15 +90,15 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->mic1_index = REG8(SPHE_STATE_MIC1_LEVEL_INDEX);
     out->mic2_index = REG8(SPHE_STATE_MIC2_LEVEL_INDEX);
 
-    out->speaker_front = REG8(SPHE_STATE_SPEAKER_FRONT);
-    out->speaker_center = REG8(SPHE_STATE_SPEAKER_CENTER);
-    out->speaker_rear = REG8(SPHE_STATE_SPEAKER_REAR);
-    out->speaker_subwoofer = REG8(SPHE_STATE_SPEAKER_SUBWOOFER);
+    out->speaker_front = REG8(SPHE_STATE_SPEAKER_FRONT_STATE);
+    out->speaker_center = REG8(SPHE_STATE_SPEAKER_CENTER_STATE);
+    out->speaker_rear = REG8(SPHE_STATE_SPEAKER_REAR_STATE);
+    out->speaker_subwoofer = REG8(SPHE_STATE_SPEAKER_SUBWOOFER_STATE);
 
-    out->external_mode = REG8(SPHE_STATE_EXTERNAL_MODE);
+    out->external_mode = REG8(SPHE_STATE_EXTERNAL_INPUT_MODE_CODE);
     out->external_input_selector = REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR);
     out->source_media_state = REG8(SPHE_STATE_SOURCE_MEDIA_STATE);
-    out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HW_MODE);
+    out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HARDWARE_MODE);
 }
 
 bool sphe_control_set_master_volume(uint8_t level)
@@ -107,13 +107,13 @@ bool sphe_control_set_master_volume(uint8_t level)
         return false;
     }
 
-    REG8(SPHE_STATE_MASTER_VOLUME) = level;
+    REG8(SPHE_STATE_MASTER_VOLUME_LEVEL) = level;
 
     /*
      * Stock behavior applies effective level zero while muted.  Updating the
      * saved live level here lets the stock unmute route restore the new value.
      */
-    if (REG8(SPHE_STATE_MASTER_MUTE) == 0U) {
+    if (REG8(SPHE_STATE_MASTER_MUTE_FLAG) == 0U) {
         sphe_apply_master_volume_level(level);
     }
     return true;
@@ -121,7 +121,7 @@ bool sphe_control_set_master_volume(uint8_t level)
 
 void sphe_control_set_master_mute(bool muted)
 {
-    const bool current = REG8(SPHE_STATE_MASTER_MUTE) != 0U;
+    const bool current = REG8(SPHE_STATE_MASTER_MUTE_FLAG) != 0U;
     if (current != muted) {
         sphe_toggle_master_mute();
     }
@@ -218,7 +218,7 @@ bool sphe_control_set_speaker_state(
 
 void sphe_control_set_subwoofer(bool enabled)
 {
-    REG8(SPHE_STATE_SPEAKER_SUBWOOFER) = enabled ? 1U : 0U;
+    REG8(SPHE_STATE_SPEAKER_SUBWOOFER_STATE) = enabled ? 1U : 0U;
     sphe_apply_subwoofer_state(enabled ? 1U : 0U);
 }
 
@@ -243,7 +243,7 @@ bool sphe_control_set_echo(uint8_t index)
     }
 
     REG8(SPHE_STATE_ECHO_PROFILE_INDEX) = index;
-    REG8(SPHE_STATE_ECHO_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
+    REG8(SPHE_STATE_ECHO_CONTROL_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_echo();
     return true;
 }
@@ -255,7 +255,7 @@ bool sphe_control_set_mic1(uint8_t index)
     }
 
     REG8(SPHE_STATE_MIC1_LEVEL_INDEX) = index;
-    REG8(SPHE_STATE_MIC1_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
+    REG8(SPHE_STATE_MIC1_CONTROL_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_mic1();
     return true;
 }

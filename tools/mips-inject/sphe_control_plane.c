@@ -77,9 +77,9 @@ sphe_read_control_status(struct sphe_control_status *status)
     }
 
     status->master_volume =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_VOLUME;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_VOLUME_LEVEL;
     status->master_mute =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_MUTE;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_MUTE_FLAG;
     status->external_subsource =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EXTERNAL_INPUT_SELECTOR;
     status->source_state =
@@ -97,7 +97,7 @@ sphe_read_control_status(struct sphe_control_status *status)
     status->downsample_mask =
         *(volatile uint16_t *)(uintptr_t)SPHE_STATE_DOWNSAMPLE_STATE_MASK;
     status->speaker_topology =
-        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_SPEAKER_TOPOLOGY;
+        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_SPEAKER_TOPOLOGY_WORD;
     status->decoder_state =
         *(volatile uint32_t *)(uintptr_t)SPHE_STATE_AUDIO_DECODER_STATE;
 }
