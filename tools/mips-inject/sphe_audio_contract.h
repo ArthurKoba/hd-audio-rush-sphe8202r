@@ -229,6 +229,22 @@ enum sphe_control_descriptor_layout {
     SPHE_CONTROL_SELECTION_GROUP_SIZE = 9,
 };
 
+enum sphe_persistent_storage_layout {
+    /* Byte-addressed persistent namespace used by the recovered control/source state. */
+    SPHE_PERSIST_NAMESPACE_MAIN                     = 0x00A0,
+    SPHE_PERSIST_OFFSET_FIRMWARE_SIGNATURE          = 0x0001,
+    SPHE_PERSIST_FIRMWARE_SIGNATURE_SIZE            = 3,
+    SPHE_PERSIST_OFFSET_CONTROL_SELECTIONS          = 0x0004,
+    SPHE_PERSIST_OFFSET_CONTROL_CHECKSUM             = 0x0045,
+    SPHE_PERSIST_CONTROL_CHECKSUM_SIZE              = 2,
+    SPHE_PERSIST_OFFSET_AUXILIARY_CONTROL_STATE     = 0x0047,
+    SPHE_PERSIST_AUXILIARY_CONTROL_STATE_SIZE       = 0x001C,
+    SPHE_PERSIST_OFFSET_UNMAPPED_BLOCK_0102         = 0x0102,
+    SPHE_PERSIST_UNMAPPED_BLOCK_0102_SIZE           = 0x0034,
+    SPHE_PERSIST_OFFSET_EXTERNAL_INPUT_MODE         = 0x0136,
+    SPHE_PERSIST_EXTERNAL_INPUT_MODE_SIZE           = 1,
+};
+
 enum sphe_audio_service_state {
     SPHE_AUDIO_SERVICE_STOPPED = 0,
     SPHE_AUDIO_SERVICE_RUNNING = 1,
@@ -382,6 +398,9 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
 #define SPHE_STATE_MIC1                            0x80003297U
 #define SPHE_STATE_MIC2                            0x80003324U
+#define SPHE_STATE_KEY_INDEX                       0x80003289U
+#define SPHE_STATE_KEY_SELECTION_SLOT              0x8000681FU
+#define SPHE_STATE_DYNAMIC_RANGE_SELECTION_SLOT    0x8000682BU
 #define SPHE_STATE_ECHO                            0x8000333AU
 #define SPHE_STATE_ECHO_SELECTION_SLOT                       0x8000681DU
 #define SPHE_STATE_MIC1_SELECTION_SLOT                       0x8000681EU
