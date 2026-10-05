@@ -292,8 +292,23 @@ enum sphe_echo_profile_contract {
     SPHE_ECHO_PROFILE_FIRST_MODE = 7,
 };
 
+enum sphe_eq_gain_code {
+    SPHE_EQ_GAIN_CODE_MINUS_10_DB = 3,
+    SPHE_EQ_GAIN_CODE_MINUS_6_DB  = 7,
+    SPHE_EQ_GAIN_CODE_MINUS_4_DB  = 9,
+    SPHE_EQ_GAIN_CODE_MINUS_3_DB  = 10,
+    SPHE_EQ_GAIN_CODE_MINUS_2_DB  = 11,
+    SPHE_EQ_GAIN_CODE_0_DB        = 13,
+    SPHE_EQ_GAIN_CODE_PLUS_2_DB   = 15,
+    SPHE_EQ_GAIN_CODE_PLUS_3_DB   = 16,
+    SPHE_EQ_GAIN_CODE_PLUS_5_DB   = 18,
+    SPHE_EQ_GAIN_CODE_PLUS_6_DB   = 19,
+    SPHE_EQ_GAIN_CODE_PLUS_8_DB   = 21,
+    SPHE_EQ_GAIN_CODE_PLUS_10_DB  = 23,
+};
+
 enum sphe_user_eq_gain_contract {
-    SPHE_USER_EQ_ZERO_DB_GAIN_CODE = 13,
+    SPHE_USER_EQ_ZERO_DB_GAIN_CODE = SPHE_EQ_GAIN_CODE_0_DB,
 };
 
 enum sphe_speaker_delay_kind {
