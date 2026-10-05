@@ -201,7 +201,7 @@ docs/
   analyze-status.md
 ```
 
-The GitHub issues are the task backlog; avoid creating extra planning documents for the same work.
+GitHub issues are the backlog for concrete trackable work items; do not use them as a running analysis notebook and avoid extra planning documents for the same work.
 
 
 ## ROM-loader host support
