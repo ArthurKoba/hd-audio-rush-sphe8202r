@@ -18,6 +18,9 @@
  */
 #define SPHE_STATE_TRICKPLAY_SCAN_SPEED   0x80003250U
 
+/* Shared 16-bit media/runtime flags; individual bit meanings remain contextual. */
+#define SPHE_STATE_MEDIA_RUNTIME_FLAGS       0x8000326AU
+
 /*
  * Shared media stream-buffer cursor contract.  AP1/CDROM/DRV/WMA use the
  * same base pointer with 16-bit limit/cursor offsets.
