@@ -9,7 +9,7 @@ sphe_handle_control_command(const struct sphe_control_command *cmd)
         return SPHE_CONTROL_NULL_COMMAND;
     }
 
-    switch ((enum sphe_control_opcode)cmd->opcode) {
+    switch ((enum sphe_legacy_control_opcode)cmd->opcode) {
     case SPHE_CTRL_SET_MASTER_VOLUME:
         return sphe_control_set_master_volume(cmd->value)
             ? SPHE_CONTROL_OK : SPHE_CONTROL_BAD_ARGUMENT;

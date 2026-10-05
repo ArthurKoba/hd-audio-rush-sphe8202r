@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-enum sphe_control_opcode {
+enum sphe_legacy_control_opcode {
     SPHE_CTRL_SET_MASTER_VOLUME = 0x01,
     SPHE_CTRL_TOGGLE_MASTER_MUTE = 0x02,
     SPHE_CTRL_SET_SURROUND = 0x03,
@@ -17,7 +17,7 @@ enum sphe_control_opcode {
     SPHE_CTRL_SET_EXTERNAL_SUBSOURCE = 0x0B,
 };
 
-enum sphe_control_result {
+enum sphe_legacy_control_result {
     SPHE_CONTROL_OK = 0,
     SPHE_CONTROL_NULL_COMMAND = -1,
     SPHE_CONTROL_BAD_ARGUMENT = -2,
@@ -47,6 +47,7 @@ struct sphe_control_status {
 };
 
 /*
+ * Compatibility wrapper over the canonical sphe_audio_control API.
  * Returns 0 on success.
  * Negative values are local validation/dispatch failures; they are not
  * original firmware error codes.

@@ -11,7 +11,7 @@
  * and feed these commands into sphe_audio_control_apply().
  */
 
-enum sphe_control_opcode {
+enum sphe_audio_control_opcode {
     SPHE_CTL_MASTER_VOLUME   = 0x01,
     SPHE_CTL_MASTER_MUTE     = 0x02,
 
@@ -29,7 +29,7 @@ enum sphe_control_opcode {
     SPHE_CTL_SPEAKER_DELAY   = 0x32,
 };
 
-enum sphe_control_status {
+enum sphe_audio_control_result {
     SPHE_CTL_OK              = 0,
     SPHE_CTL_BAD_OPCODE      = -1,
     SPHE_CTL_BAD_ARGUMENT    = -2,
