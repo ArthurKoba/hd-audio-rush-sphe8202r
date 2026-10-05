@@ -124,7 +124,7 @@ AP1:
 - baseline was saved and exported before metadata mutation; backup `/artifacts/exports/ap1-before-audio-links-20261002.gzf`, 3082627 bytes, native program package;
 - exactly one reference changed: source `0x807028D8`, operand 0, old UNCONDITIONAL_CALL target `0x88001B58`/DEFAULT removed; correct target `0x88001358`/USER_DEFINED added with primary=true;
 - refresh_action_behavior and later get_links_from both confirmed the corrected destination; subsequent save_program succeeded;
-- the wrapper name remains `FUN_807028d0`, independently checked; no rename is claimed;
+- the stored action name remains `FUN_807028d0` because the action boundary is truncated; the saved Analysis plate comment now records its documented forwarding contract to `SetDspParameterWord24`, and no semantic rename is claimed until the boundary is reconciled;
 - no raw bytes or action bodies changed in AP1 by this repair;
 - the three remaining EQ links at `0x80702DE4`, `0x80702DB0`, `0x80702DF8` remain unapplied corrections;
 - the attempted extended comment on ApplyAudioDecoderState is absent on postcondition read; its older saved comment remains. The complete new source evidence is retained here.

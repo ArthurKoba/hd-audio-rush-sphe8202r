@@ -195,7 +195,7 @@ Confirmed worker contract:
 
 `ApplySpeakerDelayParameter(kind,value)` is action `0x0B`, command family `0x0C00|kind`, delay value in the 16-bit auxiliary field.
 
-`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. Canonical semantic name to migrate into the saved Analysis project: `ReapplyDigitalAndSpeakerDelayControls`.
+`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. The saved Analysis action is now named `ReapplyDigitalAndSpeakerDelayControls`.
 
 ## External source / AUX / S/PDIF input
 
