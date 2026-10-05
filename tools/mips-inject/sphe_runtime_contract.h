@@ -7,6 +7,13 @@
  * mirrors confirmed runtime constants for replacement-source reuse.
  */
 
+#define SPHE_RUNTIME_MODULE_OFFSET_TABLE      0x88014260U
+#define SPHE_RUNTIME_PACKED_MODULE_DATA_BASE 0x880142CCU
+
+enum sphe_runtime_module_layout {
+    SPHE_RUNTIME_MODULE_SLOT_COUNT = 27,
+};
+
 enum sphe_runtime_module_slot {
     SPHE_MODULE_SLOT_MPEG      = 1,
     SPHE_MODULE_SLOT_AP1       = 3,
