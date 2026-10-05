@@ -7,6 +7,10 @@
  * Shared media/runtime state recovered across the primary MIPS modules.
  * Keep these separate from the audio-control contract so common playback
  * state does not acquire audio-specific names by accident.
+ *
+ * This file contains the paused media-runtime refactor findings. The saved
+ * Analysis project remains canonical; entries not yet represented there are
+ * provisional migration debt, not a second semantic authority.
  */
 
 /* Encoded media/playback state: low 14-bit media code plus high flag bits. */

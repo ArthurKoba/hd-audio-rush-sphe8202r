@@ -287,8 +287,8 @@ The external-input path is now separated into hardware-mode, subsource and decod
 
 - `gp+0x12B = 0x80002C2B` is the current external hardware mode code; valid values are `0..3`.
 - `gp+0x12C = 0x80002C2C` is the previously applied mode code.
-- `ApplyExternalInputModeCode @ 0x806FED88` applies mode `0..3` to the external-input hardware-control bits.
-- `SaveExternalInputModeCode @ 0x8071DB1C` writes the current mode through config key `0x136`; `PollExternalInputModeCode @ 0x8071DAC8` reads the same key.
+- `ApplyExternalInputHardwareMode @ 0x806FED88` applies mode `0..3` to the external-input hardware-control bits.
+- `WriteExternalInputModeCode @ 0x8071DB1C` writes the current mode through config key `0x136`; `PollExternalInputModeCode @ 0x8071DAC8` reads the same key.
 - `PrepareExternalInputTransition @ 0x806FABA0` applies effective volume zero and waits 500 time units. Stock behavior invokes this anti-pop transition whenever AUX is one side of the change.
 - mode `3` maps to selector `1` / source state `0x0B` and is the confirmed AUX route.
 - modes `0..2` map to selector `2` / source state `0x0D` and enter the S/PDIF-IN route. The physical meanings of the three individual hardware mode codes remain **UNKNOWN**; do not label them optical/coax/etc. without board evidence.

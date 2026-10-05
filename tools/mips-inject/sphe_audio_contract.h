@@ -9,8 +9,8 @@
  * - names below represent recovered behavior contracts, not guessed silicon
  *   capabilities;
  * - UNKNOWN semantics remain neutral instead of being given attractive names;
- * - this header is the single source of truth shared by replacement-source
- *   code and the Analysis data-type vocabulary.
+ * - the saved Analysis project is the canonical semantic authority; this
+ *   header mirrors confirmed vocabulary for replacement-source reuse.
  */
 
 enum sphe_audio_action {
@@ -424,6 +424,8 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_KEY_CONTROL_INDEX                 0x80003289U
 #define SPHE_STATE_KEY_CONTROL_SELECTION_SLOT        0x8000681FU
 #define SPHE_STATE_DYNAMIC_RANGE_SELECTION_SLOT      0x8000682BU
+#define SPHE_STATE_SPEAKER_CENTER_DELAY_SELECTION_SLOT 0x80006828U
+#define SPHE_STATE_SPEAKER_REAR_DELAY_SELECTION_SLOT   0x80006829U
 #define SPHE_STATE_ECHO_PROFILE_INDEX                0x8000333AU
 #define SPHE_STATE_ECHO_CONTROL_SELECTION_SLOT       0x8000681DU
 #define SPHE_STATE_MIC1_CONTROL_SELECTION_SLOT       0x8000681EU
