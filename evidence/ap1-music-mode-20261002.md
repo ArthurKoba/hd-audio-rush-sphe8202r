@@ -9,7 +9,7 @@ This evidence file is a historical synchronized checkpoint, not the live semanti
 
 This checkpoint supersedes the seven-fixed-EQ-curves description and the interpretation of configured decoder input-window sizes as DSP program-memory evidence in the 2026-10-01 handoff. It preserves the previously uncommitted correction and new native Analysis results. No firmware bytes are modified. Validation is CPU-side implementation proof, not execution/board proof or complete DSP algorithm recovery.
 
-Latest directly queried AP1 semantic naming count: **135/3847 = approximately 3.51%**. This is not audio-path completion. The older 97–98% estimate is not a validated completeness measure for the remaining DSP/resource/physical-output contract.
+Historical AP1 naming snapshot at this checkpoint: **135 semantic names / 3847 action nodes**. This was a naming inventory only, not audio-path completion. Historical whole-route percentage estimates from this checkpoint are retired; current coverage is defined only by the acceptance ledger in `docs/analyze-status.md`.
 
 ## Confirmed MUSIC MODE mapping
 
