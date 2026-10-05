@@ -106,7 +106,7 @@ The inspected start/stop/pause return paths require both a positive dispatcher r
 
 Pause additionally calls the native `SetMasterVolumeLevel(0)` wrapper at `0x8070129C` and writes `0x800F` to `s6+0xDA4` after the wait, even when the request/wait result will be reported as failure. The volume wrapper sends hardware action 2. This is a failure-side-effect observation, not a measured analog mute claim.
 
-The delay helper `0x880120DC` has 12 native operations: repeat an inner decrement loop initialized to 0x6976 for each a0 outer iteration. It does not read a timer. Caller values 0x3C/0x50/0x78 are not independently established milliseconds or microseconds.
+`BusyWaitOuterIterations @ 0x880120DC` has 12 native operations: repeat an inner decrement loop initialized to `SPHE_BUSY_WAIT_INNER_COUNT = 0x6976` for each `outer_iterations` value in a0. It does not read a timer. Caller values 0x3C/0x50/0x78 are not independently established milliseconds or microseconds.
 
 All 35 native operations of `ApplyAudioDecoderState` at `0x807017CC..0x80701857` were previewed. It issues action 9, requests stop, stores status -1, invokes profile configuration, waits for state 0, sets producer guard (0x400 for requested state 0x10, otherwise 8), starts the configured pipeline, then performs two post-configuration calls. It does NOT check results of the initial command, stop, profile configuration, state wait or configured start. In particular the wait result is overwritten immediately. No aggregate successful-application contract can be inferred from wrapper completion alone.
 
