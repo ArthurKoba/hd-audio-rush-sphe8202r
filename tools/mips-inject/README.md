@@ -45,6 +45,7 @@ validation before hardware use.
 The replacement-source helpers keep recovered constants split by domain:
 - `sphe_audio_contract.h` — audio actions, setup controls, audio live state and persistent control layout;
 - `sphe_media_contract.h` — shared playback/media runtime state used across AP1/CDROM/DRV/WMA;
+- `sphe_runtime_contract.h` — ROM/runtime module-slot and fixed-destination vocabulary;
 - `sphe_soc_contract.h` — system-window, UART and USB-host MMIO constants.
 
 `tools/scan_audio_contract_refs.py` merges those vocabularies only for static

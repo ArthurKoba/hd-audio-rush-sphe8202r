@@ -16,6 +16,18 @@
 #define SPHE_SYS_PROFILE_REG_0018                SPHE_SYSTEM_REG(0x0018U)
 #define SPHE_SYS_PROFILE_REG_0070                SPHE_SYSTEM_REG(0x0070U)
 
+enum sphe_uart_baud_selector {
+    SPHE_UART_BAUD_SELECTOR_57600  = 0,
+    SPHE_UART_BAUD_SELECTOR_115200 = 1,
+    SPHE_UART_BAUD_SELECTOR_230400 = 2,
+};
+
+enum sphe_uart_baud_divisor {
+    SPHE_UART_BAUD_DIVISOR_57600  = 0x74,
+    SPHE_UART_BAUD_DIVISOR_115200 = 0x3A,
+    SPHE_UART_BAUD_DIVISOR_230400 = 0x1D,
+};
+
 /* UART register contract. */
 #define SPHE_UART_DATA_REG                       SPHE_SYSTEM_REG(0x0900U)
 #define SPHE_UART_STATUS_REG                     SPHE_SYSTEM_REG(0x0904U)
