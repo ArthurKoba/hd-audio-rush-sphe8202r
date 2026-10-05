@@ -83,7 +83,7 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->master_volume = REG8(SPHE_STATE_MASTER_VOLUME);
     out->master_muted = REG8(SPHE_STATE_MASTER_MUTE);
 
-    out->eq_selection = REG8(SPHE_STATE_EQ_SELECTION);
+    out->eq_selection = REG8(SPHE_STATE_EQ_PRESET_INDEX);
     out->surround_selection = REG8(SPHE_STATE_SURROUND_SELECTION);
 
     out->echo_index = REG8(SPHE_STATE_ECHO);
@@ -150,7 +150,7 @@ bool sphe_control_set_eq_selection(enum sphe_eq_selection selection)
      * locally clear surround and the stock paired action restores it.
      * USER selects the already stored seven-band vector without replacing it.
      */
-    REG8(SPHE_STATE_EQ_SELECTION) = (uint8_t)selection;
+    REG8(SPHE_STATE_EQ_PRESET_INDEX) = (uint8_t)selection;
     sphe_reapply_eq_and_surround();
     return true;
 }
@@ -176,7 +176,7 @@ bool sphe_control_set_user_eq7(const uint8_t coefficients[SPHE_EQ_BAND_COUNT])
         dst[i] = coefficients[i];
     }
 
-    REG8(SPHE_STATE_EQ_SELECTION) = SPHE_EQ_USER;
+    REG8(SPHE_STATE_EQ_PRESET_INDEX) = SPHE_EQ_USER;
     sphe_reapply_eq_and_surround();
     return true;
 }

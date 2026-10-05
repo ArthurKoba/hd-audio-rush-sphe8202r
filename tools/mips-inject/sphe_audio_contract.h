@@ -363,6 +363,8 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_EXTERNAL_MODE_PREVIOUS          0x80002C2CU
 #define SPHE_STATE_EXTERNAL_INPUT_SELECTOR         0x800032FAU
 #define SPHE_STATE_SOURCE_MEDIA                    0x800032A5U
+/* Encoded media/playback state word: low 14-bit media code plus high flag bits. */
+#define SPHE_STATE_MEDIA_STATE_WORD                0x80003254U
 #define SPHE_STATE_MASTER_VOLUME                   0x80003332U
 #define SPHE_STATE_MASTER_MUTE                     0x800032B5U
 #define SPHE_STATE_DYNAMIC_RANGE_SELECTION          0x8000332CU
@@ -372,7 +374,7 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_AUDIO_COMMAND_FAMILY             0x800042FEU
 #define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
 /* Current seven-band EQ preset index (STANDARD..USER). */
-#define SPHE_STATE_EQ_SELECTION                    0x80002B0DU
+#define SPHE_STATE_EQ_PRESET_INDEX                    0x80002B0DU
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
 #define SPHE_STATE_MIC1                            0x80003297U
 #define SPHE_STATE_MIC2                            0x80003324U

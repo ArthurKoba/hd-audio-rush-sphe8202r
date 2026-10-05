@@ -88,7 +88,7 @@ sphe_read_control_status(struct sphe_control_status *status)
     status->surround_selection =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SURROUND_SELECTION;
     status->eq_selection =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EQ_SELECTION;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EQ_PRESET_INDEX;
     status->echo_level =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_ECHO;
     status->mic1_level =
