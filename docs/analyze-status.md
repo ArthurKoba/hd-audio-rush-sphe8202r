@@ -162,7 +162,7 @@ A direction that has reached a hardware-only boundary is **paused**, not treated
 - another firmware-domain dependency requires it; or
 - the project deliberately enters hardware-acceptance phase.
 
-Current analysis progress is defined by the exact acceptance ledger above. The previous per-area estimates (93%, 90%, 87%, etc.) are retired because they mixed implementation proof, hardware proof, future features and subjective confidence.
+Current analysis progress is defined by the exact acceptance ledger above. Previous per-area confidence estimates are retired because they mixed implementation proof, hardware proof, future features and subjective confidence.
 
 Hardware-gated items are tracked as later validation work and do not reduce firmware-analysis coverage. In particular, target USB execution, physical SPHE UART access, six-channel continuity/levels and rebuilt-image hardware acceptance belong to execution/board/integration proof, not the current analysis denominator.
 
