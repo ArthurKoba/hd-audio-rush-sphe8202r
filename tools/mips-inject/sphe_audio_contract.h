@@ -1,0 +1,292 @@
+#ifndef SPHE_AUDIO_CONTRACT_H
+#define SPHE_AUDIO_CONTRACT_H
+
+/*
+ * Canonical recovered audio vocabulary for the preserved Audio Rush
+ * SPHE8202R firmware.
+ *
+ * Rules:
+ * - names below represent recovered behavior contracts, not guessed silicon
+ *   capabilities;
+ * - UNKNOWN semantics remain neutral instead of being given attractive names;
+ * - this header is the single source of truth shared by replacement-source
+ *   code and the Analysis data-type vocabulary.
+ */
+
+enum sphe_audio_action {
+    SPHE_AUDIO_ACTION_PIPELINE_MODE       = 0x00,
+    SPHE_AUDIO_ACTION_OUTPUT_MODE         = 0x01,
+    SPHE_AUDIO_ACTION_MASTER_VOLUME       = 0x02,
+    SPHE_AUDIO_ACTION_KEY                 = 0x03,
+    SPHE_AUDIO_ACTION_ECHO                = 0x04,
+    SPHE_AUDIO_ACTION_SURROUND            = 0x05,
+    SPHE_AUDIO_ACTION_SUBWOOFER           = 0x06,
+    SPHE_AUDIO_ACTION_SPDIF_HW            = 0x07,
+    SPHE_AUDIO_ACTION_EQ_PROCESSING       = 0x08,
+    SPHE_AUDIO_ACTION_DECODER_STATE       = 0x09,
+    SPHE_AUDIO_ACTION_MIC1                = 0x0A,
+    SPHE_AUDIO_ACTION_SPEAKER_DELAY       = 0x0B,
+    SPHE_AUDIO_ACTION_INVALID_0C          = 0x0C,
+    SPHE_AUDIO_ACTION_INVALID_0D          = 0x0D,
+    SPHE_AUDIO_ACTION_GM5                 = 0x0E,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_1A      = 0x0F,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_1B      = 0x10,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_1C      = 0x11,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_1D      = 0x12,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_15      = 0x13,
+    SPHE_AUDIO_ACTION_GAIN_FAMILY_1E      = 0x14,
+    SPHE_AUDIO_ACTION_CONSTANT_0B01       = 0x15,
+    SPHE_AUDIO_ACTION_MIC2_TRIGGER        = 0x16,
+    SPHE_AUDIO_ACTION_SPEAKER_TOPOLOGY    = 0x17,
+    SPHE_AUDIO_ACTION_CONSTANT_2700       = 0x18,
+    SPHE_AUDIO_ACTION_FAMILY_2800         = 0x19,
+    SPHE_AUDIO_ACTION_CONSTANT_2900       = 0x1A,
+};
+
+enum sphe_audio_command_family {
+    SPHE_AUDIO_CMD_PIPELINE        = 0x0200,
+    SPHE_AUDIO_CMD_OUTPUT_MODE     = 0x0300,
+    SPHE_AUDIO_CMD_KEY             = 0x0500,
+    SPHE_AUDIO_CMD_ECHO            = 0x0600,
+    SPHE_AUDIO_CMD_SURROUND        = 0x0700,
+    SPHE_AUDIO_CMD_SUBWOOFER       = 0x0800,
+    SPHE_AUDIO_CMD_SPDIF_HW        = 0x0900,
+    SPHE_AUDIO_CMD_EQ_PROCESSING   = 0x0A00,
+    SPHE_AUDIO_CMD_CONSTANT_0B01   = 0x0B00,
+    SPHE_AUDIO_CMD_SPEAKER_DELAY   = 0x0C00,
+    SPHE_AUDIO_CMD_DECODER_STATE   = 0x0D00,
+    SPHE_AUDIO_CMD_GM5             = 0x0E00,
+    SPHE_AUDIO_CMD_GAIN_15         = 0x1500,
+    SPHE_AUDIO_CMD_TABLE_17        = 0x1700,
+    SPHE_AUDIO_CMD_GAIN_1A         = 0x1A00,
+    SPHE_AUDIO_CMD_GAIN_1B         = 0x1B00,
+    SPHE_AUDIO_CMD_GAIN_1C         = 0x1C00,
+    SPHE_AUDIO_CMD_GAIN_1D         = 0x1D00,
+    SPHE_AUDIO_CMD_GAIN_1E         = 0x1E00,
+    SPHE_AUDIO_CMD_SPEAKER_TOPOLOGY = 0x2300,
+    SPHE_AUDIO_CMD_CONSTANT_2700   = 0x2700,
+    SPHE_AUDIO_CMD_FAMILY_2800     = 0x2800,
+    SPHE_AUDIO_CMD_CONSTANT_2900   = 0x2900,
+};
+
+enum sphe_audio_pipeline_command {
+    SPHE_AUDIO_PIPELINE_START = 0x0201,
+    SPHE_AUDIO_PIPELINE_STOP  = 0x0203,
+    SPHE_AUDIO_PIPELINE_PAUSE = 0x0204,
+};
+
+enum sphe_decoder_state {
+    SPHE_DECODER_STATE_WMA = 0x00004000,
+    SPHE_DECODER_STATE_PCM = 0x00008000,
+    SPHE_DECODER_STATE_AC3 = 0x00010000,
+    SPHE_DECODER_STATE_DTS = 0x00020000,
+    SPHE_DECODER_STATE_AUX = 0x00040000,
+};
+
+enum sphe_decoder_hardware_type {
+    SPHE_DECODER_HW_PCM           = 0,
+    SPHE_DECODER_HW_AC3           = 1,
+    SPHE_DECODER_HW_DTS_A         = 2,
+    SPHE_DECODER_HW_DTS_B         = 3,
+    SPHE_DECODER_HW_NO_SIGNAL_MIN = 4,
+};
+
+enum sphe_spdif_output_option {
+    SPHE_SPDIF_OFF = 0x12,
+    SPHE_SPDIF_RAW = 0x75,
+    SPHE_SPDIF_PCM = 0x77,
+};
+
+enum sphe_downsample_mode {
+    SPHE_DOWNSAMPLE_48K  = 0,
+    SPHE_DOWNSAMPLE_96K  = 1,
+    SPHE_DOWNSAMPLE_192K = 2,
+};
+
+enum sphe_downmix_option {
+    SPHE_DOWNMIX_STEREO = 0x31,
+    SPHE_DOWNMIX_OFF    = 0x7B,
+    SPHE_DOWNMIX_LT_RT  = 0xF7,
+    SPHE_DOWNMIX_VSS    = 0xF8,
+};
+
+enum sphe_gm5_option {
+    SPHE_GM5_OFF   = 0x7B,
+    SPHE_GM5_MODE1 = 0x9F,
+    SPHE_GM5_MODE2 = 0xA0,
+};
+
+enum sphe_surround_mode {
+    SPHE_SURROUND_OFF     = 0,
+    SPHE_SURROUND_CONCERT = 1,
+    SPHE_SURROUND_CHURCH  = 2,
+    SPHE_SURROUND_PASSIVE = 3,
+    SPHE_SURROUND_WIDE    = 4,
+    SPHE_SURROUND_LIVE    = 5,
+};
+
+enum sphe_eq_selection {
+    SPHE_EQ_STANDARD = 2,
+    SPHE_EQ_CLASSIC  = 3,
+    SPHE_EQ_ROCK     = 4,
+    SPHE_EQ_JAZZ     = 5,
+    SPHE_EQ_POP      = 6,
+    SPHE_EQ_USER     = 7,
+};
+
+enum sphe_speaker_channel {
+    SPHE_SPEAKER_FRONT     = 0,
+    SPHE_SPEAKER_CENTER    = 1,
+    SPHE_SPEAKER_REAR      = 2,
+    SPHE_SPEAKER_SUBWOOFER = 3,
+};
+
+enum sphe_speaker_state {
+    SPHE_SPEAKER_LARGE = 0,
+    SPHE_SPEAKER_SMALL = 1,
+    SPHE_SPEAKER_OFF   = 2,
+};
+
+enum sphe_external_mode_code {
+    SPHE_EXTERNAL_MODE_0   = 0,
+    SPHE_EXTERNAL_MODE_1   = 1,
+    SPHE_EXTERNAL_MODE_2   = 2,
+    SPHE_EXTERNAL_MODE_AUX = 3,
+};
+
+enum sphe_external_input_selector {
+    SPHE_EXTERNAL_INPUT_TUNER = 0,
+    SPHE_EXTERNAL_INPUT_AUX   = 1,
+    SPHE_EXTERNAL_INPUT_SPDIF = 2,
+};
+
+enum sphe_external_transition_state {
+    SPHE_TRANSITION_STATE_AUX      = 0x0B,
+    SPHE_TRANSITION_STATE_SPDIF_IN = 0x0D,
+};
+
+enum sphe_audio_service_state {
+    SPHE_AUDIO_SERVICE_STOPPED = 0,
+    SPHE_AUDIO_SERVICE_RUNNING = 1,
+    SPHE_AUDIO_SERVICE_PAUSED  = 2,
+};
+
+enum sphe_audio_service_register_offset {
+    SPHE_AUDIO_SERVICE_REG_RUN_CONTROL         = 0x0130,
+    SPHE_AUDIO_SERVICE_REG_COMMAND             = 0x04C0,
+    SPHE_AUDIO_SERVICE_REG_ARGUMENT            = 0x04C4,
+    SPHE_AUDIO_SERVICE_REG_INPUT_PRODUCER_WORD = 0x04C8,
+    SPHE_AUDIO_SERVICE_REG_INPUT_CONSUMER_WORD = 0x04CC,
+    SPHE_AUDIO_SERVICE_REG_INPUT_CAPACITY      = 0x04D0,
+    SPHE_AUDIO_SERVICE_REG_STATE               = 0x04D4,
+};
+
+enum sphe_audio_service_run_control {
+    SPHE_AUDIO_SERVICE_COMMIT     = 1,
+    SPHE_AUDIO_SERVICE_TRANSITION = 3,
+};
+
+enum sphe_audio_service_status_bit {
+    SPHE_AUDIO_SERVICE_COMMAND_ACK = 0x8000,
+};
+
+enum sphe_decoder_service_slot {
+    SPHE_SERVICE_SLOT_INPUT_RING_WORDS       = 0x01,
+    SPHE_SERVICE_SLOT_SUBWOOFER              = 0x0D,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_0          = 0x13,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_1          = 0x14,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_2          = 0x15,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_3          = 0x16,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_4          = 0x17,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_5          = 0x18,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_6          = 0x19,
+    SPHE_SERVICE_SLOT_PLAYBACK_ID_7          = 0x1A,
+    SPHE_SERVICE_SLOT_SPEAKER_TOPOLOGY       = 0x1B,
+    SPHE_SERVICE_SLOT_DOWNMIX                = 0x21,
+    SPHE_SERVICE_SLOT_GM5                    = 0x23,
+    SPHE_SERVICE_SLOT_AUX_CAPTURE_PAIR       = 0x32,
+};
+
+enum sphe_aux_capture_pair_selector {
+    SPHE_AUX_CAPTURE_PAIR_0E_0F = 4,
+    SPHE_AUX_CAPTURE_PAIR_10_11 = 5,
+};
+
+enum sphe_resident_channel_id {
+    SPHE_RESIDENT_CAPTURE_ALT_A    = 0x0E,
+    SPHE_RESIDENT_CAPTURE_ALT_B    = 0x0F,
+    SPHE_RESIDENT_CAPTURE_TARGET_A = 0x10,
+    SPHE_RESIDENT_CAPTURE_TARGET_B = 0x11,
+};
+
+enum sphe_resident_mailbox_command {
+    SPHE_RESIDENT_SET_AUDIO_OUTPUT_BLOCK = 0x62,
+    SPHE_RESIDENT_GET_AUDIO_INPUT_BLOCK  = 0x63,
+};
+
+enum sphe_resident_route_source_slot {
+    SPHE_RESIDENT_SOURCE_TARGET_A = 0,
+    SPHE_RESIDENT_SOURCE_TARGET_B = 1,
+    SPHE_RESIDENT_SOURCE_ALT_A    = 2,
+    SPHE_RESIDENT_SOURCE_ALT_B    = 3,
+};
+
+enum sphe_resident_route_status_bit {
+    SPHE_RESIDENT_COEFFICIENT_BUSY = 0x1000,
+    SPHE_RESIDENT_ROUTE_BUSY       = 0x2000,
+};
+
+struct sphe_resident_audio_descriptor {
+    unsigned short channel_id;
+    unsigned short ring_base;
+    unsigned short ring_size;
+    unsigned short runtime_state;
+    unsigned short runtime_counter;
+};
+
+/* Canonical recovered action-node addresses used by replacement-source code. */
+#define SPHE_ADDR_DISPATCH_AUDIO_HARDWARE_ACTION  0x806FFD1CU
+#define SPHE_ADDR_APPLY_MASTER_VOLUME_LEVEL       0x8070129CU
+#define SPHE_ADDR_TOGGLE_MASTER_MUTE              0x806F9D18U
+#define SPHE_ADDR_APPLY_SPDIF_HARDWARE_MODE       0x80702BA0U
+#define SPHE_ADDR_APPLY_DECODER_OUTPUT_MODE       0x80702BD0U
+#define SPHE_ADDR_APPLY_SPEAKER_DELAY             0x80702C60U
+#define SPHE_ADDR_APPLY_ECHO_PROFILE              0x80702C8CU
+#define SPHE_ADDR_APPLY_MIC1_LEVEL                0x80702B48U
+#define SPHE_ADDR_APPLY_MIC2_SELECTION            0x80702B74U
+#define SPHE_ADDR_APPLY_DOWNSAMPLE_MODE           0x80701B80U
+#define SPHE_ADDR_REAPPLY_SPEAKER_TOPOLOGY        0x8070106CU
+#define SPHE_ADDR_APPLY_EXTERNAL_INPUT_MODE_CODE  0x806FED88U
+#define SPHE_ADDR_SAVE_EXTERNAL_INPUT_MODE_CODE   0x8071DB1CU
+#define SPHE_ADDR_PREPARE_EXTERNAL_INPUT_TRANSITION 0x806FABA0U
+#define SPHE_ADDR_REAPPLY_CURRENT_ECHO            0x8077CA14U
+#define SPHE_ADDR_REAPPLY_CURRENT_MIC1            0x8077CA44U
+#define SPHE_ADDR_APPLY_SPDIF_OUTPUT_OPTION       0x807759E0U
+#define SPHE_ADDR_APPLY_DOWNMIX_OPTION            0x80775800U
+#define SPHE_ADDR_APPLY_GM5_OPTION                0x80775F3CU
+#define SPHE_ADDR_APPLY_DYNAMIC_RANGE             0x807769B8U
+#define SPHE_ADDR_APPLY_EQ_PRESET                 0x806E8960U
+#define SPHE_ADDR_APPLY_USER_EQ7                  0x806E8ED0U
+#define SPHE_ADDR_REAPPLY_EQ_AND_SURROUND         0x806E89E4U
+#define SPHE_ADDR_SET_SPEAKER_CHANNEL_STATE       0x80701168U
+#define SPHE_ADDR_APPLY_SUBWOOFER_STATE           0x80701268U
+#define SPHE_ADDR_SET_DSP_PARAMETER_WORD24        0x88001358U
+#define SPHE_ADDR_GET_DSP_PARAMETER_WORD24        0x8800138CU
+#define SPHE_ADDR_WAIT_AUDIO_SERVICE_CONDITIONS   0x88001C78U
+#define SPHE_ADDR_GET_DECODER_INPUT_RING_FREE     0x88001CD0U
+
+/* Confirmed AP1 live-state addresses. */
+#define SPHE_STATE_DECODER                         0x80003198U
+#define SPHE_STATE_EXTERNAL_MODE                   0x80002C2BU
+#define SPHE_STATE_EXTERNAL_MODE_PREVIOUS          0x80002C2CU
+#define SPHE_STATE_EXTERNAL_INPUT_SELECTOR         0x800032FAU
+#define SPHE_STATE_SOURCE_MEDIA                    0x800032A5U
+#define SPHE_STATE_MASTER_VOLUME                   0x80003332U
+#define SPHE_STATE_MASTER_MUTE                     0x800032B5U
+#define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
+#define SPHE_STATE_SPEAKER_FRONT                   0x80003327U
+#define SPHE_STATE_SPEAKER_CENTER                  0x800032DCU
+#define SPHE_STATE_SPEAKER_REAR                    0x8000330EU
+#define SPHE_STATE_SPEAKER_SUBWOOFER               0x800032D6U
+
+#endif

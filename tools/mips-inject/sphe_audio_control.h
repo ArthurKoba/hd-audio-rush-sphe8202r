@@ -15,13 +15,6 @@
  * exposed here.
  */
 
-enum sphe_external_mode_code {
-    SPHE_EXTERNAL_MODE_0 = 0,
-    SPHE_EXTERNAL_MODE_1 = 1,
-    SPHE_EXTERNAL_MODE_2 = 2,
-    SPHE_EXTERNAL_MODE_AUX = 3,
-};
-
 struct sphe_audio_status {
     uint32_t decoder_state;
     uint16_t downsample_mask;
