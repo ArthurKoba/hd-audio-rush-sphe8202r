@@ -79,16 +79,20 @@ def sign16(value: int) -> int:
     return value - 0x10000 if value & 0x8000 else value
 
 
+def load_words(module: Module) -> list[int]:
+    data = module.path.read_bytes()
+    return [
+        struct.unpack_from("<I", data, offset)[0]
+        for offset in range(0, len(data) - 3, 4)
+    ]
+
+
 def scan_module(
     module: Module,
     known: set[int],
     gp_base: int | None,
 ) -> dict[int, list[int]]:
-    data = module.path.read_bytes()
-    words = [
-        struct.unpack_from("<I", data, offset)[0]
-        for offset in range(0, len(data) - 3, 4)
-    ]
+    words = load_words(module)
     hits: dict[int, list[int]] = defaultdict(list)
 
     for index, word in enumerate(words):
@@ -146,6 +150,47 @@ def scan_module(
     return dict(hits)
 
 
+def scan_gp_references(
+    module: Module,
+    gp_base: int | None,
+) -> dict[int, list[int]]:
+    """Collect all GP-relative memory references, including not-yet-modeled state."""
+    if gp_base is None:
+        return {}
+
+    hits: dict[int, list[int]] = defaultdict(list)
+    for index, word in enumerate(load_words(module)):
+        opcode = word >> 26
+        rs = (word >> 21) & 0x1F
+        imm = word & 0xFFFF
+        if rs != GP_REGISTER or opcode not in MEMORY_OPCODES:
+            continue
+        value = (gp_base + sign16(imm)) & 0xFFFFFFFF
+        hits[value].append(module.base + index * 4)
+    return dict(hits)
+
+
+def collect_unmodeled_gp_candidates(
+    symbols: dict[int, list[Symbol]],
+    gp_scans: dict[str, dict[int, list[int]]],
+    min_refs: int,
+) -> dict[int, dict[str, list[int]]]:
+    """Rank GP-relative addresses missing from the canonical contract."""
+    by_address: dict[int, dict[str, list[int]]] = defaultdict(dict)
+    for module_name, values in gp_scans.items():
+        for value, pcs in values.items():
+            if value in symbols:
+                continue
+            by_address[value][module_name] = pcs
+
+    return {
+        value: modules
+        for value, modules in by_address.items()
+        if len(modules) >= 2
+        and sum(len(pcs) for pcs in modules.values()) >= min_refs
+    }
+
+
 def classify_collisions(
     symbols: dict[int, list[Symbol]],
 ) -> tuple[dict[int, list[Symbol]], dict[int, list[Symbol]]]:
@@ -165,6 +210,7 @@ def classify_collisions(
 def render_markdown(
     symbols: dict[int, list[Symbol]],
     scans: dict[str, dict[int, list[int]]],
+    unmodeled_gp: dict[int, dict[str, list[int]]],
     include_small: bool,
 ) -> str:
     lines: list[str] = []
@@ -193,6 +239,28 @@ def render_markdown(
         for value, entries in sorted(cross_domain.items()):
             names = ", ".join(f"{x.enum}.{x.name}" for x in entries)
             lines.append(f"- `0x{value:X}`: {names}")
+        lines.append("")
+
+    if unmodeled_gp:
+        lines.append("# Unmodeled shared GP candidates")
+        lines.append("")
+        ranked = sorted(
+            unmodeled_gp.items(),
+            key=lambda item: (
+                len(item[1]),
+                sum(len(pcs) for pcs in item[1].values()),
+            ),
+            reverse=True,
+        )
+        for value, modules in ranked:
+            total = sum(len(pcs) for pcs in modules.values())
+            counts = ", ".join(
+                f"{name}={len(pcs)}" for name, pcs in sorted(modules.items())
+            )
+            lines.append(
+                f"- `0x{value:08X}` — **{total}** refs / "
+                f"**{len(modules)}** modules — {counts}"
+            )
         lines.append("")
 
     lines.append("# Module references")
@@ -225,6 +293,18 @@ def main() -> int:
         default=Path(__file__).resolve().parents[1],
     )
     parser.add_argument("--include-small", action="store_true")
+    parser.add_argument(
+        "--unknown-gp-min-refs",
+        type=int,
+        default=12,
+        help="Require at least this many total refs for an unmodeled shared GP candidate",
+    )
+    parser.add_argument(
+        "--unknown-gp-limit",
+        type=int,
+        default=50,
+        help="Maximum number of ranked unmodeled shared GP candidates to emit",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -243,6 +323,24 @@ def main() -> int:
         module.name: scan_module(module, set(symbols), gp_base)
         for module in modules
     }
+    gp_scans = {
+        module.name: scan_gp_references(module, gp_base)
+        for module in modules
+    }
+    unmodeled_gp = collect_unmodeled_gp_candidates(
+        symbols,
+        gp_scans,
+        args.unknown_gp_min_refs,
+    )
+    ranked_unmodeled_gp = sorted(
+        unmodeled_gp.items(),
+        key=lambda item: (
+            len(item[1]),
+            sum(len(pcs) for pcs in item[1].values()),
+        ),
+        reverse=True,
+    )
+    unmodeled_gp = dict(ranked_unmodeled_gp[:args.unknown_gp_limit])
 
     if args.json:
         same_domain, cross_domain = classify_collisions(symbols)
@@ -264,6 +362,17 @@ def main() -> int:
             ),
             "same_domain_collisions": collision_payload(same_domain),
             "cross_domain_collisions": collision_payload(cross_domain),
+            "unmodeled_gp_candidates": {
+                f"0x{value:08X}": {
+                    "total_refs": sum(len(pcs) for pcs in module_hits.values()),
+                    "module_count": len(module_hits),
+                    "modules": {
+                        module: [f"0x{pc:08X}" for pc in pcs]
+                        for module, pcs in module_hits.items()
+                    },
+                }
+                for value, module_hits in unmodeled_gp.items()
+            },
             "modules": {
                 module: {
                     f"0x{value:X}": {
@@ -277,7 +386,7 @@ def main() -> int:
         }
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        print(render_markdown(symbols, scans, args.include_small))
+        print(render_markdown(symbols, scans, unmodeled_gp, args.include_small))
 
     return 0
 
