@@ -37,6 +37,8 @@ These items are **not** part of the active transfer denominator unless they are 
 
 ### Audio vocabulary/refactor checkpoint — 2026-10-05
 
+- Final documented-action synchronization audit: **55/55** explicit semantic `Name @ address` pairs in the current README/docs/evidence set match the saved Analysis action map. The only remaining target `FUN_*` identifier in current evidence is `FUN_807028D0`, intentionally retained because its saved action boundary is truncated and already carries the closed forwarding contract in its plate comment.
+- A doc-only absolute-state/address audit now leaves only intentionally unresolved or non-semantic locations: the known-bad shifted runtime address `0x88012A00`, broad context pointer `0x8000343C`, two GP-relative addresses with no recovered role beyond address equivalence, and reset-only state words without a closed semantic identity. These are not missing transfer items.
 - The replacement-source audio/control layer now uses shared canonical contracts instead of local magic-value copies: `sphe_audio_contract.h`, `sphe_control_protocol.h` and `sphe_soc_contract.h`.
 - Live Analysis vocabulary is shared across AP1, `drv_other`, WMA and CDROM where the same recovered state is actually shared. Current `drv_other` snapshot: **183 action nodes / 50 custom-named**.
 - New cross-module state recovered through the refactor: `SPHE_STATE_MEDIA_STATE_WORD @ 0x80003254`, with **148 AP1**, **21 CDROM** and **2 drv_other** direct GP-relative references in the current scanner. Low 14 bits carry the media code; high bits are transition flags.
