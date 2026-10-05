@@ -196,6 +196,18 @@ enum sphe_surround_mode {
     SPHE_SURROUND_LIVE    = 5,
 };
 
+enum sphe_audio_preset_menu_page {
+    SPHE_AUDIO_PRESET_PAGE_SURROUND = 0,
+    SPHE_AUDIO_PRESET_PAGE_EQ       = 1,
+    SPHE_AUDIO_PRESET_PAGE_BAND     = 2,
+    SPHE_AUDIO_PRESET_PAGE_KEY      = 3,
+};
+
+enum sphe_audio_preset_menu_substate {
+    SPHE_AUDIO_PRESET_SUBSTATE_TOP_LEVEL    = 0,
+    SPHE_AUDIO_PRESET_SUBSTATE_USER_EQ_EDIT = 2,
+};
+
 enum sphe_eq_option_id {
     SPHE_EQ_OPTION_STANDARD = 195,
     SPHE_EQ_OPTION_CLASSIC  = 196,
