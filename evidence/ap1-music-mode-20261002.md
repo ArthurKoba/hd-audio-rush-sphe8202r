@@ -220,7 +220,7 @@ Current external hardware mode is `gp+0x12B`, previous mode `gp+0x12C`. Mode 3 i
 
 `0x806FABA0` is anti-pop preparation: master volume zero plus a 500-iteration busy-wait before source/decoder work. AUX transition at `0x8071E4F0` performs decoder/audio-format reconfiguration, ECHO reset `(0,0)`, decoder reapply and volume restore. S/PDIF transition at `0x8071EE94` temporarily applies downsample mode 1 during decoder/status preparation and restores the prior selection.
 
-The 16-byte decoder status block is at `0x800022E4`. Type mapping from bits2:0 is 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can trigger stop/reconfiguration/restart.
+The 16-byte decoder status block is `SPHE_STATE_DECODER_AUDIO_STATUS` (`0x800022E4`). Type mapping from bits2:0 is 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can trigger stop/reconfiguration/restart.
 
 ### Dispatcher and ECHO correction
 

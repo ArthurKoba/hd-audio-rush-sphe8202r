@@ -32,7 +32,7 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 - New cross-module state recovered through the refactor: `SPHE_STATE_MEDIA_STATE_WORD @ 0x80003254`, with **148 AP1**, **21 CDROM** and **2 drv_other** direct GP-relative references in the current scanner. Low 14 bits carry the media code; high bits are transition flags.
 - Persistent state is now modeled as namespace + byte offsets + sizes rather than unrelated record IDs. Namespace `0xA0` covers the recovered firmware signature, 65-byte control-selection block, checksum, auxiliary control state, external-input mode and one still-unmapped block at offset `0x102`.
 - Recovered action boundaries added during this pass include `ReadPersistentRecord`, `WritePersistentRecord`, `HandlePlaybackStatusSourceState` and `HandleMic1LevelIncrease`; adjacent generic actions were renamed only when their native behavior contract closed.
-- `0x80002B22` was corrected from the too-narrow historical name `CustomEqBandGainCode` to `AudioPresetWorkingValue`: it is a general MUSIC MODE working value and acts as an EQ-band gain code only inside USER EQ editing.
+- `SPHE_STATE_AUDIO_PRESET_WORKING_VALUE` (`0x80002B22`) was corrected from the too-narrow historical name `CustomEqBandGainCode` to `AudioPresetWorkingValue`: it is a general MUSIC MODE working value and acts as an EQ-band gain code only inside USER EQ editing.
 - Runtime RAM addresses without backing data blocks are not fabricated as typed data units. Those are represented through canonical labels/comments plus the shared C enum/address vocabulary until the project contains a real RAM backing block.
 
 
@@ -195,7 +195,7 @@ Confirmed worker contract:
 
 `ApplySpeakerDelayParameter(kind,value)` is action `0x0B`, command family `0x0C00|kind`, delay value in the 16-bit auxiliary field.
 
-`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. The saved Analysis action is now named `ReapplyDigitalAndSpeakerDelayControls`.
+`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from `SPHE_STATE_SPEAKER_CENTER_DELAY_SELECTION_SLOT`, and REAR delay `kind=2,value=selection*3-6` from `SPHE_STATE_SPEAKER_REAR_DELAY_SELECTION_SLOT`. The saved Analysis action is now named `ReapplyDigitalAndSpeakerDelayControls`.
 
 ## External source / AUX / S/PDIF input
 
@@ -221,7 +221,7 @@ Source-state table `0x8070B4E0` dispatches states 1..9 to `0x8071E6F4, 0x8071E70
 
 ## Decoder audio-status block
 
-Block `0x800022E4` is 16 bytes. `0x80700558` copies all 16 bytes; `0x80700590` writes the first word; parser `0x8070059C` consumes the hardware decoder/status word.
+`SPHE_STATE_DECODER_AUDIO_STATUS` is a 16-byte block. `0x80700558` copies all 16 bytes; `0x80700590` writes the first word; parser `0x8070059C` consumes the hardware decoder/status word.
 
 Confirmed fields:
 - bits 2:0 select decoder type/path: 0=PCM, 1=AC-3, 2/3=DTS-family; values >=4 use fallback/reconfiguration;

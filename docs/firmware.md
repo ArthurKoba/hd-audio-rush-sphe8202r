@@ -272,21 +272,21 @@ Earlier work also recorded a status pool at old listing `0x8070AC00..0x8070AD07`
 
 ### S/PDIF input selection contract
 
-AP1 contains a separate external-input subsource selector at `0x800032FA` (`gp+0x7FA`). Corrected instruction flow in the status/source display path at `0x8071E428..0x8071E4EC` proves:
+AP1 contains a separate external-input subsource selector at `SPHE_STATE_EXTERNAL_INPUT_SELECTOR` (`0x800032FA`, `gp+0x7FA`). Corrected instruction flow in the status/source display path at `0x8071E428..0x8071E4EC` proves:
 - selector `1` enters the AUX branch and displays `AUXIN` (`0x8070B4D4`), with a related 2CH->2.1CH / 2CH->5.1CH status line;
 - selector `2` displays `SPDIF IN` (`0x8070B4A0`);
 - the other branch displays `TUNER` (`0x8070B4AC`).
 
-`ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `0x800032FA` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating source-state byte `0x800032A5`. This establishes a TUNER <-> S/PDIF input-selection path. The still-unnamed action boundary at `0x806FED18` additionally writes selector `1` or `2` from a broader external-input transition path. Its complete behavior contract is intentionally deferred and should be treated as a later behavior-recovery opportunity, not part of the current migration pass.
+`ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `SPHE_STATE_EXTERNAL_INPUT_SELECTOR` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating `SPHE_STATE_SOURCE_MEDIA_STATE`. This establishes a TUNER <-> S/PDIF input-selection path. The still-unnamed action boundary at `0x806FED18` additionally writes selector `1` or `2` from a broader external-input transition path. Its complete behavior contract is intentionally deferred and should be treated as a later behavior-recovery opportunity, not part of the current migration pass.
 
-The higher source dispatcher uses `gp+0x7A5 = 0x800032A5` as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
+The higher source dispatcher uses `SPHE_STATE_SOURCE_MEDIA_STATE` (`gp+0x7A5`) as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
 
 ### External AUX / S/PDIF decoder transition — 2026-09-23
 
 The external-input path is now separated into hardware-mode, subsource and decoder-transition layers.
 
-- `gp+0x12B = 0x80002C2B` is the current external hardware mode code; valid values are `0..3`.
-- `gp+0x12C = 0x80002C2C` is the previously applied mode code.
+- `SPHE_STATE_EXTERNAL_INPUT_MODE_CODE` (`gp+0x12B`) is the current external hardware mode code; valid values are `0..3`.
+- `SPHE_STATE_PREVIOUS_EXTERNAL_INPUT_MODE_CODE` (`gp+0x12C`) is the previously applied mode code.
 - `ApplyExternalInputHardwareMode @ 0x806FED88` applies mode `0..3` to the external-input hardware-control bits.
 - `WriteExternalInputModeCode @ 0x8071DB1C` writes the current mode through config key `0x136`; `PollExternalInputModeCode @ 0x8071DAC8` reads the same key.
 - `PrepareExternalInputTransition @ 0x806FABA0` applies effective volume zero and waits 500 time units. Stock behavior invokes this anti-pop transition whenever AUX is one side of the change.
@@ -316,19 +316,19 @@ This closes the implementation-level source-to-decoder bridge needed by a minima
 
 ### Audio-state, volume and USB media behavior — 2026-09-22
 
-Target-instruction checks now show that `gp+0x7A5 = 0x800032A5` is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.
+Target-instruction checks now show that `SPHE_STATE_SOURCE_MEDIA_STATE` (`gp+0x7A5`) is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.
 
 The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. analysis workspace currently splits the logical action around `0x806FED18`; raw fallthrough is authoritative.
 
-Master volume and mute are a separate runtime-control route rather than ordinary setup-menu descriptors. `master_volume_level = gp+0x832 = 0x80003332`; `master_mute_flag = gp+0x7B5 = 0x800032B5`. `SetMasterVolumeLevel @ 0x8070129C` forwards action ID 2 into the common audio-action dispatcher, which reaches `ApplyMasterVolumeHardwareState @ 0x806FFBBC`. Mute is a separate flag, not merely volume zero: `ToggleMasterMute` sets/clears the flag, while unmute and several resume/reinit routes reapply `mute ? 0 : master_volume_level`. The hardware apply path indexes runtime table `0x88012CA0[level]`; exact level-to-coefficient bytes remain open because that runtime table is not mapped as readable memory in the canonical project. Persistence of `master_volume_level` is also not yet closed.
+Master volume and mute are a separate runtime-control route rather than ordinary setup-menu descriptors. `SPHE_STATE_MASTER_VOLUME_LEVEL` (`gp+0x832`); `SPHE_STATE_MASTER_MUTE_FLAG` (`gp+0x7B5`). `SetMasterVolumeLevel @ 0x8070129C` forwards action ID 2 into the common audio-action dispatcher, which reaches `ApplyMasterVolumeHardwareState @ 0x806FFBBC`. Mute is a separate flag, not merely volume zero: `ToggleMasterMute` sets/clears the flag, while unmute and several resume/reinit routes reapply `mute ? 0 : master_volume_level`. The hardware apply path indexes runtime table `0x88012CA0[level]`; exact level-to-coefficient bytes remain open because that runtime table is not mapped as readable memory in the canonical project. Persistence of `master_volume_level` is also not yet closed.
 
-The decoder audio-status block is 16 bytes at `0x800022E4`. `UpdateDecoderAudioStatus @ 0x8070059C` extracts the decoder type from bits 2:0 of the decoder/hardware word and updates that block; `CopyDecoderAudioStatus @ 0x80700558` copies it to inbound actions; `RenderDecoderAudioStatus @ 0x8071E008` renders it. Instruction-backed type mapping is:
+The decoder audio-status block is 16 bytes at `SPHE_STATE_DECODER_AUDIO_STATUS` (`0x800022E4`). `UpdateDecoderAudioStatus @ 0x8070059C` extracts the decoder type from bits 2:0 of the decoder/hardware word and updates that block; `CopyDecoderAudioStatus @ 0x80700558` copies it to inbound actions; `RenderDecoderAudioStatus @ 0x8071E008` renders it. Instruction-backed type mapping is:
 - type `0` -> PCM;
 - type `1` -> AC3;
 - type `2/3` -> DTS;
 - type `>=4` -> NO SIGNAL.
 
-Codec changes feed the global decoder state `gp+0x698 = 0x80003198` through `SetAudioDecoderState`, `ReapplyAudioDecoderState`, and `ApplyAudioDecoderState`. Confirmed transitions are PCM type 0 -> state `0x8000`, AC3 type 1 -> `0x10000`, DTS type 2/3 -> `0x20000`; no-signal also falls back to baseline `0x8000` while forcing effective volume zero/status reset. State `0x4000` is independently tied to the WMA route because its profile action `0x807026F0` directly invokes `InitializeWmaModule @ 0x8073F000`. Other states including `0x10`, `0x100`, `0x200`, `0x2000`, `0x40000` and `0x04000000` remain behaviorally distinct but are not all assigned codec names yet.
+Codec changes feed the global decoder state `SPHE_STATE_AUDIO_DECODER_STATE` (`gp+0x698`) through `SetAudioDecoderState`, `ReapplyAudioDecoderState`, and `ApplyAudioDecoderState`. Confirmed transitions are PCM type 0 -> state `0x8000`, AC3 type 1 -> `0x10000`, DTS type 2/3 -> `0x20000`; no-signal also falls back to baseline `0x8000` while forcing effective volume zero/status reset. State `0x4000` is independently tied to the WMA route because its profile action `0x807026F0` directly invokes `InitializeWmaModule @ 0x8073F000`. Other states including `0x10`, `0x100`, `0x200`, `0x2000`, `0x40000` and `0x04000000` remain behaviorally distinct but are not all assigned codec names yet.
 
 The USB/removable-media path is now separated into controller, context and source-state layers:
 - `PollUsbControllerPresence` polls/reset-handles MMIO `0xBC0202A0` presence bits;
