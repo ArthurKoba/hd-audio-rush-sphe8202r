@@ -77,7 +77,7 @@ These are factory semantics, not evidence of a measured device failure. A future
 - service consumer byte cursor `R = 3*u32[s6+0x4CC]`;
 - CPU publishes producer position in three-byte units through `s6+0x4C8`.
 
-Native helper at `0x88001CD0` returns `d=R-W; d>0 ? d : d+N`. It is now named `GetDecoderInputRingFreeBytes`. The adjacent 12-operation region at `0x88001D00` computes queued bytes as `d=W-R; d>=0 ? d : d+N`. Equality therefore yields N free and zero queued under valid ring invariants. These are single-wrap adjustments, not general modulo normalization or independent full/empty synchronization.
+`GetDecoderInputRingFreeBytes @ 0x88001CD0` returns `d=R-W; d>0 ? d : d+N`. `GetDecoderInputRingQueuedBytes @ 0x88001D00` computes queued bytes as `d=W-R; d>=0 ? d : d+N`. Equality therefore yields N free and zero queued under valid ring invariants. These are single-wrap adjustments, not general modulo normalization or independent full/empty synchronization.
 
 Ownership evidence:
 - native AP1 wrappers at `0x80702824` and `0x80702844` call the two runtime helpers;
@@ -117,7 +117,7 @@ Runtime `/runtime/rom12-runtime.bin`:
 - four action nodes created: SetDspParameterWord24 (52 bytes), GetDspParameterWord24 (60), WaitForAudioServiceConditions (88), GetDecoderInputRingFreeBytes (48);
 - all four have explicit signatures; first three have matching high-level views, and the free-ring action is grounded in native operations;
 - parameter-bank, free-ring, configured-window and busy-wait comments are saved;
-- the queued-byte action at `0x88001D00` was NOT created: a postcondition read confirmed no action node there. Its 48-byte decoded region remains available;
+- `GetDecoderInputRingQueuedBytes @ 0x88001D00` is now installed as the documented 48-byte queued-byte action node;
 - explicit save_program succeeded after the latest comments. ABI-convention warnings remain unresolved; no guessed convention was adopted.
 
 AP1:
