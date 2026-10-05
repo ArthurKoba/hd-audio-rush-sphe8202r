@@ -76,27 +76,27 @@ sphe_read_control_status(struct sphe_control_status *status)
     }
 
     status->master_volume =
-        *(volatile uint8_t *)(uintptr_t)0x80003332U;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_VOLUME;
     status->master_mute =
-        *(volatile uint8_t *)(uintptr_t)0x800032B5U;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MASTER_MUTE;
     status->external_subsource =
-        *(volatile uint8_t *)(uintptr_t)0x800032FAU;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EXTERNAL_INPUT_SELECTOR;
     status->source_state =
-        *(volatile uint8_t *)(uintptr_t)0x800032A5U;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SOURCE_MEDIA;
 
     status->surround_selection =
-        *(volatile uint8_t *)(uintptr_t)0x80002B0CU;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SURROUND_SELECTION;
     status->eq_selection =
-        *(volatile uint8_t *)(uintptr_t)0x80002B0DU;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EQ_SELECTION;
     status->echo_level =
-        *(volatile uint8_t *)(uintptr_t)0x8000333AU;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_ECHO;
     status->mic1_level =
-        *(volatile uint8_t *)(uintptr_t)0x80003297U;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MIC1;
 
     status->downsample_mask =
-        *(volatile uint16_t *)(uintptr_t)0x80003244U;
+        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_DOWNSAMPLE_MASK;
     status->speaker_topology =
-        *(volatile uint16_t *)(uintptr_t)0x80003050U;
+        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_SPEAKER_TOPOLOGY;
     status->decoder_state =
-        *(volatile uint32_t *)(uintptr_t)0x80003198U;
+        *(volatile uint32_t *)(uintptr_t)SPHE_STATE_DECODER;
 }
