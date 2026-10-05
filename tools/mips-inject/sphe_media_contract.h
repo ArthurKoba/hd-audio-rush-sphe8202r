@@ -18,4 +18,12 @@
  */
 #define SPHE_STATE_TRICKPLAY_SCAN_SPEED   0x80003250U
 
+/*
+ * Shared media stream-buffer cursor contract.  AP1/CDROM/DRV/WMA use the
+ * same base pointer with 16-bit limit/cursor offsets.
+ */
+#define SPHE_STATE_MEDIA_STREAM_BUFFER_BASE_PTR      0x80003144U
+#define SPHE_STATE_MEDIA_STREAM_BUFFER_END_OFFSET    0x8000325CU
+#define SPHE_STATE_MEDIA_STREAM_BUFFER_CURSOR_OFFSET 0x80003268U
+
 #endif
