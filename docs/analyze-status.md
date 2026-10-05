@@ -4,7 +4,19 @@
 
 This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
-Secondary-controller continuation authority: `docs/jieli-secondary-controller-handoff-20261004.md`; UART capture evidence: `evidence/jieli-uart-probes-20261004.md`. The exact JieLi silicon model is UNKNOWN; AC695N/BR23 is software-lineage evidence only.\n\nValidation levels remain separate:
+Secondary-controller continuation authority: `docs/jieli-secondary-controller-handoff-20261004.md`; UART capture evidence: `evidence/jieli-uart-probes-20261004.md`. The exact JieLi silicon model is UNKNOWN; AC695N/BR23 is software-lineage evidence only.\n\n## Live authority / documentation policy — 2026-10-06
+
+The saved Analysis project is now the only live semantic authority while behavior recovery is active. This file is a synchronized checkpoint and planning/status document, not a continuously updated mirror of every Analysis mutation.
+
+- New detailed semantic findings are committed to saved Analysis first.
+- Normal drift between Analysis and Markdown is expected and is not migration debt.
+- Update this file only for major milestones, acceptance/gate changes, planning-relevant contradictions, or an explicit synchronization/materialization pass.
+- Shared C contracts/source receive stable recovered semantics when they are needed by implementation, not merely because a new Analysis label exists.
+- After the required recovery scope is closed, perform one dedicated materialization audit from Analysis into canonical docs and maintainable C/source, validate agreement, then preserve an immutable Analysis archive before retiring any live mutable project.
+
+The previously completed 100% transfer/refactor checkpoint means the already-documented corpus was synchronized at that cutoff; it does **not** require future Markdown to stay lockstep with ongoing Analysis work.
+
+Validation levels remain separate:
 - **implementation proof** — static/native behavior recovered from target firmware or the saved Analysis project;
 - **execution proof** — the path has been observed executing;
 - **board proof** — target PCB ownership/routing is physically established;
@@ -23,7 +35,7 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 
 - **Canonical semantic authority for the recovered target firmware is the saved Analysis project.** A recovered target-firmware fact is considered fully migrated only when its action/state/type/comment exists there. Markdown documentation is evidence, rationale and handoff context; replacement-source contract headers mirror confirmed semantics for code reuse but do not replace the Analysis project as the semantic source of truth.
 - **Current documented-semantics transfer/refactor is closed at 100% for its defined denominator.** All already-recovered target-firmware actions/states/types/comments identified by this pass are represented in saved Analysis or explicitly classified as non-semantic/future behavior-recovery work. Unknown shared-state candidates are no longer counted as refactor debt.
-- Documentation-only names, raw `FUN_*`/`DAT_*` identifiers and confirmed state meanings that are not represented in Analysis are migration debt and belong to the active refactor queue.
+- At the completed refactor checkpoint, documentation-only semantics were reconciled into Analysis. From this point forward, newer Analysis-only findings are expected during active recovery and are not documentation/refactor debt until an explicit materialization pass.
 - The recent shared-media `$gp` scan is **paused as an incomplete side investigation**, but the already-closed state package from that pass is now transferred into the saved Analysis project. Shared media labels/comments are synchronized for AP1 **11/11**, `drv_other` **11/11**, CDROM **9/9**, and WMA **8/8** applicable states/callback slots. Unresolved value meanings and new candidates remain outside the active refactor denominator.
 - Do not continue broad unknown-shared-state discovery until the already-understood documentation/source vocabulary has been reconciled into Analysis. New reverse work is allowed only when it is necessary to disambiguate an already-known item being migrated.
 

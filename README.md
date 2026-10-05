@@ -4,9 +4,12 @@ Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SP
 
 The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
-## Current analysis milestone — 2026-10-02 late pass
+## Last synchronized documentation checkpoint — 2026-10-06
 
-The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current continuation authority is this README together with `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md`; older handoffs are historical where they conflict with these files.
+The canonical Analysis project remains `sphe8202r_decoder_p25d80` and is the live semantic authority during active behavior recovery. This README, `docs/analyze-status.md`, `docs/firmware.md` and evidence files are synchronized checkpoints and supporting rationale; they may intentionally lag newer saved Analysis state. When detailed firmware semantics conflict with a newer saved Analysis result, the Analysis project wins unless a concrete evidence contradiction has been recorded.
+
+Documentation is no longer maintained as a field-for-field mirror after every reverse pass. New detailed findings are saved in Analysis first. Repository docs are refreshed at major milestones or during an explicit materialization pass; stable C contracts are updated when implementation actually needs them. After the required recovery scope is closed, a dedicated Analysis-to-docs/source audit will produce the maintained documentation and C contract set, followed by an immutable Analysis archive.
+
 
 ### DSP processor/tooling
 

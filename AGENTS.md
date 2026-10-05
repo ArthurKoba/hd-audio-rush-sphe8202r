@@ -60,7 +60,7 @@ Use the universal GitHub writer/reviewer identity contract from `ArthurKoba/ai-a
 These rules are mandatory for ongoing behavior analysis in this repository:
 
 - Persist Git documentation through a writer branch and pull request; the reviewer performs independent review and merge. Analysis-project semantic mutations remain separate from Git branch policy.
-- Do not create or maintain issues as a running notebook. Use issues only for a real blocker, contradiction or explicit user request. Stable findings belong in the canonical analysis project and, in batches, in Git documentation.
+- Do not create or maintain issues as a running notebook. Use issues only for a real blocker, contradiction or explicit user request. During active behavior recovery, stable detailed semantics belong in the canonical Analysis project first; Git documentation is updated only for project policy, major milestones, acceptance boundaries, contradictions that affect planning, or an explicit synchronization/materialization pass.
 - Preserve canonical artifacts. Never edit the raw SPI dump or extracted firmware modules in place.
 - Prefer narrow, read-only evidence queries. Avoid broad re-analysis and giant speculative batches. Keep invokes small and bounded; where an analysis timeout is configurable, use at most one second for the current workflow. If that budget is insufficient, switch to a narrower evidence path instead of blindly retrying.
 - If one exact query/address/path is rejected or blocked, do not hammer the identical request. Switch to another permitted evidence path: a nearby range, a different inspection API, inbound action/outbound action context, string/data evidence, or another module.
@@ -72,6 +72,19 @@ These rules are mandatory for ongoing behavior analysis in this repository:
 - Preserve known-good state. Do not stack speculative repairs on top of a broken analysis state.
 - User-facing progress updates should report the overall semantic/action-node coverage and substantive route progress. Do not revive legacy target/control checklist counters unless the user explicitly asks for them.\n- In ordinary user-facing progress, refer to actions by semantic names and omit raw numeric addresses unless the user explicitly asks for them. Exact addresses remain valid evidence in repository documentation and tool arguments.\n- Do not narrate routine tool latency or connection behavior. Report substantive results and real blockers; actual safety/tooling blocks still require the visible `❗` rule above.
 - Do not mask, alternate route or game safety/tooling controls. The terminology policy below exists for communication clarity only, never to evade a restriction.
+
+## Live semantic authority and documentation cadence
+
+During active behavior recovery, the persistent Analysis project `sphe8202r_decoder_p25d80` is the **only live semantic authority** for recovered target-firmware details.
+
+- New action names, boundaries, types, globals, enums, comments, transitions and behavior/control contracts are saved in Analysis first.
+- Repository Markdown is a checkpoint/handoff/evidence surface and may intentionally lag the live Analysis project. Do not treat ordinary documentation lag as a contradiction or migration defect.
+- Do not update README/status/firmware prose after every Analysis mutation. Synchronize Git documentation only for project policy, major milestones, acceptance changes, planning-relevant contradictions, or an explicit materialization checkpoint.
+- `sphe_*_contract.h` and replacement-source code mirror only stable contracts that are already needed by implementation. They are not required to track every new reverse finding immediately.
+- When the required behavior-recovery scope is complete, run a dedicated materialization phase: audit saved Analysis -> consolidate canonical documentation -> export stable contracts/types/constants into maintainable C/source -> validate agreement.
+- After materialization and validation, preserve an immutable Analysis archive/export before considering the live mutable project disposable. Do not delete the only analysis evidence merely because C/docs have become the maintained authority.
+
+This policy intentionally avoids continuous `Analysis -> Markdown -> headers -> Analysis` churn while reverse work is still moving.
 
 ## Required project vocabulary
 
