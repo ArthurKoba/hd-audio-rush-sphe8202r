@@ -31,7 +31,7 @@ These items are **not** part of the active transfer denominator unless they are 
 
 - MUSIC MODE table metadata is mostly reconciled: `audio_preset_menu_page_table @ 0x8070B35C` is labeled/documented and `g_abSevenBandEqFixedPresetBank @ 0x8070B388` is typed as 35 bytes (5 x 7). Historical primary symbol `seven_band_eq_preset_bank @ 0x8070B37A` remains deletion-blocked, but its comment now explicitly marks it as a known-bad arithmetic origin inside the page table.
 - Runtime GP restore metadata is reconciled in the saved project: `g_pRuntimeGpRestoreWord @ 0x88012200` is the confirmed restore pointer and is fully documented. Historical shifted address `0x88012A00` no longer carries the stale symbol and is explicitly annotated as known-bad.
-- External-input continuation `0x806FED18`: known to write external-input selector values from the broader transition route, but its complete behavior contract is intentionally deferred.
+- External-input split continuation `0x806FED18` is behavior-closed as the continuation of `ApplyExternalInputSourceTransition @ 0x806FED0C` and now carries an explicit Analysis plate comment. Renaming the split action node itself remains mutation-blocked; no additional behavior recovery is required for the current refactor.
 - Shared-media runtime candidates produced by the paused GP scan remain a later behavior-recovery queue unless their meaning was already closed during the refactor.
 
 ### Audio vocabulary/refactor checkpoint — 2026-10-05
