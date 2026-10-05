@@ -18,7 +18,7 @@ The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current c
 
 ### Current AP1 / runtime audio contract
 
-- Current saved AP1 snapshot: **3863 action nodes**, **176 custom-named action nodes (~4.56%)**. This is a naming/refactor metric only; the saved Analysis project is the canonical semantic authority.
+- Current saved AP1 snapshot: **3862 action nodes**, **176 custom-named action nodes (~4.56%)**. This is a naming/refactor metric only; the saved Analysis project is the canonical semantic authority.
 - Saved semantic names now include `SelectDecoderProfileByStateMask` and `LoadDecoderDspProfile`. Profile selection uses the least-significant decoder-state bit and the descriptor table rooted at `0x80002264`.
 - Decoder profile descriptor layout is packed-source pointer `+0`, A `+4/+5`, B `+6/+7`, C `+8/+9`; the load route derives page selectors `0xF8`, `0xF8+A`, `0xF8+A+C`, initializes runtime service state, validates input-ring compatibility and transfers the packed profile.
 - Real runtime targets are `0x88001584` for service initialization and `0x88001AF8` for packed-profile transfer. Older high-level views showing `+0x800` displaced targets are stale metadata; raw MIPS transitions are authoritative.
