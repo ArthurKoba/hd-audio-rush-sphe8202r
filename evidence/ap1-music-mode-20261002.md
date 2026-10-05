@@ -80,7 +80,7 @@ These are factory semantics, not evidence of a measured device failure. A future
 `GetDecoderInputRingFreeBytes @ 0x88001CD0` returns `d=R-W; d>0 ? d : d+N`. `GetDecoderInputRingQueuedBytes @ 0x88001D00` computes queued bytes as `d=W-R; d>=0 ? d : d+N`. Equality therefore yields N free and zero queued under valid ring invariants. These are single-wrap adjustments, not general modulo normalization or independent full/empty synchronization.
 
 Ownership evidence:
-- native AP1 wrappers at `0x80702824` and `0x80702844` call the two runtime helpers;
+- `GetDecoderInputRingFreeBytesViaRuntime @ 0x80702824` and `GetDecoderInputRingQueuedBytesViaRuntime @ 0x80702844` call the two runtime helpers;
 - raw JAL searches find the free wrapper used at `0x8071BD3C/60/80` and the queued wrapper at `0x8071BD20`;
 - CPU producers writing `gp+0x730` were found at `0x806822D8` and `0x806B908C`;
 - the logical producer route starting `0x806B8EA0` computes consumer distance, adds N when needed, subtracts 30 bytes of headroom, and copies at most the available source bytes/free capacity;
