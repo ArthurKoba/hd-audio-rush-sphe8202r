@@ -452,7 +452,7 @@ The SCSI command layer is now explicit:
 
 The legacy WAVE route beginning at `0x80702004` writes secondary registers `0x40/0x41/0x43/0x48` and starts the configured pipeline. The WMA route writes `0x40..0x49`, then uses backend commit/delay command `0x50`, then starts the same pipeline.
 
-A separate pre-codec action at `0x807019BC` classifies sample-rate families before codec dispatch. Nominal 8/16/32-kHz bands select audio-format mode 1; other rates, including explicit bands around 11.025/22.05 kHz, select mode 2.
+`SelectAudioFormatModeBySampleRate @ 0x807019BC` classifies sample-rate families before codec dispatch. Nominal 8/16/32-kHz bands select audio-format mode 1; other rates, including explicit bands around 11.025/22.05 kHz, select mode 2.
 
 #### Decoder state versus service profile
 
