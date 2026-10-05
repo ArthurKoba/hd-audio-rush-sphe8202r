@@ -23,6 +23,13 @@ MEMBER_RE = re.compile(
     r"^\s*(?P<name>SPHE_[A-Z0-9_]+)\s*=\s*(?P<value>0x[0-9A-Fa-f]+|[0-9]+)\s*,?",
     re.M,
 )
+DEFINE_RE = re.compile(
+    r"^\s*#define\s+(?P<name>SPHE_(?:ADDR|STATE)_[A-Z0-9_]+)\s+"
+    r"(?P<value>0x[0-9A-Fa-f]+|[0-9]+)U?\b",
+    re.M,
+)
+
+MEMORY_OPCODES = frozenset((0x20, 0x21, 0x23, 0x24, 0x25, 0x28, 0x29, 0x2B))
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,11 @@ def load_contract(path: Path) -> dict[int, list[Symbol]]:
         for member in MEMBER_RE.finditer(match.group("body")):
             value = int(member.group("value"), 0)
             by_value[value].append(Symbol(enum_name, member.group("name"), value))
+
+    for match in DEFINE_RE.finditer(text):
+        value = int(match.group("value"), 0)
+        by_value[value].append(Symbol("define", match.group("name"), value))
+
     return dict(by_value)
 
 
@@ -98,6 +110,14 @@ def scan_module(module: Module, known: set[int]) -> dict[int, list[int]]:
                 next_rs = (next_word >> 21) & 0x1F
                 next_rt = (next_word >> 16) & 0x1F
                 next_imm = next_word & 0xFFFF
+
+                # Recover absolute data references such as
+                # LUI base,0x8000 + LBU/LW/SB/SW ...,offset(base).
+                if next_rs == rt and next_opcode in MEMORY_OPCODES:
+                    value = (imm << 16) + sign16(next_imm)
+                    candidates.add(value & 0xFFFFFFFF)
+                    continue
+
                 if next_rt != rt or next_rs != rt:
                     continue
                 if next_opcode == 0x0D:  # ORI

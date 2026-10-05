@@ -362,11 +362,13 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_SOURCE_MEDIA                    0x800032A5U
 #define SPHE_STATE_MASTER_VOLUME                   0x80003332U
 #define SPHE_STATE_MASTER_MUTE                     0x800032B5U
+#define SPHE_STATE_DYNAMIC_RANGE_SELECTION          0x8000332CU
 #define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
 #define SPHE_STATE_DOWNSAMPLE_MASK                 0x80003244U
 #define SPHE_STATE_SPDIF_HW_MODE                   0x800042B3U
 #define SPHE_STATE_AUDIO_COMMAND_FAMILY             0x800042FEU
 #define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
+/* Current seven-band EQ preset index (STANDARD..USER). */
 #define SPHE_STATE_EQ_SELECTION                    0x80002B0DU
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
 #define SPHE_STATE_MIC1                            0x80003297U
