@@ -4,7 +4,7 @@
 
 Canonical analysis project: `sphe8202r_decoder_p25d80` (`ghp_8847e7bcc4fa1ca3b69ff2f5`).
 
-Target audio behavior estimate: **94–96% at implementation-proof level**. This is an approximate denominator-specific engineering estimate, not action-node coverage and not board acceptance.
+The percentage estimate recorded in this historical handoff is retired. Current analysis coverage is defined only by the explicit acceptance ledger in `docs/analyze-status.md`; this file remains evidence/provenance.
 
 Strict semantic-name metric for the four established CPU modules remains **157/4149 = 3.78%**.
 
@@ -230,7 +230,7 @@ During the final handoff pass, new `set_comment`, `save_program`, `save_all_prog
 If DSP processor-module work remains deferred:
 
 1. Do not reopen already closed audio-control questions.
-2. Treat the audio route as 94–96% implementation proof with the remaining gap at resident-backend/resource/board proof.
+2. Use the current acceptance ledger for progress; this historical handoff's percentage estimate is no longer authoritative.
 3. Start the bounded USB architecture check:
    - establish whether the SPHE controller has computer-facing device or dual-role capability;
    - distinguish silicon capability from this board's current host-only firmware;
