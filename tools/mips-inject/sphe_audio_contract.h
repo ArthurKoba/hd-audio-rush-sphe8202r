@@ -263,6 +263,12 @@ enum sphe_source_media_state {
     SPHE_SOURCE_MEDIA_STATE_SPDIF_IN    = 0x0D,
 };
 
+enum sphe_eq_parameter_contract {
+    SPHE_EQ_PARAMETER_BASE_INDEX  = 7,
+    SPHE_EQ_PARAMETER_COUNT_LIMIT = 8,
+    SPHE_EQ_PARAMETER_APPLY_VALUE = 0x10,
+};
+
 enum sphe_audio_control_limit {
     SPHE_MASTER_VOLUME_MAX = 15,
     SPHE_EFFECT_INDEX_MAX = 8,
@@ -441,6 +447,10 @@ enum sphe_audio_service_register_offset {
 enum sphe_audio_service_run_control {
     SPHE_AUDIO_SERVICE_COMMIT     = 1,
     SPHE_AUDIO_SERVICE_TRANSITION = 3,
+};
+
+enum sphe_audio_service_wait_contract {
+    SPHE_AUDIO_SERVICE_DISPATCH_POLL_BUDGET = 100000,
 };
 
 enum sphe_audio_service_status_bit {
