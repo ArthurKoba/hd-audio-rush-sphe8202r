@@ -349,10 +349,10 @@ Raw MIPS flow now closes the stock USB host control path below the removable-med
 
 - `ProgramUsbHostTransfer` is a host transaction engine: device address and endpoint number select endpoint contexts, IN/OUT directions use separate context tables, and `0xBC0201xx/0xBC0202xx` controller registers stage host transactions and data movement;
 - root/controller initialization and presence/reset handling are in the same MMIO subsystem; all direct `0xBC020xxx` accesses found in the active MIPS modules are concentrated in the host-transfer, root/reset, controller-presence and USB device-context action routes;
-- raw control-transfer wrapper `0x806C9410` builds standard request `GET_DESCRIPTOR` (`bmRequestType=0x80`, `bRequest=6`, descriptor type/index in `wValue`);
-- raw wrapper `0x806C9478` builds `SET_ADDRESS` (`bmRequestType=0`, `bRequest=5`);
-- raw wrapper `0x806C94C4` builds standard `GET_STATUS` (`bmRequestType=0x80`, `bRequest=2`, two-byte data stage);
-- raw wrapper `0x806C9514` builds `SET_CONFIGURATION` (`bmRequestType=0`, `bRequest=9`);
+- `PrepareUsbGetDescriptorRequest @ 0x806C9410` builds standard request `GET_DESCRIPTOR` (`bmRequestType=0x80`, `bRequest=6`, descriptor type/index in `wValue`);
+- `PrepareUsbSetAddressRequest @ 0x806C9478` builds `SET_ADDRESS` (`bmRequestType=0`, `bRequest=5`);
+- `PrepareUsbGetStatusRequest @ 0x806C94C4` builds standard `GET_STATUS` (`bmRequestType=0x80`, `bRequest=2`, two-byte data stage);
+- `PrepareUsbSetConfigurationRequest @ 0x806C9514` builds `SET_CONFIGURATION` (`bmRequestType=0`, `bRequest=9`);
 - the configuration parser beginning at raw `0x806C95A0` requires `bDescriptorType=2`, walks subordinate descriptors, recognizes type 4 INTERFACE and type 5 ENDPOINT records, splits endpoint contexts by endpoint-address direction bit 7, and preserves endpoint number, transfer attributes and `wMaxPacketSize`;
 - the enumeration chain reads a short device descriptor to establish `bMaxPacketSize0`, allocates a USB address, sends `SET_ADDRESS`, reads the full device descriptor, stores VID/PID fields, reads the 9-byte configuration header, re-reads the complete `wTotalLength`, parses interfaces/endpoints, then sends `SET_CONFIGURATION(bConfigurationValue)`;
 - downstream class creation confirms class `0x08` Mass Storage with SCSI/CBW/CSW/READ(10)/WRITE(10) behavior and a separate class `0x09` Hub context.
@@ -361,7 +361,7 @@ Raw MIPS flow now closes the stock USB host control path below the removable-med
 
 For a first target bring-up, the stock firmware does **not** require the removable-media, Mass Storage, SCSI or filesystem layers. The minimum useful acceptance boundary is controller initialization plus EP0 enumeration through `SET_CONFIGURATION`.
 
-Instruction-backed controller initialization is concentrated in the action beginning at `0x806AB7F8` and its caller at `0x806AB8F4`:
+Instruction-backed controller initialization is concentrated in `InitializeUsbHostController @ 0x806AB7F8` and its caller `InitializeUsbControllerRuntimeState @ 0x806AB8F4`:
 
 - zero the 32-byte root/controller state at `0x80009860`, then seed state words `+24=3` and `+28=7`;
 - toggle `s6+0x0C` bit `0x1000` with the stock delay helper between set/clear phases; with the established `s6=0xBFFE8000`, this is the system register at `0xBFFE800C`;
