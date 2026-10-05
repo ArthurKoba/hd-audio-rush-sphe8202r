@@ -36,6 +36,23 @@ enum sphe_uart_baud_divisor {
 #define SPHE_UART_STATUS_TX_READY                0x00000001U
 #define SPHE_UART_STATUS_RX_READY                0x00000002U
 
+enum sphe_usb_child_class {
+    SPHE_USB_CHILD_CLASS_MASS_STORAGE = 0x08,
+    SPHE_USB_CHILD_CLASS_HUB          = 0x09,
+};
+
+enum sphe_usb_root_state_layout {
+    SPHE_USB_ROOT_STATE_SIZE_BYTES    = 32,
+    SPHE_USB_ROOT_STATE_WORD_A_OFFSET = 24,
+    SPHE_USB_ROOT_STATE_WORD_B_OFFSET = 28,
+    SPHE_USB_ROOT_STATE_WORD_A_INIT   = 3,
+    SPHE_USB_ROOT_STATE_WORD_B_INIT   = 7,
+};
+
+#define SPHE_STATE_USB_MASS_STORAGE_PRIMARY_CONTEXT 0x80002E24U
+#define SPHE_STATE_USB_HUB_CONTEXT                  0x80002E2CU
+#define SPHE_STATE_USB_ROOT_CONTROLLER_STATE        0x80009860U
+
 /* USB host-controller window and recovered register roles. */
 #define SPHE_USB_BASE                            0xBC020000U
 #define SPHE_USB_REG(offset)                     SPHE_MMIO32(SPHE_USB_BASE + (offset))
