@@ -185,7 +185,8 @@ sphe_set_speaker_channel_state(
 static inline void
 sphe_apply_subwoofer_state(uint8_t enabled)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_SUBWOOFER_STATE)(enabled ? 1U : 0U);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_SUBWOOFER_STATE)(
+        enabled ? SPHE_SUBWOOFER_STATE_ON : SPHE_SUBWOOFER_STATE_OFF);
 }
 
 /* Stateless command-family wrappers. */

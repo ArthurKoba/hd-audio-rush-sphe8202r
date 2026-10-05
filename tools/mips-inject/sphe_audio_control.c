@@ -218,8 +218,8 @@ bool sphe_control_set_speaker_state(
 
 void sphe_control_set_subwoofer(bool enabled)
 {
-    REG8(SPHE_STATE_SPEAKER_SUBWOOFER_STATE) = enabled ? 1U : 0U;
-    sphe_apply_subwoofer_state(enabled ? 1U : 0U);
+    REG8(SPHE_STATE_SPEAKER_SUBWOOFER_STATE) = enabled ? SPHE_SUBWOOFER_STATE_ON : SPHE_SUBWOOFER_STATE_OFF;
+    sphe_apply_subwoofer_state(enabled ? SPHE_SUBWOOFER_STATE_ON : SPHE_SUBWOOFER_STATE_OFF);
 }
 
 bool sphe_control_set_speaker_delay(

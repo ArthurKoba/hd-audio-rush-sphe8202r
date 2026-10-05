@@ -216,6 +216,11 @@ enum sphe_speaker_state {
     SPHE_SPEAKER_OFF   = 2,
 };
 
+enum sphe_subwoofer_state {
+    SPHE_SUBWOOFER_STATE_OFF = 0,
+    SPHE_SUBWOOFER_STATE_ON  = 1,
+};
+
 enum sphe_external_mode_code {
     SPHE_EXTERNAL_MODE_0   = 0,
     SPHE_EXTERNAL_MODE_1   = 1,
