@@ -9,8 +9,9 @@
  * state does not acquire audio-specific names by accident.
  *
  * This file contains the paused media-runtime refactor findings. The saved
- * Analysis project remains canonical; entries not yet represented there are
- * provisional migration debt, not a second semantic authority.
+ * Analysis project remains canonical. The already-closed shared state/callback
+ * slots below are synchronized into the applicable AP1/DRV/CDROM/WMA programs;
+ * unresolved value meanings and new candidates remain deferred.
  */
 
 /* Encoded media/playback state: low 14-bit media code plus high flag bits. */
