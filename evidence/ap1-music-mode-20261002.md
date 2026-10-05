@@ -124,7 +124,7 @@ AP1:
 - baseline was saved and exported before metadata mutation; backup `/artifacts/exports/ap1-before-audio-links-20261002.gzf`, 3082627 bytes, native program package;
 - exactly one reference changed: source `0x807028D8`, operand 0, old UNCONDITIONAL_CALL target `0x88001B58`/DEFAULT removed; correct target `0x88001358`/USER_DEFINED added with primary=true;
 - refresh_action_behavior and later get_links_from both confirmed the corrected destination; subsequent save_program succeeded;
-- this checkpoint originally retained `FUN_807028d0` because the wrapper was split after its first instruction; the split was later repaired and the complete wrapper is now saved as `SetDspParameterWord24ViaRuntime @ 0x807028D0..0x807028EF`;
+- this checkpoint originally retained the `0x807028D0` wrapper under a generic name because it was split after its first instruction; the split was later repaired and the complete wrapper is now saved as `SetDspParameterWord24ViaRuntime @ 0x807028D0..0x807028EF`;
 - no raw bytes or action bodies changed in AP1 by this repair;
 - the former stale EQ links at `0x80702DE4`, `0x80702DB0`, and `0x80702DF8` were later reconciled to native targets `0x807028D0`, `0x806FFD1C`, and `0x80702D98` respectively; the unrelated stale `0x806E0470 -> 0x807028D4` metadata link was likewise reconciled to native `0x807020D4`;
 - the attempted extended comment on ApplyAudioDecoderState is absent on postcondition read; its older saved comment remains. The complete new source evidence is retained here.
