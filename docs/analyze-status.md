@@ -22,13 +22,14 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 ### Refactor authority and paused side investigation — 2026-10-05
 
 - **Canonical semantic authority for the recovered target firmware is the saved Analysis project.** A recovered target-firmware fact is considered fully migrated only when its action/state/type/comment exists there. Markdown documentation is evidence, rationale and handoff context; replacement-source contract headers mirror confirmed semantics for code reuse but do not replace the Analysis project as the semantic source of truth.
+- **Current documented-semantics transfer/refactor is closed at 100% for its defined denominator.** All already-recovered target-firmware actions/states/types/comments identified by this pass are represented in saved Analysis or explicitly classified as non-semantic/future behavior-recovery work. Unknown shared-state candidates are no longer counted as refactor debt.
 - Documentation-only names, raw `FUN_*`/`DAT_*` identifiers and confirmed state meanings that are not represented in Analysis are migration debt and belong to the active refactor queue.
 - The recent shared-media `$gp` scan is **paused as an incomplete side investigation**, but the already-closed state package from that pass is now transferred into the saved Analysis project. Shared media labels/comments are synchronized for AP1 **11/11**, `drv_other` **11/11**, CDROM **9/9**, and WMA **8/8** applicable states/callback slots. Unresolved value meanings and new candidates remain outside the active refactor denominator.
 - Do not continue broad unknown-shared-state discovery until the already-understood documentation/source vocabulary has been reconciled into Analysis. New reverse work is allowed only when it is necessary to disambiguate an already-known item being migrated.
 
 ### Migration debt exposed by the refactor — 2026-10-05
 
-These items are **not** part of the active transfer denominator unless they are already documented semantics that still need to be installed into the saved project. They are recorded here so the transfer can continue without turning into a new behavior-recovery pass.
+The previously exposed migration items are now either reconciled in saved Analysis or explicitly deferred as future behavior-recovery work. No already-documented semantic item remains blocked in the active transfer/refactor denominator.
 
 - MUSIC MODE table metadata is reconciled: `audio_preset_menu_page_table @ 0x8070B35C` is labeled/documented and `g_abSevenBandEqFixedPresetBank @ 0x8070B388` is typed as 35 bytes (5 x 7). The misleading historical primary symbol `seven_band_eq_preset_bank @ 0x8070B37A` has been removed; the remaining `eq_preset_index_arithmetic_origin` label records that address only as the index-arithmetic origin inside the preceding page table.
 - Runtime GP restore metadata is reconciled in the saved project: `g_pRuntimeGpRestoreWord @ 0x88012200` is the confirmed restore pointer and is fully documented. Historical shifted address `0x88012A00` no longer carries the stale symbol and is explicitly annotated as known-bad.
