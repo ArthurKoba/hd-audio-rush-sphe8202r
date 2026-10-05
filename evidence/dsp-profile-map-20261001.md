@@ -9,7 +9,7 @@ This is a reproducible evidence record for the current audio route, not an addit
 
 The evidence level is source/implementation analysis. No execution, board or integration acceptance is claimed.
 
-The earlier conversational estimate of 85–87% audio completion is withdrawn as a measured coverage claim: there is no enumerated, validated denominator for the whole audio route. The historical 5.04% non-default-name metric must not be mixed with the stricter API custom-name metric below.
+The earlier conversational whole-audio percentage estimate is withdrawn as a measured coverage claim because it had no enumerated, validated denominator. Historical naming metrics below must not be mixed with the current contract-based acceptance ledger.
 
 Two earlier interpretations are specifically corrected:
 
