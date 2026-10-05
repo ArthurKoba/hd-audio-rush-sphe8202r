@@ -171,7 +171,7 @@ Seven-band payload bytes are written to selected DSP-visible bank indices 7..13 
 
 ## Master volume / mute
 
-`SetMasterVolumeLevel` dispatches action 2. The logical hardware route is split by imperfect action boundaries: `ApplyMasterVolumeHardwareState @ 0x806FFBBC` contains the prologue and `FUN_806FFBC8` contains the main worker.
+`SetMasterVolumeLevel` dispatches action 2. The logical hardware route is split by imperfect action boundaries: `ApplyMasterVolumeHardwareState @ 0x806FFBBC` contains the prologue and the main worker continues at the adjacent action boundary `0x806FFBC8`.
 
 Confirmed worker contract:
 - master mute is separate state `gp+0x7B5`, not just level zero;
@@ -195,7 +195,7 @@ Confirmed worker contract:
 
 `ApplySpeakerDelayParameter(kind,value)` is action `0x0B`, command family `0x0C00|kind`, delay value in the 16-bit auxiliary field.
 
-`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. Documentation semantic alias: `ReapplyDigitalAndSpeakerDelayControls`; the saved symbol may still be generic.
+`drv_other:0x8077C29C` proves CENTER delay `kind=1,value=selection-2` from slot `0x80006828`, and REAR delay `kind=2,value=selection*3-6` from slot `0x80006829`. Canonical semantic name to migrate into the saved Analysis project: `ReapplyDigitalAndSpeakerDelayControls`.
 
 ## External source / AUX / S/PDIF input
 
@@ -262,48 +262,4 @@ Confirmed fields:
 | 25 | `0x2800|value` |
 | 26 | constant `0x2900` |
 
-`a2` is written to `s6+0x4C4` before range validation; accepted routes stage `s6+0x4C0` then normally enter runtime `0x88001C78(1,0,0,100000)`. A `gp+0x698 & 0x800` gate can return 1 without staging a new command.
-
-## ECHO control correction
-
-Control ID `0x57` is confirmed **ECHO**. Its apply branch computes `index=selection-2`, stores it at `gp+0x83A`, and calls saved `ApplyEchoProfileIndex @ 0x80702C8C`.
-
-The historical REGION name was wrong. `ApplyEchoProfileIndex` reads runtime table `0x88012CC0` and dispatches action 4. Entries: index 0 `(mode=0,aux=0)`; indices 1..7 modes `7,15,23,31,39,47,55`, aux `10000`.
-
-Saved `ApplyEchoHardwareProfile @ 0x80702CC8` dispatches action 4 from explicit `(mode,aux)` and AUX uses it with `(0,0)`.
-
-Other established wrappers:
-- KEY accepts 1..15 and dispatches action 3 / `0x0500`;
-- `ApplySpdifHardwareOutputMode` saves mode at `gp+0x17B3` and dispatches action 7 / `0x0900`;
-- `ApplyDecoderOutputMode(mode,aux)` dispatches action 1 / `0x0300`;
-- GM5 decoder-service slot is `0x23`; AC-3 DOWNMIX slot is `0x21`.
-
-## Known metadata hazards
-
-1. AP1 was rebased to `0x8067B800` after older analysis state existed. Stored high-level links may still be shifted by `+0x800`, even when the wrong target is itself a valid action node.
-2. Several logical routes are split into artificial adjacent action boundaries, notably decoder profile loading and master-volume apply.
-3. Raw/native transitions win whenever high-level behavior disagrees.
-4. Historical `ApplyRegionCodeProfile` metadata was corrected in canonical Analysis to `ApplyEchoProfileIndex`; action 4 is ECHO.
-5. Historical evidence may retain older names, but current authority and canonical Analysis use the corrected ECHO names.
-
-## Readiness for custom firmware
-
-Source-level replacement implementation can begin now for isolated, recovered CPU-side behavior. A complete replacement image is **not yet safe to flash or product-ready**.
-
-Remaining gates:
-1. reproduce container/module reconstruction, integrity/checksum and write path;
-2. prove safe recovery/rollback on hardware;
-3. finish resident runtime/backend ownership below the service mailbox and map six physical output lanes;
-4. obtain DSP clock/free-cycle/free-memory budget evidence;
-5. finish product-level names for remaining source-state handlers and any command families needed by the planned feature;
-6. perform at least one intentional modified-firmware hardware acceptance cycle.
-
-## Immediate continuation
-
-1. Continue below the AUX service mailbox and recover resident backend ownership/semantics of target capture channel IDs `0x10/0x11` and the `DM:3C2A/3C2B` route interface.
-2. Finish partial evaluation of the target decoder-service parameter bank and AUX startup so only the target branch remains in the replacement contract.
-3. Treat exact three-wire physical pin roles as a hardware acceptance item; do not block static reconstruction on public pinout searches.
-4. Resolve remaining source-state handlers only where needed by the replacement control plane, and close physical six-channel output ownership with board/runtime evidence.
-5. In parallel, turn the recovered behavior contracts into maintainable replacement-source modules while rebuild/repack/recovery acceptance is completed.
-
-Safety/provider incident reproduction belongs to `ArthurKoba/mcp-bridge` issues and is not duplicated here.
+`a2` is written to `s6+0x4C4` before range validation; accepted routes stage `s6+0x4C0` then normally enter runtime `0x8
