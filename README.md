@@ -37,15 +37,15 @@ Documentation is no longer maintained as a field-for-field mirror after every re
 
 Current analysis progress uses explicit acceptance contracts from `docs/analyze-status.md`, not confidence estimates.
 
-- **Sunplus-side firmware analysis:** **34/40 = 85%**.
-- **Whole-device firmware analysis (including JieLi + inter-chip boundary):** **37/49 = 76%**.
+- **Sunplus-side firmware analysis:** **37/40 = 93%**.
+- **Whole-device firmware analysis (including JieLi + inter-chip boundary):** **40/49 = 82%**.
 - **CPU-side audio control/loader:** **9/9 = 100%**.
 - **Sunplus DSP target corpus:** **6/6 = 100%**.
 - **Container/repack/build static contract:** **5/5 = 100%**.
 - **ROM-loader software contract:** **4/4 = 100%**.
 - **USB-host software contract:** **4/4 = 100%**.
 
-The remaining analysis gap is concentrated in resident backend ownership, DSP resource/headroom evidence, the SPHE↔JieLi boundary and the missing JieLi firmware corpus. Hardware acceptance is a later validation level and is not mixed into these percentages.
+The remaining analysis gap is concentrated in DSP memory occupancy/free-space mapping, DSP clock/compute headroom, the SPHE↔JieLi boundary and the missing JieLi firmware corpus. Hardware acceptance is a later validation level and is not mixed into these percentages.
 
 ### Implementation start boundary
 

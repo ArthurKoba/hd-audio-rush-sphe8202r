@@ -54,14 +54,14 @@ Each checklist item below is one required behavior/firmware-analysis contract. P
 | Container/repack/build static contract | **5 / 5** | **100%** | Byte-exact stock roundtrip, changed-module structural repack, build ABI and loader constraints are recovered. |
 | SPHE ROM-loader software contract | **4 / 4** | **100%** | Software protocol is recovered; target execution/recovery acceptance is a later validation level. |
 | USB host software contract | **4 / 4** | **100%** | Controller/root reset, EP0 requests, descriptor parsing and MSC/SCSI path are recovered; hardware execution is later. |
-| Resident runtime/backend semantics | **4 / 5** | **80%** | Exact resident consumer/channel/output ownership below the recovered service mailbox remains open. |
-| DSP resource budget | **2 / 7** | **29%** | Total/free PM, total/free DM, DSP clock, cycle/headroom and exact resident effect/resource ownership remain open. |
+| Resident runtime/backend semantics | **5 / 5** | **100%** | Resident input/output block transfer, mailbox acknowledgement and multiblock handoff are closed at implementation proof; physical speaker-pin ownership is board proof. |
+| DSP resources (program/data memory, clock, compute headroom) | **4 / 7** | **57%** | Visible PM/DM window geometry is now closed. Remaining: occupied/free map, DSP core clock and cycle/headroom. |
 | SPHE <-> JieLi integration boundary | **2 / 4** | **50%** | Exact three-wire electrical roles/pins and the separate control/status transport/framing remain open. |
 | JieLi firmware/control domain | **1 / 5** | **20%** | Exact chip/flash geometry, verified dump, pi32v2 static-analysis corpus and required control/Bluetooth/audio ownership remain open. |
 
-**Sunplus-side firmware-analysis coverage:** **34 / 40 = 85%**. This uses the first seven domains and excludes the secondary-controller domain.
+**Sunplus-side firmware-analysis coverage:** **37 / 40 = 93%**. This uses the first seven domains and excludes the secondary-controller domain.
 
-**Whole-device firmware-analysis coverage:** **37 / 49 = 76%**. This includes both processors and their integration boundary.
+**Whole-device firmware-analysis coverage:** **40 / 49 = 82%**. This includes both processors and their integration boundary.
 
 The denominator intentionally excludes:
 - hardware/board/integration acceptance;
@@ -111,9 +111,21 @@ USB-host software 4/4:
 
 #### Open-domain checklists
 
-Resident runtime/backend 4/5 has four closed contracts — service mailbox/ack semantics, decoder input ring, 24-bit parameter bank, start/stop/pause/reconfigure lifecycle — and one open contract: exact resident backend consumer/channel/output ownership.
+Resident runtime/backend 5/5 is closed at implementation proof:
+1. service mailbox/acknowledgement semantics;
+2. decoder input-ring transport;
+3. 24-bit DSP parameter-bank access;
+4. start/stop/pause/reconfigure lifecycle;
+5. resident block-transfer interface: command `0x63` transfers resident -> DSP, command `0x62` transfers DSP -> resident, and the recovered AUX/PCM paths expose the common multiblock output contract. AUX GM5 uses six 32-word primary output lanes plus two additional/mirrored 32-word buses. Exact FL/FR/C/SUB/SL/SR physical pin assignment is board proof and is intentionally outside this firmware-analysis item.
 
-DSP resource budget 2/7 has the local `srvdsp` PM layout and DM state/config map closed. Open: total/free PM ownership, total/free DM ownership, DSP clock, cycle/headroom budget, and exact resident effect/resource ownership.
+DSP resources 4/7:
+1. local `srvdsp` PM layout — closed;
+2. local `srvdsp` DM state/config map — closed;
+3. visible PM window — closed at `0x0000..0x3FFF`, 16K x 24-bit = 48 KiB for the current corpus; PCM performs real PM reads at `PM:3F4D`, and no PM overlay switching is observed;
+4. visible DM window — closed at `0x0000..0x3FFF`, 16K x 16-bit = 32 KiB; current profiles write as high as `DM:3FFD`;
+5. profile/resident PM/DM occupancy and genuinely free map — open; PCM reads resident/shared coefficient tables in high PM outside its loaded profile, so free PM cannot be computed as window size minus profile size;
+6. DSP core clock — open; available board/service material proves the SoC input clock, not the internal audio-DSP core clock;
+7. cycle/headroom budget — open and depends on the core clock plus scheduling/runtime measurements.
 
 SPHE <-> JieLi boundary 2/4 has JieLi-side ALINK/runtime activity and the SPHE-side resident capture/AUX route established. Open: exact three-wire clock/frame/data roles/pins and the separate control/status transport/framing.
 
