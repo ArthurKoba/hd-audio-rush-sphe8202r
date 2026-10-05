@@ -367,24 +367,28 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_MEDIA_STATE_WORD                0x80003254U
 #define SPHE_STATE_MASTER_VOLUME                   0x80003332U
 #define SPHE_STATE_MASTER_MUTE                     0x800032B5U
-#define SPHE_STATE_DYNAMIC_RANGE_SELECTION          0x8000332CU
+#define SPHE_STATE_DYNAMIC_RANGE_SELECTION         0x8000332CU
 #define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
 #define SPHE_STATE_DOWNSAMPLE_MASK                 0x80003244U
 #define SPHE_STATE_SPDIF_HW_MODE                   0x800042B3U
-#define SPHE_STATE_AUDIO_COMMAND_FAMILY             0x800042FEU
+#define SPHE_STATE_SPDIF_OUTPUT_SELECTION_SLOT     0x8000681BU
+#define SPHE_STATE_AUDIO_COMMAND_FAMILY            0x800042FEU
 #define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
+#define SPHE_STATE_AUDIO_PRESET_MENU_PAGE          0x80002B18U
+#define SPHE_STATE_AUDIO_PRESET_MENU_SUBSTATE      0x80002B19U
+#define SPHE_STATE_CUSTOM_EQ_BAND_GAIN_CODE        0x80002B22U
 /* Current seven-band EQ preset index (STANDARD..USER). */
-#define SPHE_STATE_EQ_PRESET_INDEX                    0x80002B0DU
+#define SPHE_STATE_EQ_PRESET_INDEX                 0x80002B0DU
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
 #define SPHE_STATE_MIC1                            0x80003297U
 #define SPHE_STATE_MIC2                            0x80003324U
 #define SPHE_STATE_ECHO                            0x8000333AU
-#define SPHE_STATE_ECHO_SLOT                       0x8000681DU
-#define SPHE_STATE_MIC1_SLOT                       0x8000681EU
+#define SPHE_STATE_ECHO_SELECTION_SLOT                       0x8000681DU
+#define SPHE_STATE_MIC1_SELECTION_SLOT                       0x8000681EU
 #define SPHE_STATE_SPEAKER_FRONT                   0x80003327U
 #define SPHE_STATE_SPEAKER_CENTER                  0x800032DCU
 #define SPHE_STATE_SPEAKER_REAR                    0x8000330EU
 #define SPHE_STATE_SPEAKER_SUBWOOFER               0x800032D6U
-#define SPHE_STATE_SPEAKER_TOPOLOGY                 0x80003050U
+#define SPHE_STATE_SPEAKER_TOPOLOGY                0x80003050U
 
 #endif

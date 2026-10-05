@@ -243,7 +243,7 @@ bool sphe_control_set_echo(uint8_t index)
     }
 
     REG8(SPHE_STATE_ECHO) = index;
-    REG8(SPHE_STATE_ECHO_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
+    REG8(SPHE_STATE_ECHO_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_echo();
     return true;
 }
@@ -255,7 +255,7 @@ bool sphe_control_set_mic1(uint8_t index)
     }
 
     REG8(SPHE_STATE_MIC1) = index;
-    REG8(SPHE_STATE_MIC1_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
+    REG8(SPHE_STATE_MIC1_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_mic1();
     return true;
 }
