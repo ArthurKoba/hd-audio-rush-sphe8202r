@@ -75,6 +75,42 @@ enum sphe_audio_pipeline_command {
     SPHE_AUDIO_PIPELINE_PAUSE = 0x0204,
 };
 
+enum sphe_wave_format_tag {
+    SPHE_WAVE_FORMAT_PCM          = 0x0001,
+    SPHE_WAVE_FORMAT_MS_ADPCM     = 0x0002,
+    SPHE_WAVE_FORMAT_ALAW         = 0x0006,
+    SPHE_WAVE_FORMAT_MULAW        = 0x0007,
+    SPHE_WAVE_FORMAT_IMA_ADPCM    = 0x0011,
+    SPHE_WAVE_FORMAT_MPEG1_AUDIO  = 0x0050,
+    SPHE_WAVE_FORMAT_MP3          = 0x0055,
+    SPHE_WAVE_FORMAT_WMA_STANDARD = 0x0161,
+};
+
+enum sphe_wave_route_state {
+    SPHE_WAVE_ROUTE_STATE_PCM_FAMILY     = 0x00000010,
+    SPHE_WAVE_ROUTE_STATE_MPEG_AUDIO     = 0x00000100,
+    SPHE_WAVE_ROUTE_STATE_WMA            = 0x00004000,
+    SPHE_WAVE_ROUTE_STATE_LEGACY_WAVE    = 0x04000000,
+};
+
+enum sphe_wave_service_mode {
+    SPHE_WAVE_SERVICE_MODE_PCM       = 0x40,
+    SPHE_WAVE_SERVICE_MODE_IMA_ADPCM = 0x80,
+};
+
+enum sphe_sample_rate_boundary_hz {
+    SPHE_RATE_8K_MIN_HZ      = 7500,
+    SPHE_RATE_8K_MAX_HZ      = 8500,
+    SPHE_RATE_11025_MIN_HZ   = 10525,
+    SPHE_RATE_11025_MAX_HZ   = 11525,
+    SPHE_RATE_16K_MIN_HZ     = 15500,
+    SPHE_RATE_16K_MAX_HZ     = 16500,
+    SPHE_RATE_22050_MIN_HZ   = 21550,
+    SPHE_RATE_22050_MAX_HZ   = 22550,
+    SPHE_RATE_32K_MIN_HZ     = 31500,
+    SPHE_RATE_32K_MAX_HZ     = 32500,
+};
+
 enum sphe_decoder_state {
     SPHE_DECODER_STATE_WMA = 0x00004000,
     SPHE_DECODER_STATE_PCM = 0x00008000,
