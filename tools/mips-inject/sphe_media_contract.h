@@ -27,8 +27,9 @@
 /* Shared byte-sized media mode code; value meanings are not all recovered. */
 #define SPHE_STATE_MEDIA_MODE_CODE           0x8000331CU
 
-/* Shared 32-bit code pointer used as the active media parser/continuation callback. */
-#define SPHE_STATE_MEDIA_CONTINUATION_CALLBACK 0x800031E4U
+/* Selected continuation handler copied into the active callback slot by media setup. */
+#define SPHE_STATE_MEDIA_SELECTED_CONTINUATION_CALLBACK 0x8000315CU
+#define SPHE_STATE_MEDIA_ACTIVE_CONTINUATION_CALLBACK   0x800031E4U
 
 /* Active media-state filter; AP1 invokes this slot through jalr. */
 #define SPHE_STATE_MEDIA_STATE_FILTER_CALLBACK 0x8000318CU
