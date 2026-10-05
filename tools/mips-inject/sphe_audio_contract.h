@@ -97,6 +97,12 @@ enum sphe_spdif_output_option {
     SPHE_SPDIF_PCM = 0x77,
 };
 
+enum sphe_spdif_hardware_mode {
+    SPHE_SPDIF_HW_OFF = 0,
+    SPHE_SPDIF_HW_PCM = 1,
+    SPHE_SPDIF_HW_RAW = 2,
+};
+
 enum sphe_downsample_mode {
     SPHE_DOWNSAMPLE_48K  = 0,
     SPHE_DOWNSAMPLE_96K  = 1,
