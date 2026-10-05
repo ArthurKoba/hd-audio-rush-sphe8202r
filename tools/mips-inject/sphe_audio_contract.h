@@ -176,11 +176,15 @@ enum sphe_audio_control_limit {
 
 
 enum sphe_setup_control_id {
+    SPHE_CONTROL_ECHO            = 0x57,
     SPHE_CONTROL_DOWNSAMPLE      = 0x5B,
+    SPHE_CONTROL_KEY             = 0x5C,
     SPHE_CONTROL_AUDIO_COMMAND_FAMILY = 0x6E,
     SPHE_CONTROL_SPDIF_OUTPUT    = 0x71,
     SPHE_CONTROL_SUBWOOFER       = 0x8B,
     SPHE_CONTROL_GM5             = 0x9E,
+    SPHE_CONTROL_MIC1            = 0xB2,
+    SPHE_CONTROL_MIC2            = 0xB3,
     SPHE_CONTROL_CENTER_SPEAKER  = 0xCD,
     SPHE_CONTROL_REAR_SPEAKER    = 0xCE,
     SPHE_CONTROL_FRONT_SPEAKER   = 0xD3,
