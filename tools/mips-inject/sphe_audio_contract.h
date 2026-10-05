@@ -399,6 +399,18 @@ enum sphe_aux_capture_pair_selector {
     SPHE_AUX_CAPTURE_PAIR_10_11 = 5,
 };
 
+enum sphe_decoder_profile_selector_contract {
+    SPHE_DECODER_PROFILE_SELECTOR_BASE  = 0xF8,
+    SPHE_DECODER_PROFILE_FALLBACK_INDEX = 8,
+};
+
+struct sphe_decoder_profile_descriptor {
+    unsigned int packed_source;
+    unsigned short field_a;
+    unsigned short field_b;
+    unsigned short field_c;
+};
+
 enum sphe_resident_channel_id {
     SPHE_RESIDENT_CAPTURE_ALT_A    = 0x0E,
     SPHE_RESIDENT_CAPTURE_ALT_B    = 0x0F,
