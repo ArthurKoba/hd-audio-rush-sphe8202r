@@ -83,21 +83,21 @@ sphe_read_control_status(struct sphe_control_status *status)
     status->external_subsource =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EXTERNAL_INPUT_SELECTOR;
     status->source_state =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SOURCE_MEDIA;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SOURCE_MEDIA_STATE;
 
     status->surround_selection =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_SURROUND_SELECTION;
     status->eq_selection =
         *(volatile uint8_t *)(uintptr_t)SPHE_STATE_EQ_PRESET_INDEX;
     status->echo_level =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_ECHO;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_ECHO_PROFILE_INDEX;
     status->mic1_level =
-        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MIC1;
+        *(volatile uint8_t *)(uintptr_t)SPHE_STATE_MIC1_LEVEL_INDEX;
 
     status->downsample_mask =
-        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_DOWNSAMPLE_MASK;
+        *(volatile uint16_t *)(uintptr_t)SPHE_STATE_DOWNSAMPLE_STATE_MASK;
     status->speaker_topology =
         *(volatile uint16_t *)(uintptr_t)SPHE_STATE_SPEAKER_TOPOLOGY;
     status->decoder_state =
-        *(volatile uint32_t *)(uintptr_t)SPHE_STATE_DECODER;
+        *(volatile uint32_t *)(uintptr_t)SPHE_STATE_AUDIO_DECODER_STATE;
 }

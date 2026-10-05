@@ -36,10 +36,10 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
 
     if (next == (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
         REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = SPHE_EXTERNAL_INPUT_AUX;
-        REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_AUX;
+        REG8(SPHE_STATE_SOURCE_MEDIA_STATE) = SPHE_SOURCE_MEDIA_STATE_AUX;
     } else {
         REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = SPHE_EXTERNAL_INPUT_SPDIF;
-        REG8(SPHE_STATE_SOURCE_MEDIA) = SPHE_SOURCE_MEDIA_STATE_SPDIF_IN;
+        REG8(SPHE_STATE_SOURCE_MEDIA_STATE) = SPHE_SOURCE_MEDIA_STATE_SPDIF_IN;
     }
 
     REG8(SPHE_STATE_EXTERNAL_MODE_PREVIOUS) = next;
@@ -61,13 +61,13 @@ bool sphe_control_set_tuner_spdif(bool spdif)
     }
 
     if (REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) == desired_selector) {
-        REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
+        REG8(SPHE_STATE_SOURCE_MEDIA_STATE) = desired_state;
         return true;
     }
 
     sphe_prepare_external_input_transition();
     REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR) = desired_selector;
-    REG8(SPHE_STATE_SOURCE_MEDIA) = desired_state;
+    REG8(SPHE_STATE_SOURCE_MEDIA_STATE) = desired_state;
     return true;
 }
 
@@ -77,8 +77,8 @@ void sphe_control_get_status(struct sphe_audio_status *out)
         return;
     }
 
-    out->decoder_state = REG32(SPHE_STATE_DECODER);
-    out->downsample_mask = REG16(SPHE_STATE_DOWNSAMPLE_MASK);
+    out->decoder_state = REG32(SPHE_STATE_AUDIO_DECODER_STATE);
+    out->downsample_mask = REG16(SPHE_STATE_DOWNSAMPLE_STATE_MASK);
 
     out->master_volume = REG8(SPHE_STATE_MASTER_VOLUME);
     out->master_muted = REG8(SPHE_STATE_MASTER_MUTE);
@@ -86,9 +86,9 @@ void sphe_control_get_status(struct sphe_audio_status *out)
     out->eq_selection = REG8(SPHE_STATE_EQ_PRESET_INDEX);
     out->surround_selection = REG8(SPHE_STATE_SURROUND_SELECTION);
 
-    out->echo_index = REG8(SPHE_STATE_ECHO);
-    out->mic1_index = REG8(SPHE_STATE_MIC1);
-    out->mic2_index = REG8(SPHE_STATE_MIC2);
+    out->echo_index = REG8(SPHE_STATE_ECHO_PROFILE_INDEX);
+    out->mic1_index = REG8(SPHE_STATE_MIC1_LEVEL_INDEX);
+    out->mic2_index = REG8(SPHE_STATE_MIC2_LEVEL_INDEX);
 
     out->speaker_front = REG8(SPHE_STATE_SPEAKER_FRONT);
     out->speaker_center = REG8(SPHE_STATE_SPEAKER_CENTER);
@@ -97,7 +97,7 @@ void sphe_control_get_status(struct sphe_audio_status *out)
 
     out->external_mode = REG8(SPHE_STATE_EXTERNAL_MODE);
     out->external_input_selector = REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR);
-    out->source_media_state = REG8(SPHE_STATE_SOURCE_MEDIA);
+    out->source_media_state = REG8(SPHE_STATE_SOURCE_MEDIA_STATE);
     out->spdif_hardware_mode = REG8(SPHE_STATE_SPDIF_HW_MODE);
 }
 
@@ -166,7 +166,7 @@ bool sphe_control_set_eq_preset(enum sphe_eq_selection selection)
 bool sphe_control_set_user_eq7(const uint8_t coefficients[SPHE_EQ_BAND_COUNT])
 {
     volatile uint8_t *dst =
-        (volatile uint8_t *)(uintptr_t)SPHE_STATE_USER_EQ7;
+        (volatile uint8_t *)(uintptr_t)SPHE_STATE_USER_EQ7_CURVE;
 
     if (coefficients == NULL) {
         return false;
@@ -242,7 +242,7 @@ bool sphe_control_set_echo(uint8_t index)
         return false;
     }
 
-    REG8(SPHE_STATE_ECHO) = index;
+    REG8(SPHE_STATE_ECHO_PROFILE_INDEX) = index;
     REG8(SPHE_STATE_ECHO_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_echo();
     return true;
@@ -254,7 +254,7 @@ bool sphe_control_set_mic1(uint8_t index)
         return false;
     }
 
-    REG8(SPHE_STATE_MIC1) = index;
+    REG8(SPHE_STATE_MIC1_LEVEL_INDEX) = index;
     REG8(SPHE_STATE_MIC1_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
     sphe_reapply_current_mic1();
     return true;
@@ -270,7 +270,7 @@ bool sphe_control_set_mic2(uint8_t index)
      * MIC2 has a confirmed separate live index but no recovered persistence
      * route in the loaded code.  Keep this deliberately live-only.
      */
-    REG8(SPHE_STATE_MIC2) = index;
+    REG8(SPHE_STATE_MIC2_LEVEL_INDEX) = index;
     sphe_apply_mic2_selection(index);
     return true;
 }

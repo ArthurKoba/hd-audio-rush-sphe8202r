@@ -397,18 +397,18 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_SHARED_GP_BASE                        0x80002B00U
 
 /* Confirmed AP1 live-state addresses. */
-#define SPHE_STATE_DECODER                         0x80003198U
+#define SPHE_STATE_AUDIO_DECODER_STATE                         0x80003198U
 #define SPHE_STATE_EXTERNAL_MODE                   0x80002C2BU
 #define SPHE_STATE_EXTERNAL_MODE_PREVIOUS          0x80002C2CU
 #define SPHE_STATE_EXTERNAL_INPUT_SELECTOR         0x800032FAU
-#define SPHE_STATE_SOURCE_MEDIA                    0x800032A5U
+#define SPHE_STATE_SOURCE_MEDIA_STATE                    0x800032A5U
 /* Encoded media/playback state word: low 14-bit media code plus high flag bits. */
 #define SPHE_STATE_MEDIA_STATE_WORD                0x80003254U
 #define SPHE_STATE_MASTER_VOLUME                   0x80003332U
 #define SPHE_STATE_MASTER_MUTE                     0x800032B5U
 #define SPHE_STATE_DYNAMIC_RANGE_SELECTION         0x8000332CU
 #define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
-#define SPHE_STATE_DOWNSAMPLE_MASK                 0x80003244U
+#define SPHE_STATE_DOWNSAMPLE_STATE_MASK                 0x80003244U
 #define SPHE_STATE_SPDIF_HW_MODE                   0x800042B3U
 #define SPHE_STATE_SPDIF_OUTPUT_SELECTION_SLOT     0x8000681BU
 #define SPHE_STATE_AUDIO_COMMAND_FAMILY            0x800042FEU
@@ -421,13 +421,13 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_CONTROL_BROWSER_OPTION_INDEX      0x80002B2BU
 /* Current seven-band EQ preset index (STANDARD..USER). */
 #define SPHE_STATE_EQ_PRESET_INDEX                 0x80002B0DU
-#define SPHE_STATE_USER_EQ7                        0x80002B10U
-#define SPHE_STATE_MIC1                            0x80003297U
-#define SPHE_STATE_MIC2                            0x80003324U
+#define SPHE_STATE_USER_EQ7_CURVE                        0x80002B10U
+#define SPHE_STATE_MIC1_LEVEL_INDEX                            0x80003297U
+#define SPHE_STATE_MIC2_LEVEL_INDEX                            0x80003324U
 #define SPHE_STATE_KEY_INDEX                       0x80003289U
 #define SPHE_STATE_KEY_SELECTION_SLOT              0x8000681FU
 #define SPHE_STATE_DYNAMIC_RANGE_SELECTION_SLOT    0x8000682BU
-#define SPHE_STATE_ECHO                            0x8000333AU
+#define SPHE_STATE_ECHO_PROFILE_INDEX                            0x8000333AU
 #define SPHE_STATE_ECHO_SELECTION_SLOT                       0x8000681DU
 #define SPHE_STATE_MIC1_SELECTION_SLOT                       0x8000681EU
 #define SPHE_STATE_SPEAKER_FRONT                   0x80003327U
