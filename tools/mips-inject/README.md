@@ -40,6 +40,18 @@ bytes. The resulting AP1 still has to pass full Sunplus container repack/reopen
 validation before hardware use.
 
 
+## Recovered contract headers
+
+The replacement-source helpers keep recovered constants split by domain:
+- `sphe_audio_contract.h` — audio actions, setup controls, audio live state and persistent control layout;
+- `sphe_media_contract.h` — shared playback/media runtime state used across AP1/CDROM/DRV/WMA;
+- `sphe_soc_contract.h` — system-window, UART and USB-host MMIO constants.
+
+`tools/scan_audio_contract_refs.py` merges those vocabularies only for static
+reference discovery. Equal numeric values are still kept in their original
+domains and are reported as collisions rather than globally renamed.
+
+
 ## Minimal audio control plane
 
 `sphe_audio_control.h/.c` is the transport-neutral compatibility layer for

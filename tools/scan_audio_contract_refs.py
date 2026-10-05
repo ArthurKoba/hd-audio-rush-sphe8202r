@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Scan raw MIPS modules for recovered Audio Rush contract constants.
+"""Scan raw MIPS modules for recovered firmware-contract constants.
 
-The scanner intentionally keeps enum namespaces.  A numeric value may have
+The scanner intentionally keeps enum namespaces. A numeric value may have
 multiple valid meanings (for example 0x8000), so the output reports collisions
-instead of applying one global name to every matching immediate.
+instead of applying one global name to every matching immediate. Contract
+headers remain domain-separated; this scanner merges their vocabulary only for
+reference discovery.
 """
 
 from __future__ import annotations
@@ -61,6 +63,14 @@ def load_contract(path: Path) -> dict[int, list[Symbol]]:
         by_value[value].append(Symbol("define", match.group("name"), value))
 
     return dict(by_value)
+
+
+def load_contracts(paths: list[Path]) -> dict[int, list[Symbol]]:
+    merged: dict[int, list[Symbol]] = defaultdict(list)
+    for path in paths:
+        for value, entries in load_contract(path).items():
+            merged[value].extend(entries)
+    return dict(merged)
 
 
 def load_modules(repo_root: Path) -> list[Module]:
@@ -309,7 +319,10 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.repo_root.resolve()
-    symbols = load_contract(root / "tools" / "mips-inject" / "sphe_audio_contract.h")
+    contract_paths = sorted(
+        (root / "tools" / "mips-inject").glob("sphe_*_contract.h")
+    )
+    symbols = load_contracts(contract_paths)
     modules = load_modules(root)
     gp_base = next(
         (

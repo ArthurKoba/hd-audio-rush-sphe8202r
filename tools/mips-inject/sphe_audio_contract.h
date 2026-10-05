@@ -401,8 +401,6 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_PREVIOUS_EXTERNAL_INPUT_MODE_CODE 0x80002C2CU
 #define SPHE_STATE_EXTERNAL_INPUT_SELECTOR           0x800032FAU
 #define SPHE_STATE_SOURCE_MEDIA_STATE                0x800032A5U
-/* Encoded media/playback state word: low 14-bit media code plus high flag bits. */
-#define SPHE_STATE_MEDIA_STATE_WORD                  0x80003254U
 #define SPHE_STATE_MASTER_VOLUME_LEVEL               0x80003332U
 #define SPHE_STATE_MASTER_MUTE_FLAG                  0x800032B5U
 #define SPHE_STATE_DYNAMIC_RANGE_SELECTION           0x8000332CU
