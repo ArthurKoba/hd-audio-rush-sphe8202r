@@ -399,7 +399,7 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
 #define SPHE_STATE_AUDIO_PRESET_MENU_PAGE          0x80002B18U
 #define SPHE_STATE_AUDIO_PRESET_MENU_SUBSTATE      0x80002B19U
-#define SPHE_STATE_CUSTOM_EQ_BAND_GAIN_CODE        0x80002B22U
+#define SPHE_STATE_AUDIO_PRESET_WORKING_VALUE        0x80002B22U
 /* Current seven-band EQ preset index (STANDARD..USER). */
 #define SPHE_STATE_EQ_PRESET_INDEX                 0x80002B0DU
 #define SPHE_STATE_USER_EQ7                        0x80002B10U
