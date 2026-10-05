@@ -6,20 +6,20 @@
 #define REG32(addr) (*(volatile uint32_t *)(uintptr_t)(addr))
 
 /* Confirmed AP1 runtime state locations for the preserved 02R-D-02 image. */
-#define MASTER_MUTE_FLAG        REG8(0x800032B5U)
-#define MASTER_VOLUME_LEVEL     REG8(0x80003332U)
-#define CURRENT_SURROUND_SEL    REG8(0x80002B0CU)
-#define CURRENT_EQ_SEL          REG8(0x80002B0DU)
-#define USER_EQ7_BASE           ((volatile uint8_t *)(uintptr_t)0x80002B10U)
+#define MASTER_MUTE_FLAG        REG8(SPHE_STATE_MASTER_MUTE)
+#define MASTER_VOLUME_LEVEL     REG8(SPHE_STATE_MASTER_VOLUME)
+#define CURRENT_SURROUND_SEL    REG8(SPHE_STATE_SURROUND_SELECTION)
+#define CURRENT_EQ_SEL          REG8(SPHE_STATE_EQ_SELECTION)
+#define USER_EQ7_BASE           ((volatile uint8_t *)(uintptr_t)SPHE_STATE_USER_EQ7)
 
-#define SPEAKER_FRONT_STATE     REG8(0x80003327U)
-#define SPEAKER_CENTER_STATE    REG8(0x800032DCU)
-#define SPEAKER_REAR_STATE      REG8(0x8000330EU)
-#define SUBWOOFER_STATE         REG8(0x800032D6U)
+#define SPEAKER_FRONT_STATE     REG8(SPHE_STATE_SPEAKER_FRONT)
+#define SPEAKER_CENTER_STATE    REG8(SPHE_STATE_SPEAKER_CENTER)
+#define SPEAKER_REAR_STATE      REG8(SPHE_STATE_SPEAKER_REAR)
+#define SUBWOOFER_STATE         REG8(SPHE_STATE_SPEAKER_SUBWOOFER)
 
-#define DOWNSAMPLE_MODE_MASK    REG16(0x80003244U)
-#define EXTERNAL_INPUT_SELECTOR REG8(0x800032FAU)
-#define DECODER_STATE           REG32(0x80003198U)
+#define DOWNSAMPLE_MODE_MASK    REG16(SPHE_STATE_DOWNSAMPLE_MASK)
+#define EXTERNAL_INPUT_SELECTOR REG8(SPHE_STATE_EXTERNAL_INPUT_SELECTOR)
+#define DECODER_STATE           REG32(SPHE_STATE_DECODER)
 
 #define CONTROL_DESCRIPTOR_BASE ((volatile uint8_t *)(uintptr_t)0x80707EACU)
 #define CONTROL_SELECTION_BASE  ((volatile uint8_t *)(uintptr_t)0x800066B0U)
@@ -105,7 +105,7 @@ static int set_surround(uint8_t mode)
      * is 0..5. Keeping the state byte coherent prevents later EQ reapply from
      * reverting the externally chosen surround mode.
      */
-    CURRENT_SURROUND_SEL = (uint8_t)(mode + 2U);
+    CURRENT_SURROUND_SEL = (uint8_t)(mode + SPHE_CONTROL_SELECTION_BIAS);
     sphe_set_surround_index(mode);
     return SPHE_CTL_OK;
 }
