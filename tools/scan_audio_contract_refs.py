@@ -24,12 +24,13 @@ MEMBER_RE = re.compile(
     re.M,
 )
 DEFINE_RE = re.compile(
-    r"^\s*#define\s+(?P<name>SPHE_(?:ADDR|STATE)_[A-Z0-9_]+)\s+"
+    r"^\s*#define\s+(?P<name>SPHE_(?:ADDR|STATE|SHARED)_[A-Z0-9_]+)\s+"
     r"(?P<value>0x[0-9A-Fa-f]+|[0-9]+)U?\b",
     re.M,
 )
 
 MEMORY_OPCODES = frozenset((0x20, 0x21, 0x23, 0x24, 0x25, 0x28, 0x29, 0x2B))
+GP_REGISTER = 28
 
 
 @dataclass(frozen=True)
@@ -78,7 +79,11 @@ def sign16(value: int) -> int:
     return value - 0x10000 if value & 0x8000 else value
 
 
-def scan_module(module: Module, known: set[int]) -> dict[int, list[int]]:
+def scan_module(
+    module: Module,
+    known: set[int],
+    gp_base: int | None,
+) -> dict[int, list[int]]:
     data = module.path.read_bytes()
     words = [
         struct.unpack_from("<I", data, offset)[0]
@@ -98,6 +103,11 @@ def scan_module(module: Module, known: set[int]) -> dict[int, list[int]]:
         # enum typing later decides the semantic namespace.
         if opcode in (0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E):
             candidates.add(imm)
+
+        # The primary modules share a fixed $gp base.  Resolve GP-relative
+        # data references back to their canonical SPHE_STATE_* addresses.
+        if gp_base is not None and rs == GP_REGISTER and opcode in MEMORY_OPCODES:
+            candidates.add((gp_base + sign16(imm)) & 0xFFFFFFFF)
 
         # LUI can materialize a complete aligned constant by itself.
         if opcode == 0x0F:
@@ -191,8 +201,16 @@ def main() -> int:
     root = args.repo_root.resolve()
     symbols = load_contract(root / "tools" / "mips-inject" / "sphe_audio_contract.h")
     modules = load_modules(root)
+    gp_base = next(
+        (
+            value
+            for value, entries in symbols.items()
+            if any(item.name == "SPHE_SHARED_GP_BASE" for item in entries)
+        ),
+        None,
+    )
     scans = {
-        module.name: scan_module(module, set(symbols))
+        module.name: scan_module(module, set(symbols), gp_base)
         for module in modules
     }
 

@@ -354,6 +354,9 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_ADDR_GET_AUDIO_SERVICE_STATE              0x80702934U
 #define SPHE_ADDR_SET_AUDIO_SERVICE_REGISTER_4D8       0x80702940U
 
+/* Shared MIPS gp base used by the primary firmware modules. */
+#define SPHE_SHARED_GP_BASE                        0x80002B00U
+
 /* Confirmed AP1 live-state addresses. */
 #define SPHE_STATE_DECODER                         0x80003198U
 #define SPHE_STATE_EXTERNAL_MODE                   0x80002C2BU
