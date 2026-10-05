@@ -296,7 +296,7 @@ The external-input path is now separated into hardware-mode, subsource and decod
 
 States `0x0B` and `0x0D` are transient external-source transition states, not entries in the ordinary 1..9 media-state dispatch table.
 
-AUX decoder transition behavior at raw action entry `0x8071E4F0` is now instruction-backed:
+`HandleAuxInputTransition @ 0x8071E4F0` has the following instruction-backed behavior:
 1. temporarily applies master level 0;
 2. reapplies the current decoder state;
 3. commits audio-format mode `2`;
@@ -305,7 +305,7 @@ AUX decoder transition behavior at raw action entry `0x8071E4F0` is now instruct
 6. reapplies decoder state and restores master volume;
 7. holds source state `0x0B` while the external-input transition completes.
 
-The S/PDIF-IN action beginning at `0x8071EE94` is selector-2-specific. Its decoder preparation at `0x8071E1B0`:
+`HandleSpdifInputTransition @ 0x8071EE94` is selector-2-specific. Its `PrepareSpdifInputDecoder @ 0x8071E1B0` stage:
 - saves the current downsample mask;
 - temporarily applies downsample mode `1`;
 - resets/updates/copies decoder audio status;

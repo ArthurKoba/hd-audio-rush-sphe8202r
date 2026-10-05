@@ -221,11 +221,11 @@ Source transition at `0x806FED0C`:
 
 Mode 3 is confirmed AUX. Modes 0..2 program distinct SPHE bit patterns and are all S/PDIF-input-side configurations, but they remain physically unnamed; do not infer optical/coax ownership.
 
-AUX transition `0x8071E4F0`: volume 0 -> source/status refresh -> current decoder reapply -> audio-format mode 2 -> decoder state `0x40000` -> ECHO profile `(0,0)` -> decoder reapply -> `ClearMuteAndRestoreVolume` -> transient state `0x0B` -> service/transition loop.
+`HandleAuxInputTransition @ 0x8071E4F0`: volume 0 -> source/status refresh -> current decoder reapply -> audio-format mode 2 -> decoder state `0x40000` -> ECHO profile `(0,0)` -> decoder reapply -> `ClearMuteAndRestoreVolume` -> transient state `0x0B` -> service/transition loop.
 
-S/PDIF-input transition `0x8071EE94`: gated by subsource 2 -> S/PDIF decoder preparation -> transient state `0x0D` -> transition loop -> restore previous downsample selection.
+`HandleSpdifInputTransition @ 0x8071EE94`: gated by subsource 2 -> S/PDIF decoder preparation -> transient state `0x0D` -> transition loop -> restore previous downsample selection.
 
-S/PDIF preparation `0x8071E1B0`: reapply decoder, save downsample at `gp+0x584`, temporarily apply downsample mode 1, reset/update/copy decoder status, reapply decoder, conditionally render status, restore mute/volume.
+`PrepareSpdifInputDecoder @ 0x8071E1B0`: reapply decoder, save downsample at `gp+0x584`, temporarily apply downsample mode 1, reset/update/copy decoder status, reapply decoder, conditionally render status, restore mute/volume.
 
 Source-state table `0x8070B4E0` dispatches states 1..9 to `0x8071E6F4, 0x8071E704, 0x8071E714, 0x8071E724, 0x8071E734, 0x8071E61C, 0x8071E744, 0x8071E61C, 0x8071E754`. States 6 and 8 deliberately share the common handler. Product-level names for every state remain open.
 
