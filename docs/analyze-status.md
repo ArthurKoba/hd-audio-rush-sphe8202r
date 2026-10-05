@@ -12,7 +12,8 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 
 ### Progress metrics
 
-- AP1 current live Analysis snapshot: **3857 action nodes**, **159 custom-named action nodes (~4.12%)**. The action count increased as missing real boundaries were recovered; custom-name count is a refactor/naming metric, not audio completion. Thousands of unrelated legacy-media nodes remain in the denominator.
+- AP1 current live Analysis snapshot: **3862 action nodes**, **173 custom-named action nodes (~4.48%)**. The action count increased as missing real boundaries were recovered; custom-name count is a refactor/naming metric, not audio completion. Thousands of unrelated legacy-media nodes remain in the denominator.
+- Runtime current live Analysis snapshot: **35 action nodes / 13 custom-named**, with the documented loader, service-wait, input-ring and busy-wait helpers synchronized into the saved project.
 - `srvdsp.bin`: **117/117 local executable words**, **9/9 action nodes**, **9/9 high-level behavior views**, **21/21 named/typed/documented DM state/config slots**. The local wrapper is closed at implementation-proof level.
 - Codec-profile processor coverage: **AUX 5451/5451**, **PCM 7787/7787**, **AC-3 10339/10339**, **DTS 9651/9651** vector-seeded reachable words decoded with zero gaps.
 - Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
