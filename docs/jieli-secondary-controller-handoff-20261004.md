@@ -496,3 +496,26 @@ SPHE static analysis now proves a dedicated AUX backend:
 The leading system model is now that JieLi acts as a stereo **source/audio front-end** and SPHE is the main system/audio processor.
 
 Do not call the three physical lines BCLK/LRCLK/DATA as a proven mapping yet. Accept that mapping only after exact continuity and waveform/register evidence.
+
+
+## 23. Firmware-first policy and target resident capture pair — 2026-10-05
+
+Active research no longer spends cycles collecting similar public board/wiring examples. Such material is only useful if it directly provides authoritative source or package documentation.
+
+The primary evidence path is the original SPHE firmware.
+
+New target-specific proof:
+- CPU runtime writes decoder-service slot `0x32 = 5`;
+- AUX imports that slot as its resident-input selector;
+- selector 5 chooses resident capture channel IDs **0x10/0x11**;
+- selector 4 would choose the alternate pair `0x0E/0x0F`;
+- two resident-to-DSP mailbox transfers (`0x63`) deliver two independent 32-sample AUX input blocks;
+- AUX then performs DSP/GM5 processing and returns multichannel blocks through mailbox command `0x62`;
+- one-time route/matrix setup is committed through `DM:3C2A/3C2B` before normal processing.
+
+Therefore exact JieLi SKU, F8/T8 document recovery and a JieLi dump are now **secondary/opportunistic** tasks. Do not block system reconstruction on them.
+
+Continue from:
+`CPU service parameter bank -> AUX selector 5 -> resident channels 0x10/0x11 -> resident backend -> physical receiver`.
+
+Only return to public JieLi/model research if it yields a new authoritative artifact that materially resolves the remaining resident/physical boundary.

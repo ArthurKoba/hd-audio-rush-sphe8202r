@@ -1356,3 +1356,97 @@ Bluetooth / stereo AUX / optional secondary-side S/PDIF
 ```
 
 Exact `BCLK / LRCLK / DATA` assignment remains a board/runtime acceptance item. Exact JieLi commercial SKU is no longer required to continue reconstructing the SPHE-side contract.
+
+
+## Target AUX parameter-bank and resident-channel reconstruction — 2026-10-05
+
+The active path is firmware-first. Public board/schematic hunting is no longer the primary identification method.
+
+### AUX startup sequence
+
+The AUX DSP profile startup now has two explicit initialization actions:
+
+- `InitializeAuxProfileParameters @ PM:01F2`: imports the decoder-service parameter bank into AUX-local DM state;
+- `InitializeAuxResidentAudioChannels @ PM:031D`: builds resident audio-channel descriptors and commits the one-time hardware route/matrix state.
+
+Before parameter import, the AUX startup clears:
+- local PM range of `0x400` words;
+- local DM range of `0xE00` words.
+
+The CPU-side `InitializeDecoderServiceParameters @ 0x88001584` clears service slots `0x00..0x7F` and then repopulates the target configuration. Relevant fixed values include:
+- slots `0x13..0x1A = 0,1,2,3,4,5,7,6`;
+- slot `0x24 = 3`;
+- slot `0x25 = 0`;
+- slot `0x26 = 2`;
+- slot `0x30 = 0`;
+- slot `0x31 = 0`;
+- **slot `0x32 = 5`**;
+- slot `0x34 = 1`;
+- slots not explicitly repopulated remain zero after the clear.
+
+Slot `0x32` is copied by AUX startup into local selector `DM:07D0`. This is therefore a fixed target/platform setting, not a user-time AUX mode.
+
+### Resident channel descriptors
+
+Resident channel descriptors are arranged in fixed blocks and their field `+0` behaves as a hardware/resident audio-channel ID.
+
+The normal playback descriptors receive IDs from slots `0x13..0x1A`, producing the complete set `0..7` (ordered `0,1,2,3,4,5,7,6`). This grounds the interpretation of descriptor field `+0` as a channel identifier.
+
+AUX adds a dedicated stereo capture pair:
+
+- selector `4` -> IDs `0x0E / 0x0F`;
+- **target selector `5` -> IDs `0x10 / 0x11`**.
+
+For the target selector-5 branch:
+- channel A descriptor: ID `0x10`, field+1 `0x3E60`, field+2 `0x0FC0`, runtime fields +3/+4 initially zero;
+- channel B descriptor: ID `0x11`, field+1 `0x4E20`, field+2 `0x0FC0`, runtime fields +3/+4 initially zero.
+
+The exact resident meaning/address space of field+1 is not yet promoted beyond descriptor-buffer evidence, but the pair is symmetric and equal-sized.
+
+AUX also maintains two equal local input rings:
+- channel A: `0x6A20 .. 0x6F5F`;
+- channel B: `0x6F60 .. 0x749F`;
+- each ring length: `0x540` words;
+- consumption quantum: `0x20` samples.
+
+`GetAuxInputChannelABlock` and `GetAuxInputChannelBBlock` each wait for their resident availability state, request one 32-sample block and advance the corresponding ring pointer.
+
+### Resident mailbox direction is now grounded
+
+Mailbox command `0x63` is the resident -> local DSP audio-block transfer primitive:
+- AUX uses it for both stereo input channels;
+- PCM/AC3/DTS profiles also use command `0x63`, proving it is a generic resident input-block operation rather than AUX control.
+
+Mailbox command `0x62` is the local DSP -> resident audio-block transfer primitive:
+- after stereo AUX processing / GM5, AUX submits its output lane buffers through `0x62`;
+- the six-lane GM5 path iterates six 32-sample buffers.
+
+Therefore the proven software flow is:
+
+```text
+resident capture channel 0x10 + resident capture channel 0x11
+       -> command 0x63
+       -> two local AUX 32-sample blocks
+       -> AUX DSP / GM5 / stereo-to-multichannel processing
+       -> six local output lanes
+       -> command 0x62
+       -> resident playback channels
+```
+
+### One-time hardware route/matrix commit
+
+`DM:3C2A` and `DM:3C2B` are only used by `InitializeAuxResidentAudioChannels`, not by the active GM5 processing loop.
+
+Two short helpers prove command/status semantics:
+- the route commit helper polls `DM:3C2A & 0x2000` until clear;
+- the coefficient commit helper polls `DM:3C2A & 0x1000` until clear.
+
+Thus `3C2A/3C2B` form an initialization-time hardware route/matrix command interface.
+
+The two selector branches program distinct command families:
+- target selector 5 uses the `0x840/0x850` route family and `0x440/0x450` coefficient family;
+- selector 4 uses the `0x860/0x870` and `0x460/0x470` families.
+
+This is stronger than the earlier generic three-wire hypothesis: the target firmware explicitly chooses one of two stereo resident capture pairs and commits a matching hardware route before normal AUX processing.
+
+The exact physical pin mapping of resident capture IDs `0x10/0x11` remains open. Static reconstruction can continue without the exact JieLi commercial SKU or a JieLi firmware dump.

@@ -37,7 +37,7 @@ Current approximate behavior/reconstruction coverage:
 | AUX / stereo ingress | **87%** | Active only through the missing SPHE-side receiver / inter-chip contract |
 | Resident audio services | **93%** | Low priority unless required by replacement-source architecture |
 | Clock / sample-format contract | **80%** | Active where firmware can still resolve real clock/rate families; board-only validation is deferred |
-| SPHE <-> JieLi audio/control boundary | **78%** | **HIGH PRIORITY**; new three-wire digital-ingress model is strongly supported but exact signal roles remain unproven |
+| SPHE <-> JieLi audio/control boundary | **86%** | **HIGH PRIORITY**; target resident capture pair 0x10/0x11 and AUX stereo block flow are now recovered; physical signal roles remain unproven |
 | JieLi firmware/control domain | **45%** | **HIGH PRIORITY**; full dump/static analysis would materially increase coverage |
 | DSP resources / PM/DM/cycle headroom | **55%** | **HIGH PRIORITY** |
 | ECHO processing engine | **70%** | Medium priority; recover if needed for original behavior parity |
@@ -282,10 +282,10 @@ Remaining gates:
 
 ## Immediate continuation
 
-1. Close the exact three-wire JieLi -> SPHE net mapping and determine whether the lines are frame clock / bit clock / serial data.
-2. Continue the SPHE AUX state `0x40000` / service-format `0x700` path below the service mailbox until the receiver peripheral is identified.
-3. Resolve product-level meaning of remaining `gp+0x7A5` source-state handlers only where needed by the replacement control plane.
-4. Close physical six-channel output ownership with board/runtime evidence.
+1. Continue below the AUX service mailbox and recover resident backend ownership/semantics of target capture channel IDs `0x10/0x11` and the `DM:3C2A/3C2B` route interface.
+2. Finish partial evaluation of the target decoder-service parameter bank and AUX startup so only the target branch remains in the replacement contract.
+3. Treat exact three-wire physical pin roles as a hardware acceptance item; do not block static reconstruction on public pinout searches.
+4. Resolve remaining source-state handlers only where needed by the replacement control plane, and close physical six-channel output ownership with board/runtime evidence.
 5. In parallel, turn the recovered behavior contracts into maintainable replacement-source modules while rebuild/repack/recovery acceptance is completed.
 
 Safety/provider incident reproduction belongs to `ArthurKoba/mcp-bridge` issues and is not duplicated here.
