@@ -31,17 +31,16 @@ These items are **not** part of the active transfer denominator unless they are 
 
 - MUSIC MODE table metadata: the saved project still carries the historical `seven_band_eq_preset_bank` symbol at `0x8070B37A`. The documented correction is page table `0x8070B35C` (4 x 11 bytes) and fixed EQ preset bank `0x8070B388` (5 x 7 bytes). Removing the stale symbol is currently mutation-blocked; do not resize the page table around the wrong symbol.
 - Runtime GP restore metadata is reconciled in the saved project: `g_pRuntimeGpRestoreWord @ 0x88012200` is the confirmed restore pointer and is fully documented. Historical shifted address `0x88012A00` no longer carries the stale symbol and is explicitly annotated as known-bad.
-- Special setup-control entry `0x8077761C`: the action boundary is instruction-backed and its documented control cases are usable, but creating the saved action node has been mutation-blocked. Keep the address as a deferred action-boundary installation item rather than re-investigating the dispatcher.
 - External-input continuation `0x806FED18`: known to write external-input selector values from the broader transition route, but its complete behavior contract is intentionally deferred.
 - Shared-media runtime candidates produced by the paused GP scan remain a later behavior-recovery queue unless their meaning was already closed during the refactor.
 
 ### Audio vocabulary/refactor checkpoint — 2026-10-05
 
 - The replacement-source audio/control layer now uses shared canonical contracts instead of local magic-value copies: `sphe_audio_contract.h`, `sphe_control_protocol.h` and `sphe_soc_contract.h`.
-- Live Analysis vocabulary is shared across AP1, `drv_other`, WMA and CDROM where the same recovered state is actually shared. Current `drv_other` snapshot: **182 action nodes / 49 custom-named**.
+- Live Analysis vocabulary is shared across AP1, `drv_other`, WMA and CDROM where the same recovered state is actually shared. Current `drv_other` snapshot: **183 action nodes / 50 custom-named**.
 - New cross-module state recovered through the refactor: `SPHE_STATE_MEDIA_STATE_WORD @ 0x80003254`, with **148 AP1**, **21 CDROM** and **2 drv_other** direct GP-relative references in the current scanner. Low 14 bits carry the media code; high bits are transition flags.
 - Persistent state is now modeled as namespace + byte offsets + sizes rather than unrelated record IDs. Namespace `0xA0` covers the recovered firmware signature, 65-byte control-selection block, checksum, auxiliary control state, external-input mode and one still-unmapped block at offset `0x102`.
-- Recovered action boundaries added during this pass include `ReadPersistentRecord`, `WritePersistentRecord`, `HandlePlaybackStatusSourceState` and `HandleMic1LevelIncrease`; adjacent generic actions were renamed only when their native behavior contract closed.
+- Recovered action boundaries added during this pass include `ReadPersistentRecord`, `WritePersistentRecord`, `HandlePlaybackStatusSourceState` and `HandleMic1LevelIncrease`; adjacent generic actions were renamed only when their native behavior contract closed. `DispatchSpecialControlSelection` is now installed at its previously blocked 640-byte boundary; unknown special control IDs remain explicitly unnamed.
 - `SPHE_STATE_AUDIO_PRESET_WORKING_VALUE` (`0x80002B22`) was corrected from the too-narrow historical name `CustomEqBandGainCode` to `AudioPresetWorkingValue`: it is a general MUSIC MODE working value and acts as an EQ-band gain code only inside USER EQ editing.
 - Runtime RAM addresses without backing data blocks are not fabricated as typed data units. Those are represented through canonical labels/comments plus the shared C enum/address vocabulary until the project contains a real RAM backing block.
 
