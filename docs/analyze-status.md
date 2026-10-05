@@ -12,11 +12,22 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 
 ### Progress metrics
 
-- AP1 current live Analysis snapshot: **3853 action nodes**, **147 non-generic/semantic names (~3.82%)** by the current naming rule, **62 forwarders**. This includes thousands of unrelated legacy-media nodes and is not audio completion.
+- AP1 current live Analysis snapshot: **3857 action nodes**, **159 custom-named action nodes (~4.12%)**. The action count increased as missing real boundaries were recovered; custom-name count is a refactor/naming metric, not audio completion. Thousands of unrelated legacy-media nodes remain in the denominator.
 - `srvdsp.bin`: **117/117 local executable words**, **9/9 action nodes**, **9/9 high-level behavior views**, **21/21 named/typed/documented DM state/config slots**. The local wrapper is closed at implementation-proof level.
 - Codec-profile processor coverage: **AUX 5451/5451**, **PCM 7787/7787**, **AC-3 10339/10339**, **DTS 9651/9651** vector-seeded reachable words decoded with zero gaps.
 - Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
 - The previous `97–98%` whole-audio estimate is retired.
+
+### Audio vocabulary/refactor checkpoint — 2026-10-05
+
+- The replacement-source audio/control layer now uses shared canonical contracts instead of local magic-value copies: `sphe_audio_contract.h`, `sphe_control_protocol.h` and `sphe_soc_contract.h`.
+- Live Analysis vocabulary is shared across AP1, `drv_other`, WMA and CDROM where the same recovered state is actually shared. Current `drv_other` snapshot: **182 action nodes / 49 custom-named**.
+- New cross-module state recovered through the refactor: `SPHE_STATE_MEDIA_STATE_WORD @ 0x80003254`, with **148 AP1**, **21 CDROM** and **2 drv_other** direct GP-relative references in the current scanner. Low 14 bits carry the media code; high bits are transition flags.
+- Persistent state is now modeled as namespace + byte offsets + sizes rather than unrelated record IDs. Namespace `0xA0` covers the recovered firmware signature, 65-byte control-selection block, checksum, auxiliary control state, external-input mode and one still-unmapped block at offset `0x102`.
+- Recovered action boundaries added during this pass include `ReadPersistentRecord`, `WritePersistentRecord`, `HandlePlaybackStatusSourceState` and `HandleMic1LevelIncrease`; adjacent generic actions were renamed only when their native behavior contract closed.
+- `0x80002B22` was corrected from the too-narrow historical name `CustomEqBandGainCode` to `AudioPresetWorkingValue`: it is a general MUSIC MODE working value and acts as an EQ-band gain code only inside USER EQ editing.
+- Runtime RAM addresses without backing data blocks are not fabricated as typed data units. Those are represented through canonical labels/comments plus the shared C enum/address vocabulary until the project contains a real RAM backing block.
+
 
 ## Current project stage — firmware reconstruction first
 
