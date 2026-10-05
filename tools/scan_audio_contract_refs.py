@@ -146,6 +146,22 @@ def scan_module(
     return dict(hits)
 
 
+def classify_collisions(
+    symbols: dict[int, list[Symbol]],
+) -> tuple[dict[int, list[Symbol]], dict[int, list[Symbol]]]:
+    """Split duplicate values into same-domain aliases and cross-domain collisions."""
+    same_domain: dict[int, list[Symbol]] = {}
+    cross_domain: dict[int, list[Symbol]] = {}
+    for value, entries in symbols.items():
+        if len(entries) < 2:
+            continue
+        domains = [item.enum for item in entries]
+        if len(set(domains)) < len(domains):
+            same_domain[value] = entries
+        else:
+            cross_domain[value] = entries
+    return same_domain, cross_domain
+
 def render_markdown(
     symbols: dict[int, list[Symbol]],
     scans: dict[str, dict[int, list[int]]],
@@ -153,14 +169,28 @@ def render_markdown(
 ) -> str:
     lines: list[str] = []
 
-    collisions = {
-        value: entries for value, entries in symbols.items()
-        if len(entries) > 1 and (include_small or value >= 0x20)
+    same_domain, cross_domain = classify_collisions(symbols)
+    same_domain = {
+        value: entries for value, entries in same_domain.items()
+        if include_small or value >= 0x20
     }
-    if collisions:
-        lines.append("# Context collisions")
+    cross_domain = {
+        value: entries for value, entries in cross_domain.items()
+        if include_small or value >= 0x20
+    }
+
+    if same_domain:
+        lines.append("# Same-domain aliases to review")
         lines.append("")
-        for value, entries in sorted(collisions.items()):
+        for value, entries in sorted(same_domain.items()):
+            names = ", ".join(f"{x.enum}.{x.name}" for x in entries)
+            lines.append(f"- `0x{value:X}`: {names}")
+        lines.append("")
+
+    if cross_domain:
+        lines.append("# Cross-domain collisions")
+        lines.append("")
+        for value, entries in sorted(cross_domain.items()):
             names = ", ".join(f"{x.enum}.{x.name}" for x in entries)
             lines.append(f"- `0x{value:X}`: {names}")
         lines.append("")
@@ -215,15 +245,25 @@ def main() -> int:
     }
 
     if args.json:
-        payload = {
-            "collisions": {
+        same_domain, cross_domain = classify_collisions(symbols)
+
+        def collision_payload(
+            values: dict[int, list[Symbol]],
+        ) -> dict[str, list[dict[str, str]]]:
+            return {
                 f"0x{value:X}": [
                     {"enum": item.enum, "name": item.name}
                     for item in entries
                 ]
-                for value, entries in symbols.items()
-                if len(entries) > 1
-            },
+                for value, entries in values.items()
+            }
+
+        payload = {
+            "collisions": collision_payload(
+                {value: entries for value, entries in symbols.items() if len(entries) > 1}
+            ),
+            "same_domain_collisions": collision_payload(same_domain),
+            "cross_domain_collisions": collision_payload(cross_domain),
             "modules": {
                 module: {
                     f"0x{value:X}": {
