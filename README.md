@@ -33,13 +33,19 @@ Documentation is no longer maintained as a field-for-field mirror after every re
 - Decoder status block `0x800022E4` is 16 bytes. Hardware decoder type bits map 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can stop/reconfigure/restart the pipeline.
 - The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; canonical Analysis now saves `ApplyEchoProfileIndex @ 0x80702C8C` and `ApplyEchoHardwareProfile @ 0x80702CC8`, both on action 4 / family `0x0600`.
 
-### Readiness boundary
+### Analysis coverage checkpoint
 
-The old `97–98%` whole-audio estimate is retired. A useful current scoped estimate is that the **CPU-side audio control/loader contract is approximately 90–95% implementation-proof**. The denominator is CPU-side control behavior only.
+Current analysis progress uses explicit acceptance contracts from `docs/analyze-status.md`, not confidence estimates.
 
-Controlled in-place behavior-preserving patches can already be designed. Replacement/custom firmware is still gated by container rebuild/repack/integrity reproduction, safe recovery/rollback, remaining resident runtime/backend ownership, DSP resource-budget evidence, physical six-channel output acceptance and at least one hardware-validated intentional modification.
+- **Sunplus-side firmware analysis:** **34/40 = 85%**.
+- **Whole-device firmware analysis (including JieLi + inter-chip boundary):** **37/49 = 76%**.
+- **CPU-side audio control/loader:** **9/9 = 100%**.
+- **Sunplus DSP target corpus:** **6/6 = 100%**.
+- **Container/repack/build static contract:** **5/5 = 100%**.
+- **ROM-loader software contract:** **4/4 = 100%**.
+- **USB-host software contract:** **4/4 = 100%**.
 
-Provider/safety incidents are tracked in `ArthurKoba/mcp-bridge`; this repository keeps behavior evidence and recovery state, not a duplicate incident log.
+The remaining analysis gap is concentrated in resident backend ownership, DSP resource/headroom evidence, the SPHE↔JieLi boundary and the missing JieLi firmware corpus. Hardware acceptance is a later validation level and is not mixed into these percentages.
 
 ### Implementation start boundary
 
@@ -103,14 +109,13 @@ Current priorities:
 5. **Remaining firmware-only Sunplus gaps.** Finish clock/sample-rate semantics, backend ownership and unexplained live source/control routes only where they materially affect original behavior.
 
 Currently frozen at hardware boundary:
-- USB Host bring-up: **93%** — controller/root/EP0/descriptors are recovered; next useful proof is the prepared RAM probe on target hardware;
-- SPHE UART software path: **90%** — next useful proof is physical target access and execution;
-- DAC/six-channel behavior: **90%** — remaining uncertainty is mainly board continuity/levels;
-- front-panel SOURCE / 2.0-5.1 behavior: **93%** — remaining work is mostly physical GPIO/board detail.
+- USB Host software analysis is closed; target execution remains later execution/board proof.
+- SPHE UART/ROM-loader software analysis is closed; physical target access remains later execution/board proof.
+- Firmware-side six-channel topology/control is recovered; exact product-board continuity/levels remain board proof.
+- Front-panel source/spatial software behavior is recovered far enough for the current replacement scope; residual physical GPIO detail is board work.
+- USB Device/UAC is a future extension and is excluded from stock-firmware analysis coverage.
 
-USB Device/UAC is a later extension, currently about **48%** capability understanding. It is not a prerequisite for reconstructing the stock firmware and should not displace the larger original-system gaps.
-
-Legacy DVD/CD/UI behavior is analyzed only when it is on a live route required by startup, audio, diagnostics or inter-chip control. Do not spend time polishing already-established audio behavior merely to raise a percentage.
+Legacy DVD/CD/UI behavior is analyzed only whenLegacy DVD/CD/UI behavior is analyzed only when it is on a live route required by startup, audio, diagnostics or inter-chip control. Do not spend time polishing already-established audio behavior merely to raise a percentage.
 
 ## Hardware platform
 

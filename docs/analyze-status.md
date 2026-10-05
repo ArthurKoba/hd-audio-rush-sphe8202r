@@ -24,16 +24,104 @@ Validation levels remain separate:
 - **board proof** — target PCB ownership/routing is physically established;
 - **integration proof** — modified/rebuilt firmware has been accepted on the target with rollback/recovery available.
 
-### Progress metrics
+### Live Analysis inventory — 2026-10-06
 
-- AP1 current live Analysis snapshot: **3862 action nodes**, **176 custom-named action nodes (~4.56%)**. The action count increased as missing real boundaries were recovered; custom-name count is a refactor/naming metric, not audio completion. Thousands of unrelated legacy-media nodes remain in the denominator.
-- Runtime current live Analysis snapshot: **35 action nodes / 13 custom-named**, with the documented loader, service-wait, input-ring and busy-wait helpers synchronized into the saved project.
-- `srvdsp.bin`: **117/117 local executable words**, **9/9 action nodes**, **9/9 high-level behavior views**, **21/21 named/typed/documented DM state/config slots**. The local wrapper is closed at implementation-proof level.
-- Codec-profile processor coverage: **AUX 5451/5451**, **PCM 7787/7787**, **AC-3 10339/10339**, **DTS 9651/9651** vector-seeded reachable words decoded with zero gaps.
-- Working estimate for the **CPU-side audio control/loader contract only**: approximately **90–95% implementation-proof**. The denominator is source/input transitions, decoder state/profile loading, ring transport, service parameters, volume/mute, speaker topology/delay, digital controls, EQ/SRND/KEY and the common hardware-action dispatcher. It excludes physical output ownership, DSP cycle/resource budget, rebuild/repack and hardware acceptance.
-- The previous `97–98%` whole-audio estimate is retired.
+Object counts are inventory, not completion percentages.
 
-### Refactor authority and paused side investigation — 2026-10-05
+| Program | Action nodes | Custom names | Named globals |
+|---|---:|---:|---:|
+| AP1 | 3862 | 176 | 83 |
+| drv_other | 183 | 50 | 38 |
+| WMA | 51 | 5 | 13 |
+| CDROM | 93 | 5 | 20 |
+| rom12 runtime | 35 | 13 | 5 |
+| srvdsp | 9 | 9 | 26 |
+
+Primary CPU/runtime/srvdsp total: **4233 action nodes / 258 custom names**. Two AP1 custom names are still technical `caseD_*` labels, so the current semantic-name count is **256**. This is deliberately not used as analysis coverage because thousands of AP1 nodes are unrelated DVD/media/UI code.
+
+Across AP1/DRV/WMA/CDROM/runtime there are **159 named-global instances** representing **85 unique absolute CPU/runtime addresses** after cross-program deduplication. `srvdsp` adds 26 named DSP globals; 21 of those are confirmed DM state/config slots.
+
+Codec-profile action inventory is tracked separately: AUX 51/15 custom, PCM 4/4, AC-3 25/24, DTS 98/4. Codec-profile naming is not a completion gate; reachable instruction coverage is.
+
+### Analysis completion denominator — 2026-10-06
+
+Each checklist item below is one required behavior/firmware-analysis contract. Percentages are calculated only as `closed / total`; they are not confidence estimates.
+
+| Analysis domain | Closed / total | Coverage | Why it is not 100% |
+|---|---:|---:|---|
+| Sunplus CPU audio control/loader | **9 / 9** | **100%** | Closed at implementation proof. |
+| Sunplus DSP target-corpus processor/decoder | **6 / 6** | **100%** | Closed for the current srvdsp + AUX/PCM/AC-3/DTS corpus. |
+| Container/repack/build static contract | **5 / 5** | **100%** | Byte-exact stock roundtrip, changed-module structural repack, build ABI and loader constraints are recovered. |
+| SPHE ROM-loader software contract | **4 / 4** | **100%** | Software protocol is recovered; target execution/recovery acceptance is a later validation level. |
+| USB host software contract | **4 / 4** | **100%** | Controller/root reset, EP0 requests, descriptor parsing and MSC/SCSI path are recovered; hardware execution is later. |
+| Resident runtime/backend semantics | **4 / 5** | **80%** | Exact resident consumer/channel/output ownership below the recovered service mailbox remains open. |
+| DSP resource budget | **2 / 7** | **29%** | Total/free PM, total/free DM, DSP clock, cycle/headroom and exact resident effect/resource ownership remain open. |
+| SPHE <-> JieLi integration boundary | **2 / 4** | **50%** | Exact three-wire electrical roles/pins and the separate control/status transport/framing remain open. |
+| JieLi firmware/control domain | **1 / 5** | **20%** | Exact chip/flash geometry, verified dump, pi32v2 static-analysis corpus and required control/Bluetooth/audio ownership remain open. |
+
+**Sunplus-side firmware-analysis coverage:** **34 / 40 = 85%**. This uses the first seven domains and excludes the secondary-controller domain.
+
+**Whole-device firmware-analysis coverage:** **37 / 49 = 76%**. This includes both processors and their integration boundary.
+
+The denominator intentionally excludes:
+- hardware/board/integration acceptance;
+- USB Device/UAC, which is a future feature rather than stock-behavior analysis;
+- residual LED/front-panel cosmetics unless they become necessary to the replacement-firmware acceptance contract;
+- exhaustive semantic naming of unrelated DVD/media/UI library code.
+
+#### Closed-domain checklists
+
+CPU audio control/loader 9/9:
+1. source/input transitions;
+2. decoder state/profile selection and loading;
+3. decoder input-ring transport;
+4. runtime service parameters;
+5. master volume/mute;
+6. speaker topology/delay;
+7. S/PDIF/digital output controls;
+8. EQ/SRND/KEY/ECHO control paths;
+9. common hardware-action dispatcher.
+
+DSP target-corpus 6/6:
+1. `srvdsp` executable/action behavior;
+2. `srvdsp` DM state/config map;
+3. AUX reachable-code decode;
+4. PCM reachable-code decode;
+5. AC-3 reachable-code decode;
+6. DTS reachable-code decode.
+
+Container/repack/build 5/5:
+1. container/module table + transform/checksum contract;
+2. byte-exact no-change 1 MiB reconstruction;
+3. changed-module repack/reopen/extract validation;
+4. independent MIPS32-LE/o32/soft-float build ABI;
+5. loader/module size and fixed-address constraints.
+
+ROM-loader software 4/4:
+1. UART framing/baud/session contract;
+2. RAM-code loading/execution route;
+3. memory read/write transactions;
+4. flash-read + stock-recovery software path.
+
+USB-host software 4/4:
+1. controller/base initialization + root reset;
+2. EP0 standard request construction;
+3. configuration/interface/endpoint descriptor parsing;
+4. mass-storage/SCSI class route.
+
+#### Open-domain checklists
+
+Resident runtime/backend 4/5 has four closed contracts — service mailbox/ack semantics, decoder input ring, 24-bit parameter bank, start/stop/pause/reconfigure lifecycle — and one open contract: exact resident backend consumer/channel/output ownership.
+
+DSP resource budget 2/7 has the local `srvdsp` PM layout and DM state/config map closed. Open: total/free PM ownership, total/free DM ownership, DSP clock, cycle/headroom budget, and exact resident effect/resource ownership.
+
+SPHE <-> JieLi boundary 2/4 has JieLi-side ALINK/runtime activity and the SPHE-side resident capture/AUX route established. Open: exact three-wire clock/frame/data roles/pins and the separate control/status transport/framing.
+
+JieLi firmware/control 1/5 currently has only software-family/runtime evidence from UART. Open: exact chip/flash geometry, verified raw firmware dump, pi32v2 static analysis, and the required control/Bluetooth/audio responsibility map.
+
+Closed domains stay closed unless a real contradiction appears. Do not reopen them merely to increase naming coverage.
+
+### Refactor authority and paused side investigation### Refactor authority and paused side investigation — 2026-10-05
 
 - **Canonical semantic authority for the recovered target firmware is the saved Analysis project.** A recovered target-firmware fact is considered fully migrated only when its action/state/type/comment exists there. Markdown documentation is evidence, rationale and handoff context; replacement-source contract headers mirror confirmed semantics for code reuse but do not replace the Analysis project as the semantic source of truth.
 - **Current documented-semantics transfer/refactor is closed at 100% for its defined denominator.** All already-recovered target-firmware actions/states/types/comments identified by this pass are represented in saved Analysis or explicitly classified as non-semantic/future behavior-recovery work. Unknown shared-state candidates are no longer counted as refactor debt.
@@ -74,26 +162,11 @@ A direction that has reached a hardware-only boundary is **paused**, not treated
 - another firmware-domain dependency requires it; or
 - the project deliberately enters hardware-acceptance phase.
 
-Current approximate behavior/reconstruction coverage:
+Current analysis progress is defined by the exact acceptance ledger above. The previous per-area estimates (93%, 90%, 87%, etc.) are retired because they mixed implementation proof, hardware proof, future features and subjective confidence.
 
-| Area | Current | Active status |
-|---|---:|---|
-| USB host bring-up / EP0 contract | **93%** | **PAUSED at hardware boundary** — controller init, root reset, EP0 enumeration and descriptors are recovered; next meaningful proof is target execution |
-| SPHE UART / ROM-loader software | **90%** | **PAUSED at hardware boundary** — software contract is recovered; physical target access/execution proof remains |
-| DAC / six-channel output behavior | **90%** | **PAUSED where only board continuity/levels remain** |
-| AUX / stereo ingress | **87%** | Active only through the missing SPHE-side receiver / inter-chip contract |
-| Resident audio services | **93%** | Low priority unless required by replacement-source architecture |
-| Clock / sample-format contract | **80%** | Active where firmware can still resolve real clock/rate families; board-only validation is deferred |
-| SPHE <-> JieLi audio/control boundary | **90%** | **HIGH PRIORITY**; source-side common-mixer ALINK TX and SPHE resident capture pair 0x10/0x11 are recovered; exact physical pin ownership remains unproven |
-| JieLi firmware/control domain | **45%** | **HIGH PRIORITY**; full dump/static analysis would materially increase coverage |
-| DSP resources / PM/DM/cycle headroom | **55%** | **HIGH PRIORITY** |
-| ECHO processing engine | **70%** | Medium priority; recover if needed for original behavior parity |
-| USB device / UAC capability | **48%** | Deferred while original firmware reconstruction has larger gaps; not required for stock behavior parity |
-| Front-panel SOURCE / 2.0-5.1 behavior | **93%** | Paused; remaining work is mainly board/GPIO detail |
-| LED / residual front-panel ownership | **38%** | Low priority unless firmware analysis exposes its owner |
-| Rebuild / repack / integrity contract | **65%** | **HIGH PRIORITY** for replacement firmware |
-| Recovery / rollback software path | **70%** | Static/software work may continue; hardware acceptance remains deferred |
+Hardware-gated items are tracked as later validation work and do not reduce firmware-analysis coverage. In particular, target USB execution, physical SPHE UART access, six-channel continuity/levels and rebuilt-image hardware acceptance belong to execution/board/integration proof, not the current analysis denominator.
 
+### Active priority order
 ### Active priority order
 
 1. **Close the provisional three-wire JieLi -> SPHE audio ingress.** Record the exact three PCB nets, determine their clock/frame/data roles, and identify the SPHE receiver contract. Current evidence supports a permanently connected synchronous stereo stream into the dedicated AUX backend.

@@ -273,20 +273,20 @@ Priority order:
 6. Build/enable a read-only UART RAM dumper only once the correct Boot-ROM transport and post-loader return protocol are grounded.
 7. After dump acquisition, create the pi32v2 static-analysis target and recover the remaining control/status transport to SPHE.
 
-## 11. Current project-level percentages
+## 11. Current analysis coverage reference
 
-These are approximate behavior/reconstruction coverage, not hardware/product readiness.
+Current percentages are owned by the explicit acceptance ledger in `docs/analyze-status.md`; the earlier confidence estimates are retired.
 
-- SPHE <-> JieLi audio/control boundary: ~72%.
-- JieLi firmware/control domain: ~45%; raw firmware is the major missing artifact.
-- JieLi UART: runtime/debug path known; Boot-ROM/update acquisition path not yet established.
-- USB Host on SPHE: ~93%, paused at hardware boundary.
-- USB Device/UAC: ~48%, deferred.
-- DSP resource/headroom model: ~55%, active firmware-analysis gap.
+- SPHE <-> JieLi integration boundary: **2/4 = 50%**; open items are exact three-wire signal roles/pins and the separate control/status transport/framing.
+- JieLi firmware/control domain: **1/5 = 20%**; exact chip/flash geometry, verified dump, pi32v2 corpus and responsibility map remain open.
+- USB Host software analysis on SPHE: **4/4 = 100%**; target execution is later validation work.
+- USB Device/UAC: excluded from the stock-firmware analysis denominator.
+- DSP resource budget: **2/7 = 29%**; remaining items are explicitly listed in the analysis ledger.
+- JieLi UART runtime/debug evidence is established; Boot-ROM/update acquisition remains part of the open JieLi firmware-domain checklist.
 
-The firmware-first project policy remains: areas already blocked only on hardware acceptance stay frozen while software/reconstruction gaps such as JieLi acquisition and SPHE<->JieLi integration are attacked.
+The firmware-first project policy remains: hardware-only acceptance stays frozen while the explicit open analysis contracts are worked.
 
-
+## 12. Secondary-controller role in the product
 ## 12. Secondary-controller role in the product
 
 Current recovered audio model:

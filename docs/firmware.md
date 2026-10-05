@@ -57,7 +57,7 @@ The ROM-loader work is therefore an active enabler for replacement firmware rath
 
 ### Readiness
 
-The former 94–98% whole-audio percentages are retired. Current scoped estimate is approximately 90–95% of the **CPU-side audio control/loader contract** at implementation-proof level. DSP reachable instruction coverage and local `srvdsp` coverage are complete for the current corpus, but custom/replacement firmware is still gated by rebuild/repack/integrity, safe recovery, runtime/backend/physical-lane ownership, DSP resource-budget evidence and hardware acceptance.
+Current analysis percentages are defined only by the explicit acceptance ledger in `docs/analyze-status.md`. The CPU-side audio control/loader contract is closed at **9/9 = 100%** implementation proof, the DSP target corpus at **6/6 = 100%**, and the container/repack/build static contract at **5/5 = 100%**. Remaining analysis work is resident backend ownership, DSP resource/headroom evidence, the SPHE↔JieLi boundary and the missing JieLi firmware corpus. Hardware acceptance remains a separate validation level.
 
 ## Historical investigation log — preserved for provenance
 
