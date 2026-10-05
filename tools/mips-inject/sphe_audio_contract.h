@@ -52,12 +52,14 @@ enum sphe_audio_command_family {
     SPHE_AUDIO_CMD_SUBWOOFER       = 0x0800,
     SPHE_AUDIO_CMD_SPDIF_HW        = 0x0900,
     SPHE_AUDIO_CMD_EQ_PROCESSING   = 0x0A00,
+    SPHE_AUDIO_CMD_MASTER_VOLUME    = 0x1100,
+    SPHE_AUDIO_CMD_MIC1             = 0x1200,
     SPHE_AUDIO_CMD_CONSTANT_0B01   = 0x0B00,
     SPHE_AUDIO_CMD_SPEAKER_DELAY   = 0x0C00,
     SPHE_AUDIO_CMD_DECODER_STATE   = 0x0D00,
     SPHE_AUDIO_CMD_GM5             = 0x0E00,
     SPHE_AUDIO_CMD_GAIN_15         = 0x1500,
-    SPHE_AUDIO_CMD_TABLE_17        = 0x1700,
+    SPHE_AUDIO_CMD_MIC2        = 0x1700,
     SPHE_AUDIO_CMD_GAIN_1A         = 0x1A00,
     SPHE_AUDIO_CMD_GAIN_1B         = 0x1B00,
     SPHE_AUDIO_CMD_GAIN_1C         = 0x1C00,
@@ -250,6 +252,17 @@ enum sphe_audio_control_limit {
 
 enum sphe_key_selection_contract {
     SPHE_KEY_SELECTION_BIAS = 8,
+};
+
+enum sphe_echo_profile_mode {
+    SPHE_ECHO_PROFILE_MODE_OFF = 0,
+    SPHE_ECHO_PROFILE_MODE_1   = 7,
+    SPHE_ECHO_PROFILE_MODE_2   = 15,
+    SPHE_ECHO_PROFILE_MODE_3   = 23,
+    SPHE_ECHO_PROFILE_MODE_4   = 31,
+    SPHE_ECHO_PROFILE_MODE_5   = 39,
+    SPHE_ECHO_PROFILE_MODE_6   = 47,
+    SPHE_ECHO_PROFILE_MODE_7   = 55,
 };
 
 enum sphe_echo_profile_contract {
