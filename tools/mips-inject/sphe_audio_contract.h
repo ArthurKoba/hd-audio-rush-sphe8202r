@@ -160,9 +160,16 @@ enum sphe_external_input_selector {
     SPHE_EXTERNAL_INPUT_SPDIF = 2,
 };
 
-enum sphe_external_transition_state {
-    SPHE_TRANSITION_STATE_AUX      = 0x0B,
-    SPHE_TRANSITION_STATE_SPDIF_IN = 0x0D,
+enum sphe_source_media_state {
+    SPHE_SOURCE_MEDIA_STATE_TUNER_ROUTE = 0x02,
+    SPHE_SOURCE_MEDIA_STATE_AUX         = 0x0B,
+    SPHE_SOURCE_MEDIA_STATE_SPDIF_IN    = 0x0D,
+};
+
+enum sphe_audio_control_limit {
+    SPHE_MASTER_VOLUME_MAX = 15,
+    SPHE_EFFECT_INDEX_MAX = 8,
+    SPHE_CONTROL_SELECTION_BIAS = 2,
 };
 
 enum sphe_audio_service_state {
@@ -284,6 +291,16 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_MASTER_VOLUME                   0x80003332U
 #define SPHE_STATE_MASTER_MUTE                     0x800032B5U
 #define SPHE_STATE_DECODER_AUDIO_STATUS            0x800022E4U
+#define SPHE_STATE_DOWNSAMPLE_MASK                 0x80003244U
+#define SPHE_STATE_SPDIF_HW_MODE                   0x800042B3U
+#define SPHE_STATE_SURROUND_SELECTION              0x80002B0CU
+#define SPHE_STATE_EQ_SELECTION                    0x80002B0DU
+#define SPHE_STATE_USER_EQ7                        0x80002B10U
+#define SPHE_STATE_MIC1                            0x80003297U
+#define SPHE_STATE_MIC2                            0x80003324U
+#define SPHE_STATE_ECHO                            0x8000333AU
+#define SPHE_STATE_ECHO_SLOT                       0x8000681DU
+#define SPHE_STATE_MIC1_SLOT                       0x8000681EU
 #define SPHE_STATE_SPEAKER_FRONT                   0x80003327U
 #define SPHE_STATE_SPEAKER_CENTER                  0x800032DCU
 #define SPHE_STATE_SPEAKER_REAR                    0x8000330EU
