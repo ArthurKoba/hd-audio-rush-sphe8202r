@@ -196,6 +196,15 @@ enum sphe_surround_mode {
     SPHE_SURROUND_LIVE    = 5,
 };
 
+enum sphe_eq_option_id {
+    SPHE_EQ_OPTION_STANDARD = 195,
+    SPHE_EQ_OPTION_CLASSIC  = 196,
+    SPHE_EQ_OPTION_ROCK     = 197,
+    SPHE_EQ_OPTION_JAZZ     = 198,
+    SPHE_EQ_OPTION_POP      = 199,
+    SPHE_EQ_OPTION_USER     = 200,
+};
+
 enum sphe_eq_selection {
     SPHE_EQ_STANDARD = 2,
     SPHE_EQ_CLASSIC  = 3,
