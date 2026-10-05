@@ -121,6 +121,14 @@ enum sphe_decoder_state {
     SPHE_DECODER_STATE_AUX = 0x00040000,
 };
 
+enum sphe_decoder_audio_status_layout {
+    SPHE_DECODER_STATUS_TYPE_MASK         = 0x0007,
+    SPHE_DECODER_STATUS_AUX_FIELD_MASK    = 0x0038,
+    SPHE_DECODER_STATUS_AUX_FIELD_SHIFT   = 3,
+    SPHE_DECODER_STATUS_TABLE_INDEX_MASK  = 0xFF00,
+    SPHE_DECODER_STATUS_TABLE_INDEX_SHIFT = 8,
+};
+
 enum sphe_decoder_hardware_type {
     SPHE_DECODER_HW_PCM           = 0,
     SPHE_DECODER_HW_AC3           = 1,
@@ -372,6 +380,11 @@ enum sphe_downsample_state_mask {
     SPHE_DOWNSAMPLE_MASK_192K = 0x0667,
 };
 
+enum sphe_control_menu_state {
+    SPHE_CONTROL_MENU_STATE_BROWSE = 2,
+    SPHE_CONTROL_MENU_STATE_EDIT   = 3,
+};
+
 enum sphe_control_descriptor_layout {
     SPHE_CONTROL_RESOLVE_INVALID       = 0xFFFF,
     SPHE_CONTROL_RESOLVE_GROUP_SHIFT   = 8,
@@ -387,6 +400,13 @@ enum sphe_control_descriptor_layout {
     SPHE_CONTROL_STATE_SLOT_OFFSET    = 0x0B,
     SPHE_CONTROL_STATE_SLOT_LIMIT     = 0x41,
     SPHE_CONTROL_SELECTION_GROUP_SIZE = 9,
+};
+
+enum sphe_command_mailbox_key {
+    SPHE_MAILBOX_KEY_INDEXED_BASE     = 0x4000,
+    SPHE_MAILBOX_KEY_COMPLETION       = 0x454B,
+    SPHE_MAILBOX_KEY_SPDIF_RAW_INIT   = 0x4627,
+    SPHE_MAILBOX_KEY_SPDIF_PCM_INIT   = 0x4628,
 };
 
 enum sphe_persistent_namespace {
