@@ -21,5 +21,9 @@ extern int DispatchAudioHardwareAction(
 __attribute__((used, noinline, aligned(4)))
 int injected_apply_surround(uint32_t index)
 {
-    return DispatchAudioHardwareAction(\n        SPHE_AUDIO_ACTION_SURROUND,\n        (uint8_t)index,\n        0U\n    );
+    return DispatchAudioHardwareAction(
+        SPHE_AUDIO_ACTION_SURROUND,
+        (uint8_t)index,
+        0U
+    );
 }
