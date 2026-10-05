@@ -25,6 +25,16 @@ Secondary-controller continuation authority: `docs/jieli-secondary-controller-ha
 - The recent shared-media `$gp` scan is **paused as an incomplete side investigation**. It produced useful provisional media/runtime contracts (`media_state_word`, stream-buffer base/end/cursor, runtime flags/substate/mode and continuation/filter callbacks), but it is not the active completion denominator. Any of those findings not yet represented in Analysis remain provisional migration debt rather than completed refactor work.
 - Do not continue broad unknown-shared-state discovery until the already-understood documentation/source vocabulary has been reconciled into Analysis. New reverse work is allowed only when it is necessary to disambiguate an already-known item being migrated.
 
+### Migration debt exposed by the refactor — 2026-10-05
+
+These items are **not** part of the active transfer denominator unless they are already documented semantics that still need to be installed into the saved project. They are recorded here so the transfer can continue without turning into a new behavior-recovery pass.
+
+- MUSIC MODE table metadata: the saved project still carries the historical `seven_band_eq_preset_bank` symbol at `0x8070B37A`. The documented correction is page table `0x8070B35C` (4 x 11 bytes) and fixed EQ preset bank `0x8070B388` (5 x 7 bytes). Removing the stale symbol is currently mutation-blocked; do not resize the page table around the wrong symbol.
+- Runtime GP restore metadata: instruction-backed restore word is `0x88012200`; the older `runtime_gp_slot @ 0x88012A00` entry is known shifted metadata and remains a cleanup item.
+- Special setup-control entry `0x8077761C`: the action boundary is instruction-backed and its documented control cases are usable, but creating the saved action node has been mutation-blocked. Keep the address as a deferred action-boundary installation item rather than re-investigating the dispatcher.
+- External-input continuation `0x806FED18`: known to write external-input selector values from the broader transition route, but its complete behavior contract is intentionally deferred.
+- Shared-media runtime candidates produced by the paused GP scan remain a later behavior-recovery queue unless their meaning was already closed during the refactor.
+
 ### Audio vocabulary/refactor checkpoint — 2026-10-05
 
 - The replacement-source audio/control layer now uses shared canonical contracts instead of local magic-value copies: `sphe_audio_contract.h`, `sphe_control_protocol.h` and `sphe_soc_contract.h`.
