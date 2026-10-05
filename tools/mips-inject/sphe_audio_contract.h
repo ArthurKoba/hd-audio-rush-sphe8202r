@@ -305,5 +305,6 @@ struct sphe_resident_audio_descriptor {
 #define SPHE_STATE_SPEAKER_CENTER                  0x800032DCU
 #define SPHE_STATE_SPEAKER_REAR                    0x8000330EU
 #define SPHE_STATE_SPEAKER_SUBWOOFER               0x800032D6U
+#define SPHE_STATE_SPEAKER_TOPOLOGY                 0x80003050U
 
 #endif
