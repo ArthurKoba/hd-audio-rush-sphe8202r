@@ -18,8 +18,8 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
     }
 
     REG8(SPHE_STATE_EXTERNAL_INPUT_MODE_CODE) = next;
-    sphe_apply_external_input_mode_code();
-    sphe_save_external_input_mode_code();
+    sphe_apply_external_input_hardware_mode();
+    sphe_write_external_input_mode_code();
 
     if (previous == next) {
         return true;
@@ -114,7 +114,7 @@ bool sphe_control_set_master_volume(uint8_t level)
      * saved live level here lets the stock unmute route restore the new value.
      */
     if (REG8(SPHE_STATE_MASTER_MUTE_FLAG) == 0U) {
-        sphe_apply_master_volume_level(level);
+        sphe_set_master_volume_level(level);
     }
     return true;
 }
@@ -151,7 +151,7 @@ bool sphe_control_set_eq_selection(enum sphe_eq_selection selection)
      * USER selects the already stored seven-band vector without replacing it.
      */
     REG8(SPHE_STATE_EQ_PRESET_INDEX) = (uint8_t)selection;
-    sphe_reapply_eq_and_surround();
+    sphe_apply_current_seven_band_eq_preset();
     return true;
 }
 
@@ -177,7 +177,7 @@ bool sphe_control_set_user_eq7(const uint8_t coefficients[SPHE_EQ_BAND_COUNT])
     }
 
     REG8(SPHE_STATE_EQ_PRESET_INDEX) = SPHE_EQ_USER;
-    sphe_reapply_eq_and_surround();
+    sphe_apply_current_seven_band_eq_preset();
     return true;
 }
 
@@ -212,7 +212,7 @@ bool sphe_control_set_speaker_state(
     }
 
     sphe_set_speaker_channel_state(channel, state);
-    sphe_reapply_speaker_topology();
+    sphe_apply_speaker_configuration();
     return true;
 }
 
@@ -232,7 +232,7 @@ bool sphe_control_set_speaker_delay(
         return false;
     }
 
-    sphe_apply_speaker_delay(channel, (uint16_t)delay);
+    sphe_apply_speaker_delay_parameter(channel, (uint16_t)delay);
     return true;
 }
 
@@ -244,7 +244,7 @@ bool sphe_control_set_echo(uint8_t index)
 
     REG8(SPHE_STATE_ECHO_PROFILE_INDEX) = index;
     REG8(SPHE_STATE_ECHO_CONTROL_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
-    sphe_reapply_current_echo();
+    sphe_reapply_current_echo_selection();
     return true;
 }
 
@@ -256,7 +256,7 @@ bool sphe_control_set_mic1(uint8_t index)
 
     REG8(SPHE_STATE_MIC1_LEVEL_INDEX) = index;
     REG8(SPHE_STATE_MIC1_CONTROL_SELECTION_SLOT) = index + SPHE_CONTROL_SELECTION_BIAS;
-    sphe_reapply_current_mic1();
+    sphe_reapply_current_mic1_selection();
     return true;
 }
 
@@ -293,7 +293,7 @@ bool sphe_control_set_downsample(enum sphe_downsample_mode mode)
         return false;
     }
 
-    sphe_apply_downsample_mode(mode);
+    sphe_apply_downsample_rate_mode(mode);
     return true;
 }
 
@@ -318,11 +318,11 @@ bool sphe_control_set_gm5(enum sphe_gm5_option option)
         return false;
     }
 
-    sphe_apply_gm5_option(option);
+    sphe_handle_gm5_control_option(option);
     return true;
 }
 
 void sphe_control_apply_dynamic_range(void)
 {
-    sphe_apply_dynamic_range();
+    sphe_apply_dynamic_range_control();
 }

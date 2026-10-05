@@ -84,7 +84,7 @@ static int set_master_volume(uint8_t level)
      * the externally selected value.
      */
     MASTER_VOLUME_LEVEL = level;
-    sphe_apply_master_volume_level(level);
+    sphe_set_master_volume_level(level);
     return SPHE_CTL_OK;
 }
 
@@ -124,7 +124,7 @@ static int set_eq_preset(uint8_t selection)
     }
 
     CURRENT_EQ_SEL = selection;
-    sphe_reapply_eq_and_surround();
+    sphe_apply_current_seven_band_eq_preset();
     return SPHE_CTL_OK;
 }
 
@@ -145,7 +145,7 @@ static int set_eq_user7(const struct sphe_audio_control_command *command)
      * This route reapplies USER EQ and then restores current surround, which
      * avoids the local surround-clear side effect of the coefficient uploader.
      */
-    sphe_reapply_eq_and_surround();
+    sphe_apply_current_seven_band_eq_preset();
     return SPHE_CTL_OK;
 }
 
@@ -176,7 +176,7 @@ static int set_speaker_state(uint8_t channel, uint8_t state)
         (enum sphe_speaker_channel)channel,
         state
     );
-    sphe_reapply_speaker_topology();
+    sphe_apply_speaker_configuration();
     return SPHE_CTL_OK;
 }
 
@@ -269,7 +269,7 @@ int sphe_audio_control_apply(const struct sphe_audio_control_command *command)
             command->arg0 != SPHE_SPEAKER_REAR) {
             return SPHE_CTL_BAD_ARGUMENT;
         }
-        sphe_apply_speaker_delay(
+        sphe_apply_speaker_delay_parameter(
             command->arg0,
             (uint16_t)(command->payload[0] |
                        ((uint16_t)command->payload[1] << 8))
