@@ -1,0 +1,58 @@
+#ifndef SPHE_SOC_CONTRACT_H
+#define SPHE_SOC_CONTRACT_H
+
+#include <stdint.h>
+
+#define SPHE_MMIO32(address) (*(volatile uint32_t *)(uintptr_t)(address))
+
+/* Recovered SPHE8202R system-window base (runtime s6). */
+#define SPHE_SYSTEM_BASE                         0xBFFE8000U
+#define SPHE_SYSTEM_REG(offset)                  SPHE_MMIO32(SPHE_SYSTEM_BASE + (offset))
+
+/* System-window registers with confirmed target uses. */
+#define SPHE_SYS_USB_RESET_CONTROL_REG           SPHE_SYSTEM_REG(0x000CU)
+#define SPHE_SYS_PROFILE_REG_0010                SPHE_SYSTEM_REG(0x0010U)
+#define SPHE_SYS_PROFILE_REG_0014                SPHE_SYSTEM_REG(0x0014U)
+#define SPHE_SYS_PROFILE_REG_0018                SPHE_SYSTEM_REG(0x0018U)
+#define SPHE_SYS_PROFILE_REG_0070                SPHE_SYSTEM_REG(0x0070U)
+
+/* UART register contract. */
+#define SPHE_UART_DATA_REG                       SPHE_SYSTEM_REG(0x0900U)
+#define SPHE_UART_STATUS_REG                     SPHE_SYSTEM_REG(0x0904U)
+#define SPHE_UART_DIVISOR_REG                    SPHE_SYSTEM_REG(0x0914U)
+#define SPHE_UART_AUX_REG                        SPHE_SYSTEM_REG(0x0918U)
+#define SPHE_UART_STATUS_TX_READY                0x00000001U
+#define SPHE_UART_STATUS_RX_READY                0x00000002U
+
+/* USB host-controller window and recovered register roles. */
+#define SPHE_USB_BASE                            0xBC020000U
+#define SPHE_USB_REG(offset)                     SPHE_MMIO32(SPHE_USB_BASE + (offset))
+#define SPHE_USB_TRANSFER_STATE_REG              SPHE_USB_REG(0x0080U)
+#define SPHE_USB_CONTROLLER_STATE_B_REG          SPHE_USB_REG(0x0194U)
+#define SPHE_USB_HOST_INIT_CONTROL_REG           SPHE_USB_REG(0x0284U)
+#define SPHE_USB_ROOT_RESET_CONTROL_REG          SPHE_USB_REG(0x0290U)
+#define SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG        SPHE_USB_REG(0x0294U)
+#define SPHE_USB_CONTROLLER_PRESENCE_STATUS_REG  SPHE_USB_REG(0x02A0U)
+#define SPHE_USB_CONTROLLER_STATE_A_REG          SPHE_USB_REG(0x02A4U)
+#define SPHE_USB_CONTROLLER_SUBTYPE_STATE_REG    SPHE_USB_REG(0x02A8U)
+#define SPHE_USB_HIGHER_INIT_CONFIG_REG          SPHE_USB_REG(0x02ACU)
+
+/* Proven stock USB initialization/control constants. */
+#define SPHE_SYS_USB_RESET_GATE_BIT              0x00001000U
+#define SPHE_USB_ROOT_CONTROL_ACTIVE_BIT         0x00000001U
+#define SPHE_USB_ROOT_CONTROL_ENABLE_VALUE       0x00000001U
+#define SPHE_USB_ROOT_CONTROL_ALTERNATE_VALUE    0x00000003U
+#define SPHE_USB_ROOT_RESET_ASSERT_VALUE         0x00000003U
+#define SPHE_USB_ROOT_BRANCH_STATUS_BIT          0x00000010U
+#define SPHE_USB_SUBTYPE_SKIP_ROOT_RESET_BIT     0x00000100U
+#define SPHE_USB_TRANSFER_BRANCH1_FLAG           0x80000000U
+
+#define SPHE_USB_HOST_INIT_CONTROL_VALUE         4U
+#define SPHE_USB_CONTROLLER_PRESENCE_INIT_VALUE  0x30U
+#define SPHE_USB_CONTROLLER_STATE_A_INIT_VALUE   3U
+#define SPHE_USB_CONTROLLER_STATE_B_INIT_VALUE   7U
+#define SPHE_USB_HIGHER_INIT_CONFIG_VALUE        0x46U
+#define SPHE_USB_ROOT_FOLLOWUP_BRANCH0_VALUE     0x02001003U
+#define SPHE_USB_ROOT_FOLLOWUP_BRANCH1_VALUE     0x08001003U
+
+#endif

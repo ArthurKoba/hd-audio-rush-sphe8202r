@@ -2,26 +2,20 @@
 
 #include "sphe_uart.h"
 
-#define REG32(address) (*(volatile uint32_t *)(uintptr_t)(address))
+#define MIPS_STATUS_INTERRUPT_ENABLE_BIT 0x00000001U
 
-#define SPHE_SYS_CTRL         REG32(0xBFFE800CU)
-
-#define SPHE_USB_BASE         0xBC020000U
-#define SPHE_USB_REG_0080     REG32(SPHE_USB_BASE + 0x080U)
-#define SPHE_USB_REG_0194     REG32(SPHE_USB_BASE + 0x194U)
-#define SPHE_USB_REG_0284     REG32(SPHE_USB_BASE + 0x284U)
-#define SPHE_USB_REG_0290     REG32(SPHE_USB_BASE + 0x290U)
-#define SPHE_USB_REG_0294     REG32(SPHE_USB_BASE + 0x294U)
-#define SPHE_USB_REG_02A0     REG32(SPHE_USB_BASE + 0x2A0U)
-#define SPHE_USB_REG_02A4     REG32(SPHE_USB_BASE + 0x2A4U)
-#define SPHE_USB_REG_02A8     REG32(SPHE_USB_BASE + 0x2A8U)
-#define SPHE_USB_REG_02AC     REG32(SPHE_USB_BASE + 0x2ACU)
+#define STOCK_SHORT_DELAY_INNER_COUNT 50U
+#define STOCK_LONG_DELAY_INNER_COUNT 26998U
+#define USB_RESET_GATE_SETTLE_COUNT 100U
+#define USB_ROOT_RESET_SETTLE_COUNT 200U
+#define USB_ROOT_ENABLE_SETTLE_COUNT 150U
+#define USB_ROOT_FINAL_SETTLE_COUNT 500U
 
 static void
 stock_short_delay(uint32_t count)
 {
     while (count-- != 0U) {
-        volatile uint32_t inner = 50U;
+        volatile uint32_t inner = STOCK_SHORT_DELAY_INNER_COUNT;
 
         while (inner-- != 0U) {
             __asm__ volatile("nop");
@@ -33,7 +27,7 @@ static void
 stock_long_delay(uint32_t count)
 {
     while (count-- != 0U) {
-        volatile uint32_t inner = 26998U;
+        volatile uint32_t inner = STOCK_LONG_DELAY_INNER_COUNT;
 
         while (inner-- != 0U) {
             __asm__ volatile("nop");
@@ -47,7 +41,7 @@ cpu_irq_disable(void)
     uint32_t status;
 
     __asm__ volatile("mfc0 %0, $12\n\tnop" : "=r"(status));
-    status &= ~1U;
+    status &= ~MIPS_STATUS_INTERRUPT_ENABLE_BIT;
     __asm__ volatile("mtc0 %0, $12" :: "r"(status));
 }
 
@@ -57,7 +51,7 @@ cpu_irq_enable(void)
     uint32_t status;
 
     __asm__ volatile("mfc0 %0, $12\n\tnop" : "=r"(status));
-    status |= 1U;
+    status |= MIPS_STATUS_INTERRUPT_ENABLE_BIT;
     __asm__ volatile("mtc0 %0, $12" :: "r"(status));
 }
 
@@ -67,16 +61,16 @@ log_usb_registers(const char *phase)
     sphe_uart_puts(phase);
     sphe_uart_puts("\n");
 
-    sphe_uart_log_u32("  sys800c=", SPHE_SYS_CTRL);
-    sphe_uart_log_u32("  usb0080=", SPHE_USB_REG_0080);
-    sphe_uart_log_u32("  usb0194=", SPHE_USB_REG_0194);
-    sphe_uart_log_u32("  usb0284=", SPHE_USB_REG_0284);
-    sphe_uart_log_u32("  usb0290=", SPHE_USB_REG_0290);
-    sphe_uart_log_u32("  usb0294=", SPHE_USB_REG_0294);
-    sphe_uart_log_u32("  usb02a0=", SPHE_USB_REG_02A0);
-    sphe_uart_log_u32("  usb02a4=", SPHE_USB_REG_02A4);
-    sphe_uart_log_u32("  usb02a8=", SPHE_USB_REG_02A8);
-    sphe_uart_log_u32("  usb02ac=", SPHE_USB_REG_02AC);
+    sphe_uart_log_u32("  sys800c=", SPHE_SYS_USB_RESET_CONTROL_REG);
+    sphe_uart_log_u32("  usb0080=", SPHE_USB_TRANSFER_STATE_REG);
+    sphe_uart_log_u32("  usb0194=", SPHE_USB_CONTROLLER_STATE_B_REG);
+    sphe_uart_log_u32("  usb0284=", SPHE_USB_HOST_INIT_CONTROL_REG);
+    sphe_uart_log_u32("  usb0290=", SPHE_USB_ROOT_RESET_CONTROL_REG);
+    sphe_uart_log_u32("  usb0294=", SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG);
+    sphe_uart_log_u32("  usb02a0=", SPHE_USB_CONTROLLER_PRESENCE_STATUS_REG);
+    sphe_uart_log_u32("  usb02a4=", SPHE_USB_CONTROLLER_STATE_A_REG);
+    sphe_uart_log_u32("  usb02a8=", SPHE_USB_CONTROLLER_SUBTYPE_STATE_REG);
+    sphe_uart_log_u32("  usb02ac=", SPHE_USB_HIGHER_INIT_CONFIG_REG);
 }
 
 /*
@@ -95,26 +89,26 @@ recovered_usb_host_init(void)
 {
     uint32_t value;
 
-    value = SPHE_SYS_CTRL;
-    SPHE_SYS_CTRL = value | 0x1000U;
-    stock_short_delay(100U);
+    value = SPHE_SYS_USB_RESET_CONTROL_REG;
+    SPHE_SYS_USB_RESET_CONTROL_REG = value | SPHE_SYS_USB_RESET_GATE_BIT;
+    stock_short_delay(USB_RESET_GATE_SETTLE_COUNT);
 
-    value = SPHE_SYS_CTRL;
-    SPHE_SYS_CTRL = value & ~0x1000U;
-    stock_short_delay(100U);
+    value = SPHE_SYS_USB_RESET_CONTROL_REG;
+    SPHE_SYS_USB_RESET_CONTROL_REG = value & ~SPHE_SYS_USB_RESET_GATE_BIT;
+    stock_short_delay(USB_RESET_GATE_SETTLE_COUNT);
 
-    SPHE_USB_REG_0284 = 4U;
+    SPHE_USB_HOST_INIT_CONTROL_REG = SPHE_USB_HOST_INIT_CONTROL_VALUE;
 
-    value = SPHE_USB_REG_0294;
-    SPHE_USB_REG_0294 = value & ~0x1000U;
+    value = SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG;
+    SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG = value & ~SPHE_SYS_USB_RESET_GATE_BIT;
 
-    SPHE_USB_REG_02A0 = 0x30U;
-    SPHE_USB_REG_0080 = 0U;
-    SPHE_USB_REG_02A4 = 3U;
-    SPHE_USB_REG_0194 = 7U;
+    SPHE_USB_CONTROLLER_PRESENCE_STATUS_REG = SPHE_USB_CONTROLLER_PRESENCE_INIT_VALUE;
+    SPHE_USB_TRANSFER_STATE_REG = 0U;
+    SPHE_USB_CONTROLLER_STATE_A_REG = SPHE_USB_CONTROLLER_STATE_A_INIT_VALUE;
+    SPHE_USB_CONTROLLER_STATE_B_REG = SPHE_USB_CONTROLLER_STATE_B_INIT_VALUE;
 
     /* Written by the stock higher-level host initializer after base init. */
-    SPHE_USB_REG_02AC = 0x46U;
+    SPHE_USB_HIGHER_INIT_CONFIG_REG = SPHE_USB_HIGHER_INIT_CONFIG_VALUE;
 }
 
 static uint32_t
@@ -123,39 +117,39 @@ recovered_usb_root_reset(uint32_t alternate)
     uint32_t value;
     uint32_t branch;
 
-    value = SPHE_USB_REG_0294;
-    SPHE_USB_REG_0294 = value & ~0x1000U;
-    SPHE_USB_REG_0080 = 0U;
+    value = SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG;
+    SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG = value & ~SPHE_SYS_USB_RESET_GATE_BIT;
+    SPHE_USB_TRANSFER_STATE_REG = 0U;
 
-    SPHE_USB_REG_0290 = 3U;
-    stock_long_delay(200U);
-    SPHE_USB_REG_0290 = 0U;
-    while ((SPHE_USB_REG_0290 & 1U) != 0U) {
+    SPHE_USB_ROOT_RESET_CONTROL_REG = SPHE_USB_ROOT_RESET_ASSERT_VALUE;
+    stock_long_delay(USB_ROOT_RESET_SETTLE_COUNT);
+    SPHE_USB_ROOT_RESET_CONTROL_REG = 0U;
+    while ((SPHE_USB_ROOT_RESET_CONTROL_REG & SPHE_USB_ROOT_CONTROL_ACTIVE_BIT) != 0U) {
     }
-    stock_long_delay(200U);
+    stock_long_delay(USB_ROOT_RESET_SETTLE_COUNT);
 
-    value = SPHE_USB_REG_0290;
-    value |= alternate != 0U ? 3U : 1U;
-    SPHE_USB_REG_0290 = value;
-    stock_long_delay(150U);
+    value = SPHE_USB_ROOT_RESET_CONTROL_REG;
+    value |= alternate != 0U ? SPHE_USB_ROOT_CONTROL_ALTERNATE_VALUE : SPHE_USB_ROOT_CONTROL_ENABLE_VALUE;
+    SPHE_USB_ROOT_RESET_CONTROL_REG = value;
+    stock_long_delay(USB_ROOT_ENABLE_SETTLE_COUNT);
 
     cpu_irq_disable();
-    SPHE_USB_REG_0290 = 0U;
-    while ((SPHE_USB_REG_0290 & 1U) != 0U) {
+    SPHE_USB_ROOT_RESET_CONTROL_REG = 0U;
+    while ((SPHE_USB_ROOT_RESET_CONTROL_REG & SPHE_USB_ROOT_CONTROL_ACTIVE_BIT) != 0U) {
     }
-    stock_short_delay(200U);
+    stock_short_delay(USB_ROOT_RESET_SETTLE_COUNT);
 
-    branch = (SPHE_USB_REG_0290 & 0x10U) != 0U ? 1U : 0U;
+    branch = (SPHE_USB_ROOT_RESET_CONTROL_REG & SPHE_USB_ROOT_BRANCH_STATUS_BIT) != 0U ? 1U : 0U;
     if (branch == 0U) {
-        SPHE_USB_REG_0080 = 0U;
-        SPHE_USB_REG_0294 = 0x02001003U;
+        SPHE_USB_TRANSFER_STATE_REG = 0U;
+        SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG = SPHE_USB_ROOT_FOLLOWUP_BRANCH0_VALUE;
     } else {
-        SPHE_USB_REG_0080 = 0x80000000U;
-        SPHE_USB_REG_0294 = 0x08001003U;
+        SPHE_USB_TRANSFER_STATE_REG = SPHE_USB_TRANSFER_BRANCH1_FLAG;
+        SPHE_USB_ROOT_FOLLOWUP_CONFIG_REG = SPHE_USB_ROOT_FOLLOWUP_BRANCH1_VALUE;
     }
 
     cpu_irq_enable();
-    stock_long_delay(500U);
+    stock_long_delay(USB_ROOT_FINAL_SETTLE_COUNT);
     return branch;
 }
 
@@ -170,7 +164,7 @@ ram_main(void)
 
     log_usb_registers("[sphe] after-init");
 
-    if ((SPHE_USB_REG_02A8 & 0x100U) != 0U) {
+    if ((SPHE_USB_CONTROLLER_SUBTYPE_STATE_REG & SPHE_USB_SUBTYPE_SKIP_ROOT_RESET_BIT) != 0U) {
         sphe_uart_puts(
             "[sphe] status 0x2A8 bit0x100 set; stock attach skips root reset\n"
         );

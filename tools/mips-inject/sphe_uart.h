@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "sphe_soc_contract.h"
+
 /*
  * SPHE8202R UART contract recovered from the canonical rev-8203R RAM helper.
  *
@@ -25,13 +27,6 @@
  * general transport contract.  String output preserves the vendor LF->CR
  * behavior.  NUL is the STK-compatible end-of-status marker.
  */
-
-#define SPHE_UART_DATA_REG     (*(volatile uint32_t *)(uintptr_t)0xBFFE8900U)
-
-#define SPHE_UART_STATUS_REG     (*(volatile uint32_t *)(uintptr_t)0xBFFE8904U)
-
-#define SPHE_UART_STATUS_TX_READY 0x00000001U
-#define SPHE_UART_STATUS_RX_READY 0x00000002U
 
 static inline int
 sphe_uart_tx_ready(void)
