@@ -1,8 +1,8 @@
 # Firmware
 
-## Current audio/control authority — 2026-10-02 late pass
+## Last synchronized audio/control checkpoint — 2026-10-06
 
-This section supersedes conflicting audio interpretations in the historical investigation log below. Keep the older material for provenance only; when addresses, action names, percentages or route semantics disagree, this section plus `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md` are authoritative.
+This section is the last synchronized repository checkpoint for the audio/control model. During active behavior recovery, the saved Analysis project is the live semantic authority and may move ahead of this Markdown. Keep the older material below for provenance only; when detailed semantics differ from a newer saved Analysis result, Analysis wins unless a concrete contradiction has been recorded.
 
 ### Current end-to-end software route
 
@@ -61,7 +61,7 @@ The former 94–98% whole-audio percentages are retired. Current scoped estimate
 
 ## Historical investigation log — preserved for provenance
 
-The sections below record earlier work. They may contain superseded percentages, stale `+0x800` high-level targets, pre-extension DSP-model limitations, old EQ-bank interpretations and earlier symbol names. Do not promote them over the current authority above.
+The sections below record earlier work. They may contain superseded percentages, stale `+0x800` high-level targets, pre-extension DSP-model limitations, old EQ-bank interpretations and earlier symbol names. Do not promote them over the synchronized checkpoint above, and remember that newer saved Analysis state may intentionally be ahead of this file.
 
 ### AP1 seven-band EQ / music-preset state — 2026-10-01
 
@@ -277,7 +277,7 @@ AP1 contains a separate external-input subsource selector at `SPHE_STATE_EXTERNA
 - selector `2` displays `SPDIF IN` (`0x8070B4A0`);
 - the other branch displays `TUNER` (`0x8070B4AC`).
 
-`ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `SPHE_STATE_EXTERNAL_INPUT_SELECTOR` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating `SPHE_STATE_SOURCE_MEDIA_STATE`. This establishes a TUNER <-> S/PDIF input-selection path. Analysis splits `ApplyExternalInputSourceTransition @ 0x806FED0C` at `0x806FED18`; that second action node is now documented as the continuation carrying the AUX/S/PDIF-input mode-change branches. Its semantic contract is closed for the current refactor even though renaming the split node remains mutation-blocked.
+`ToggleTunerSpdifInput` at `0x806FB920` is the concrete static setter: after its common setup helper it reads `SPHE_STATE_EXTERNAL_INPUT_SELECTOR` and toggles exactly `0 -> 2` or nonzero -> `0`, while updating `SPHE_STATE_SOURCE_MEDIA_STATE`. This establishes a TUNER <-> S/PDIF input-selection path. Analysis splits `ApplyExternalInputSourceTransition @ 0x806FED0C` at `0x806FED18`; the continuation is now saved as `ContinueExternalInputSourceTransition` and carries the AUX/S/PDIF-input mode-change branches.
 
 The higher source dispatcher uses `SPHE_STATE_SOURCE_MEDIA_STATE` (`gp+0x7A5`) as an index `1..9` into the handler table at `0x8070B4E0`. Table entry 1 is confirmed as USB because its handler reaches the `USB` string at `0x8070B504`. The remaining source-handler mapping is still being resolved. These findings identify firmware source state and control; they do not establish the physical TOSLINK/coax routing on the PCB.
 
@@ -318,7 +318,7 @@ This closes the implementation-level source-to-decoder bridge needed by a minima
 
 Target-instruction checks now show that `SPHE_STATE_SOURCE_MEDIA_STATE` (`gp+0x7A5`) is a source/media **state-machine state**, not a simple one-value-per-source enum. The 9-entry table at `0x8070B4E0` dispatches states 1..9 using `state-1`; states 6 and 8 share the common path. USB activation uses multiple states rather than one fixed source value.
 
-The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. analysis workspace currently splits the logical action around `0x806FED18`; raw fallthrough is authoritative.
+The external-input transition action begins at raw entry `0x806FED0C`. It compares current mode code `gp+0x12B` with previous code `gp+0x12C`. Mode `3` selects AUX (`gp+0x7FA=1`, state `0x0B`); modes `0..2` select the S/PDIF-input path (`gp+0x7FA=2`, state `0x0D`). `PollExternalInputModeCode @ 0x8071DAC8` validates the current code to range 0..3. Analysis keeps the logical transition split around `0x806FED18` as the named `ContinueExternalInputSourceTransition`; raw fallthrough remains authoritative.
 
 Master volume and mute are a separate runtime-control route rather than ordinary setup-menu descriptors. `SPHE_STATE_MASTER_VOLUME_LEVEL` (`gp+0x832`); `SPHE_STATE_MASTER_MUTE_FLAG` (`gp+0x7B5`). `SetMasterVolumeLevel @ 0x8070129C` forwards action ID 2 into the common audio-action dispatcher, which reaches `ApplyMasterVolumeHardwareState @ 0x806FFBBC`. Mute is a separate flag, not merely volume zero: `ToggleMasterMute` sets/clears the flag, while unmute and several resume/reinit routes reapply `mute ? 0 : master_volume_level`. The hardware apply path indexes runtime table `0x88012CA0[level]`; exact level-to-coefficient bytes remain open because that runtime table is not mapped as readable memory in the canonical project. Persistence of `master_volume_level` is also not yet closed.
 
