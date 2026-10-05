@@ -1,7 +1,7 @@
 # DSP profile initialization and program-window evidence
 
 Date: 2026-10-01. Repository baseline: `0cd3c2350964dc246e0c50df7aafa9c6c91907f0`.
-Canonical analysis project: `sphe8202r_decoder_p25d80` (`ghp_8847e7bcc4fa1ca3b69ff2f5`).
+Canonical analysis project: `sphe8202r_decoder_p25d80`.
 
 This is a reproducible evidence record for the current audio route, not an additional project plan. It supplements `docs/analyze-status.md` and the audio/DSP section of `docs/firmware.md`. No firmware bytes, hardware state or host utility implementation were changed in this pass.
 

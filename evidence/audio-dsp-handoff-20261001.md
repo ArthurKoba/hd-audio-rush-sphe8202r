@@ -2,7 +2,7 @@
 
 ## Current decision boundary
 
-Canonical analysis project: `sphe8202r_decoder_p25d80` (`ghp_8847e7bcc4fa1ca3b69ff2f5`).
+Canonical analysis project: `sphe8202r_decoder_p25d80`.
 
 Target audio behavior estimate: **94–96% at implementation-proof level**. This is an approximate denominator-specific engineering estimate, not action-node coverage and not board acceptance.
 
