@@ -24,6 +24,13 @@
 /* Shared 32-bit code pointer used as the active media parser/continuation callback. */
 #define SPHE_STATE_MEDIA_CONTINUATION_CALLBACK 0x800031E4U
 
+/* Active media-state filter; AP1 invokes this slot through jalr. */
+#define SPHE_STATE_MEDIA_STATE_FILTER_CALLBACK 0x8000318CU
+
+/* Confirmed filter implementations stored in the callback slot. */
+#define SPHE_ADDR_FILTER_MEDIA_STATE_FOR_CONTEXT 0x806E45D0U
+#define SPHE_ADDR_IDENTITY_MEDIA_STATE_FILTER    0x806F4938U
+
 /*
  * Shared media stream-buffer cursor contract.  AP1/CDROM/DRV/WMA use the
  * same base pointer with 16-bit limit/cursor offsets.
