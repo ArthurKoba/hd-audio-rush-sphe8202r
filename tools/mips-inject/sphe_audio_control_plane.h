@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "sphe_control_protocol.h"
+
 /*
  * Transport-agnostic minimal audio control plane.
  *
@@ -11,30 +13,7 @@
  * and feed these commands into sphe_audio_control_apply().
  */
 
-enum sphe_audio_control_opcode {
-    SPHE_CTL_MASTER_VOLUME   = 0x01,
-    SPHE_CTL_MASTER_MUTE     = 0x02,
 
-    SPHE_CTL_SPDIF_OUTPUT    = 0x10,
-    SPHE_CTL_DOWNSAMPLE      = 0x11,
-    SPHE_CTL_DOWNMIX         = 0x12,
-    SPHE_CTL_GM5             = 0x13,
-
-    SPHE_CTL_SURROUND        = 0x20,
-    SPHE_CTL_EQ_PRESET       = 0x21,
-    SPHE_CTL_EQ_USER7        = 0x22,
-
-    SPHE_CTL_SPEAKER_STATE   = 0x30,
-    SPHE_CTL_SUBWOOFER       = 0x31,
-    SPHE_CTL_SPEAKER_DELAY   = 0x32,
-};
-
-enum sphe_audio_control_result {
-    SPHE_CTL_OK              = 0,
-    SPHE_CTL_BAD_OPCODE      = -1,
-    SPHE_CTL_BAD_ARGUMENT    = -2,
-    SPHE_CTL_BAD_LENGTH      = -3,
-};
 
 struct sphe_audio_control_command {
     uint8_t opcode;

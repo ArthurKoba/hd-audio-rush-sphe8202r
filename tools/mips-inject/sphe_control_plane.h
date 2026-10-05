@@ -3,26 +3,9 @@
 
 #include <stdint.h>
 
-enum sphe_legacy_control_opcode {
-    SPHE_CTRL_SET_MASTER_VOLUME = 0x01,
-    SPHE_CTRL_TOGGLE_MASTER_MUTE = 0x02,
-    SPHE_CTRL_SET_SURROUND = 0x03,
-    SPHE_CTRL_SET_EQ_SELECTION = 0x04,
-    SPHE_CTRL_SET_DOWNSAMPLE = 0x05,
-    SPHE_CTRL_SET_ECHO_LEVEL = 0x06,
-    SPHE_CTRL_SET_MIC1_LEVEL = 0x07,
-    SPHE_CTRL_APPLY_SPDIF_OPTION = 0x08,
-    SPHE_CTRL_SET_DECODER_OUTPUT_MODE = 0x09,
-    SPHE_CTRL_SET_EXTERNAL_INPUT_MODE = 0x0A,
-    SPHE_CTRL_SET_EXTERNAL_SUBSOURCE = 0x0B,
-};
+#include "sphe_control_protocol.h"
 
-enum sphe_legacy_control_result {
-    SPHE_CONTROL_OK = 0,
-    SPHE_CONTROL_NULL_COMMAND = -1,
-    SPHE_CONTROL_BAD_ARGUMENT = -2,
-    SPHE_CONTROL_BAD_OPCODE = -3,
-};
+
 
 struct sphe_control_command {
     uint8_t opcode;
