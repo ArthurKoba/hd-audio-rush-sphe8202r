@@ -39,7 +39,7 @@ sphe_audio_dispatch(enum sphe_audio_action action, uint32_t value, uint32_t aux)
 static inline void
 sphe_apply_master_volume_level(uint8_t level)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_MASTER_VOLUME_LEVEL)(level);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_SET_MASTER_VOLUME_LEVEL)(level);
 }
 
 static inline void
@@ -51,7 +51,7 @@ sphe_toggle_master_mute(void)
 static inline void
 sphe_apply_spdif_hardware_mode(uint8_t mode)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_SPDIF_HARDWARE_MODE)(mode);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_SPDIF_HARDWARE_OUTPUT_MODE)(mode);
 }
 
 static inline void
@@ -63,13 +63,13 @@ sphe_apply_decoder_output_mode(uint8_t mode, uint16_t aux)
 static inline void
 sphe_apply_speaker_delay(enum sphe_speaker_channel channel, uint16_t delay)
 {
-    ((sphe_u8_u16_fn)(uintptr_t)SPHE_ADDR_APPLY_SPEAKER_DELAY)(channel, delay);
+    ((sphe_u8_u16_fn)(uintptr_t)SPHE_ADDR_APPLY_SPEAKER_DELAY_PARAMETER)(channel, delay);
 }
 
 static inline void
 sphe_apply_echo_profile(uint8_t index)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_ECHO_PROFILE)(index);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_ECHO_PROFILE_INDEX)(index);
 }
 
 static inline void
@@ -87,25 +87,25 @@ sphe_apply_mic2_selection(uint8_t index)
 static inline void
 sphe_apply_downsample_mode(enum sphe_downsample_mode mode)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_DOWNSAMPLE_MODE)(mode);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_DOWNSAMPLE_RATE_MODE)(mode);
 }
 
 static inline void
 sphe_reapply_speaker_topology(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_SPEAKER_TOPOLOGY)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_SPEAKER_CONFIGURATION)();
 }
 
 static inline void
 sphe_apply_external_input_mode_code(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_EXTERNAL_INPUT_MODE_CODE)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_EXTERNAL_INPUT_HARDWARE_MODE)();
 }
 
 static inline void
 sphe_save_external_input_mode_code(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_SAVE_EXTERNAL_INPUT_MODE_CODE)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_WRITE_EXTERNAL_INPUT_MODE_CODE)();
 }
 
 static inline void
@@ -117,13 +117,13 @@ sphe_prepare_external_input_transition(void)
 static inline void
 sphe_reapply_current_echo(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_CURRENT_ECHO)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_CURRENT_ECHO_SELECTION)();
 }
 
 static inline void
 sphe_reapply_current_mic1(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_CURRENT_MIC1)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_CURRENT_MIC1_SELECTION)();
 }
 
 /* Higher-level stock behavior contracts. */
@@ -143,31 +143,31 @@ sphe_apply_downmix_option(enum sphe_downmix_option option)
 static inline void
 sphe_apply_gm5_option(enum sphe_gm5_option option)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_GM5_OPTION)((uint8_t)option);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_HANDLE_GM5_CONTROL_OPTION)((uint8_t)option);
 }
 
 static inline void
 sphe_apply_dynamic_range(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_DYNAMIC_RANGE)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_DYNAMIC_RANGE_CONTROL)();
 }
 
 static inline void
 sphe_apply_eq_preset(enum sphe_eq_selection selection)
 {
-    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_APPLY_EQ_PRESET)((uint8_t)selection);
+    ((sphe_u8_fn)(uintptr_t)SPHE_ADDR_LOAD_SEVEN_BAND_EQ_PRESET)((uint8_t)selection);
 }
 
 static inline void
 sphe_apply_user_eq7(const uint8_t coefficients[7])
 {
-    ((sphe_ptr_fn)(uintptr_t)SPHE_ADDR_APPLY_USER_EQ7)(coefficients);
+    ((sphe_ptr_fn)(uintptr_t)SPHE_ADDR_APPLY_SEVEN_BAND_EQ_CURVE)(coefficients);
 }
 
 static inline void
 sphe_reapply_eq_and_surround(void)
 {
-    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_REAPPLY_EQ_AND_SURROUND)();
+    ((sphe_void_fn)(uintptr_t)SPHE_ADDR_APPLY_CURRENT_SEVEN_BAND_EQ_PRESET)();
 }
 
 static inline void
