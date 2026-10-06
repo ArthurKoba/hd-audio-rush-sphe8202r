@@ -73,6 +73,19 @@ These rules are mandatory for ongoing behavior analysis in this repository:
 - User-facing progress updates should report the overall semantic/action-node coverage and substantive route progress. Do not revive legacy target/control checklist counters unless the user explicitly asks for them.\n- In ordinary user-facing progress, refer to actions by semantic names and omit raw numeric addresses unless the user explicitly asks for them. Exact addresses remain valid evidence in repository documentation and tool arguments.\n- Do not narrate routine tool latency or connection behavior. Report substantive results and real blockers; actual safety/tooling blocks still require the visible `❗` rule above.
 - Do not mask, alternate route or game safety/tooling controls. The terminology policy below exists for communication clarity only, never to evade a restriction.
 
+## Analysis annotation discipline
+
+During active recovery, do not leave newly recovered behavior as bare addresses, raw bit masks or temporary `FUN_*`/generic actions when the semantics are already supported.
+
+- Every confirmed or strongly supported firmware finding should be materialized in saved Analysis immediately as appropriate: semantic action name, MMIO/global label, plate comment, prototype/type, corrected action boundary, and/or repaired flow/data relationship.
+- MMIO/register work must maintain a local semantic ledger in Analysis: register role, known bits/fields, all relevant read/write phases, lifecycle stage, and what remains unknown.
+- If an exact vendor bit name is unknown, use a conservative behavioral name and state the uncertainty in the comment; do not leave the field undocumented merely because the official name is missing.
+- When a mutation is blocked, annotate the nearest stable action/address with the proven native boundary/semantics and explicitly mark the metadata defect so another agent can resume without reconstructing the evidence.
+- Prefer names that describe recovered behavior rather than numeric addresses. Raw addresses remain evidence, not the primary handoff surface.
+- Save the affected Analysis program after each coherent milestone.
+
+This discipline is mandatory because the persistent Analysis project is the handoff surface for subsequent agents; no single chat is assumed to carry the full reverse context.
+
 ## Live semantic authority and documentation cadence
 
 During active behavior recovery, the persistent Analysis project `sphe8202r_decoder_p25d80` is the **only live semantic authority** for recovered target-firmware details.
