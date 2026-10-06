@@ -139,34 +139,34 @@ This checkpoint was requested explicitly so ongoing register recovery does not l
 
 | Action / sequence | Evidence state | Current behavior contract | Materialization state |
 |---|---|---|---|
-| `ApplyExternalInputHardwareMode` | **CONFIRMED** | Reads external mode `0..3` and programs GPIO output/value candidate family D: bank0 low bits plus bank4 bit15 and bank5 bit0. Exact bank0 values are `0->0x3`, `1->0x5`, `2->0x6`, `3->0x7`. | Saved semantic action already exists; GPIO constants mirrored in source. |
+| `ApplyExternalInputHardwareMode` | **CONFIRMED** | Reads external mode `0..3` and programs the confirmed GPIO output-value family: bank0 low bits plus bank4 bit15 and bank5 bit0. Exact bank0 values are `0->0x3`, `1->0x5`, `2->0x6`, `3->0x7`. | Saved semantic action already exists; GPIO constants mirrored in source. |
 | Analysis action currently named `InitializeSerialAudioRuntimeFlags @ 0x88000EF4` | **CONFIRMED body / WITHDRAWN semantic name and old plate comment** | Early ROM startup sets bank4 bit3 and bank5 bit6 across GPIO families A-D, then returns. The body contains no dedicated serial-audio receiver operation. | Source name is now `SPHE_ADDR_INITIALIZE_GPIO_MATRIX_STARTUP_FLAGS`; Analysis rename/comment repair is pending worker availability. |
 | ROM-called AP1 entry at `0x806D23BC` | **CONFIRMED action boundary and native sequence** | Initializes the external-input GPIO/pad matrix, applies source-mode GPIO defaults, and programs the separate `0x18xx` route/clock/pad candidate cluster. | Source name `SPHE_ADDR_INITIALIZE_EXTERNAL_INPUT_GPIO_AND_ROUTE_HARDWARE`; semantic Analysis rename/comment is pending worker availability. |
 | `ReadFrontPanelSourceKeyLevel` | **CONFIRMED** | Configures the relevant shared setup bits, then returns status bit 13 from `s6+0x09F0`. Input is active-low at the higher key-state layer. | Saved semantic action + source constants. |
 | `ReadFrontPanelSpatialKeyLevel` | **CONFIRMED** | Same pattern for status bit 14. | Saved semantic action + source constants. |
-| dual-key chord sequence inside the higher source handler | **CONFIRMED behavior, not a separate proved action boundary** | When both SOURCE and SPATIAL readers report asserted/low, sets the front-panel inhibit state and clears external-sync `CONTROL[2:0]`. | Keep as an inline behavior contract until a native action boundary is proved. |
+| dual-key chord sequence inside the higher source handler | **CONFIRMED behavior, not a separate proved action boundary** | When both SOURCE and SPATIAL readers report asserted/low, sets the front-panel inhibit state and clears external-input GPIO output-value bank0 bits `2:0`. | Keep as an inline behavior contract until a native action boundary is proved. |
 | old interpretation “no audio signal -> disable RX” | **WITHDRAWN** | Raw AP1 proves this path is driven by simultaneous SOURCE+SPATIAL key state, not audio-signal loss. | Must not be reused by later analysis. |
 
 #### GPIO/pad + synchronous-input register ledger
 
-A raw cross-family audit changed the register model materially. The old four-peer / dedicated-RX interpretation is withdrawn. The addresses instead form a GPIO/pad matrix with repeated six-bank register families. This is stronger because the SOURCE/SPATIAL readers configure the same bit across three families and then sample it from a fourth family.
-
-The saved runtime Analysis action at `0x88000EF4` still carries the stale name/comment from the withdrawn model (`InitializeSerialAudioRuntimeFlags`, “four serial-audio blocks”, “AUX receiver at 0x09C0”). This is tracked as explicit semantic debt, not accepted target truth. Raw ROM bytes prove the corrected GPIO-matrix behavior above; the saved Analysis metadata must be repaired when the congested worker becomes available.
+The generic AP1 GPIO helpers now close the ordinary-GPIO register contract at implementation proof. Pin IDs use `bank = pin >> 4`, `bit = pin & 0x0F`, and each family uses `base + bank*4`. A native input-sampling action at `0x80682700` sets the selected bit in the two GPIO control families, clears the same bit in output-enable, reads the input-value family, and restores the previous state.
 
 | Semantic name | Address / layout | Evidence state | Proven behavior | Still unknown |
 |---|---|---|---|---|
-| GPIO setup family A | `s6+0x14C0 + bank*4` | **CONFIRMED family layout / UNKNOWN vendor role** | Key readers set their selected bank-4 bit here before sampling. Boot configures all six banks in parallel with the other families. | Exact mux/ownership name. |
-| GPIO setup family B | `s6+0x0980 + bank*4` | **CONFIRMED family layout / UNKNOWN vendor role** | Same selected-bit setup pattern as family A. | Exact mux/ownership name. |
-| GPIO output-enable candidate | `s6+0x09A0 + bank*4` | **LIKELY output-enable** | SOURCE/SPATIAL setup clears the selected bit before reading input status, which is the expected input-direction behavior. | Vendor register name and polarity semantics beyond observed input setup. |
-| GPIO output/value candidate | `s6+0x09C0 + bank*4` | **LIKELY output/value** | `ApplyExternalInputHardwareMode` writes bank 0 low bits plus bank 4 bit15 and bank 5 bit0 as persistent mode patterns. | Whether every bit is direct pad output versus another GPIO state plane. |
-| GPIO input-value/status candidate | `s6+0x09E0 + bank*4` | **LIKELY input-value; bank-4 reads CONFIRMED** | SOURCE/SPATIAL readers sample bank 4 (`s6+0x09F0`) bits 13/14 after setup. No writes to this family were found in primary MIPS modules. | Vendor register name. |
-| old “serial RX block at `0x09C0..0x09D4`” | same family-D bank range | **WITHDRAWN** | Cross-family key setup proves these addresses are part of the wider GPIO/pad matrix, not a standalone six-register receiver peripheral. | Actual receiver core register block remains open. |
+| GPIO control family A | `s6+0x14C0 + bank*4` | **CONFIRMED GPIO control family** | Generic GPIO helpers set the selected bit before ordinary GPIO access. | Exact vendor role/name relative to control family B. |
+| GPIO control family B | `s6+0x0980 + bank*4` | **CONFIRMED GPIO control family** | Same bank/bit formula; generic helpers set selected bits before GPIO access. | Exact vendor role/name relative to control family A. |
+| GPIO output enable | `s6+0x09A0 + bank*4` | **CONFIRMED** | Generic input helper clears the pin bit; generic output paths set it. | Vendor spelling/name only. |
+| GPIO output value | `s6+0x09C0 + bank*4` | **CONFIRMED** | Generic output paths set/clear the pin bit. External-input mode writes persistent source-selection patterns here. | Physical destination of each source-select output bit. |
+| GPIO input value | `s6+0x09E0 + bank*4` | **CONFIRMED** | Generic input helper reads the selected bit; SOURCE/SPATIAL sample bank4 bits13/14 here. | Vendor spelling/name only. |
+| old “serial RX block at `0x09C0..0x09D4`” | GPIO output-value family | **WITHDRAWN** | Generic GPIO helpers prove this range is ordinary GPIO output state, not a standalone receiver peripheral. | Actual synchronous receiver core remains open. |
 
-External mode GPIO patterns are **CONFIRMED**: mode `0` -> bank0 low bits `0x3`, mode `1` -> `0x5`, mode `2` -> `0x6`, mode `3/AUX` -> `0x7`. Bank4 bit15 is set for modes `0/1` and clear for `2/3`; bank5 bit0 is clear for `0/3` and set for `1/2`. This corrects the older transient note that had mode 1 and mode 3 values swapped.
+GPIO19/20/21 are therefore exactly `bank1 bits3/4/5`, combined mask `0x38`. The fixed boot initializer touches second-bank bits10..12 (`0x1C00`) in the ordinary GPIO matrix, not bits3..5. Runtime-configured generic GPIO pin IDs recovered from ROM include `0x43`, `0x4A`, `0x4E`, `0x56`; the startup pin-state set does not assign `0x13/0x14/0x15`. This is **static negative evidence**: ordinary GPIO code does not prove ownership of the provisional three audio nets, while an alternate peripheral function may bypass ordinary GPIO OE/OUT programming.
 
-The ROM-called initializer at `0x806D23BC` also configures `s6+0x184C`, `+0x186C`, `+0x1870`, `+0x187C` and shared `+0x1848`. These remain **LIKELY synchronous-audio route/clock/pad candidates**, not GPIO19/20/21 proof. Exact boot writes are named in `sphe_soc_contract.h`: `0x184C[7:3] -> 0x40`, `0x186C[2:0] -> 0x3`, `0x1870` clears bit-set `0xDEF8`, `0x187C` clears bit-set `0x038F`; under the observed boot condition `0x1848` field `0x1800 -> 0x1000` and bit `0x80` is cleared later.
+External-input mode writes are now classified as **CONFIRMED source-selection GPIO behavior**, not receiver-format programming: mode `0` -> bank0 output bits `0x3`, mode `1` -> `0x5`, mode `2` -> `0x6`, mode `3/AUX` -> `0x7`; bank4 bit15 is set for modes `0/1` and clear for `2/3`; bank5 bit0 is clear for `0/3` and set for `1/2`.
 
-No `drv_other`, WMA, or CDROM access to these GPIO/pad candidate registers was found in the current raw MIPS scan. Ownership is therefore AP1-only at implementation-proof level, while physical GPIO19/20/21 and DATA/BCLK/LRCLK assignment remain **UNKNOWN**.
+The ROM-called initializer also configures `s6+0x184C`, `+0x186C`, `+0x1870`, `+0x187C` and shared `+0x1848`. Ownership analysis has excluded nearby `0x1800` (USB-related) and `0x1834` (broader mode/system state) from the synchronous-audio candidate set. The four AP1-only registers remain **LIKELY synchronous-audio route/clock/pad candidates**; `0x1848` remains shared system route state. Exact writes are named in `sphe_soc_contract.h`.
+
+No `drv_other`, WMA, or CDROM access to the four AP1-only candidate registers was found. Physical GPIO19/20/21 ownership and DATA/BCLK/LRCLK assignment remain **UNKNOWN**.
 
 #### Shared DSP resident-state materialization
 

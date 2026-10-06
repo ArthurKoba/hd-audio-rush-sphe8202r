@@ -37,41 +37,37 @@ enum sphe_uart_baud_divisor {
 #define SPHE_UART_STATUS_RX_READY                0x00000002U
 
 /*
- * GPIO/pad register matrix used by external-input mode and front-panel keys.
+ * CONFIRMED GPIO register-bank contract recovered from generic AP1 helpers.
  *
- * CONFIRMED native structure:
- * - five register families use the same six-bank layout (bank stride = 4);
- * - SOURCE/SPATIAL setup uses the same bit across family A, family B and
- *   family C, then reads that bit from family E;
- * - ApplyExternalInputHardwareMode writes family D banks 0/4/5 only;
- * - exact mode values below are instruction-proven from raw AP1 bytes.
+ * pin -> bank/bit:
+ *   bank = pin >> 4
+ *   bit  = pin & 0x0f
+ *   register address = family_base + bank * 4
  *
- * LIKELY behavioral roles:
- * - family C behaves as output-enable because key setup clears the selected
- *   bit before sampling it;
- * - family D behaves as output/value state because source-mode selection
- *   writes exact persistent bit patterns there;
- * - family E behaves as input-value/status because the key readers sample it;
- * - family A/B are mux/ownership setup layers, but exact vendor names remain
- *   UNKNOWN.
+ * Native helpers prove three exact behavioral roles:
+ * - 0x09A0 family: output enable; clear bit for input, set bit for output;
+ * - 0x09C0 family: output value;
+ * - 0x09E0 family: input value.
  *
- * WITHDRAWN:
- * - the earlier interpretation of 0x09C0..0x09D4 as a dedicated serial-audio
- *   RX peripheral block. Raw cross-family key setup proves this address range
- *   belongs to the wider GPIO/pad register matrix. The synchronous-audio
- *   receiver/pad contract therefore remains open below the 0x18xx layer.
+ * 0x14C0 and 0x0980 are also CONFIRMED GPIO control/select families because
+ * generic GPIO helpers address them with the same bank/bit formula and set
+ * the selected bit before GPIO use. Their exact vendor roles remain UNKNOWN,
+ * so conservative CONTROL_A / CONTROL_B names are used.
  */
 #define SPHE_GPIO_BANK_COUNT                    6U
 #define SPHE_GPIO_BANK_STRIDE                   4U
+#define SPHE_GPIO_PIN_BANK(pin)                 ((uint32_t)(pin) >> 4U)
+#define SPHE_GPIO_PIN_BIT(pin)                  ((uint32_t)(pin) & 0x0FU)
+#define SPHE_GPIO_PIN_MASK(pin)                 (1U << SPHE_GPIO_PIN_BIT(pin))
 #define SPHE_GPIO_BANK_REG(family_base, bank) \
     SPHE_SYSTEM_REG((family_base) + ((bank) * SPHE_GPIO_BANK_STRIDE))
 
 enum sphe_gpio_register_family_base {
-    SPHE_GPIO_SETUP_A_BASE              = 0x14C0,
-    SPHE_GPIO_SETUP_B_BASE              = 0x0980,
-    SPHE_GPIO_OUTPUT_ENABLE_CANDIDATE_BASE = 0x09A0,
-    SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE  = 0x09C0,
-    SPHE_GPIO_INPUT_VALUE_CANDIDATE_BASE   = 0x09E0,
+    SPHE_GPIO_CONTROL_A_BASE = 0x14C0,
+    SPHE_GPIO_CONTROL_B_BASE = 0x0980,
+    SPHE_GPIO_OUTPUT_ENABLE_BASE = 0x09A0,
+    SPHE_GPIO_OUTPUT_VALUE_BASE  = 0x09C0,
+    SPHE_GPIO_INPUT_VALUE_BASE   = 0x09E0,
 };
 
 enum sphe_gpio_bank_index {
@@ -83,34 +79,39 @@ enum sphe_gpio_bank_index {
     SPHE_GPIO_BANK_5 = 5,
 };
 
+enum sphe_gpio_target_pin_id {
+    SPHE_GPIO_ID_19 = 0x13,
+    SPHE_GPIO_ID_20 = 0x14,
+    SPHE_GPIO_ID_21 = 0x15,
+};
+
+#define SPHE_GPIO_19_21_BANK                   SPHE_GPIO_BANK_1
+#define SPHE_GPIO_19_21_MASK                   0x00000038U
+
 /* CONFIRMED early-ROM startup flags written across GPIO families A-D. */
 #define SPHE_GPIO_STARTUP_BANK4_BIT             0x00000008U
 #define SPHE_GPIO_STARTUP_BANK5_BIT             0x00000040U
 
 /* Front-panel keys are sampled from bank 4, bits 13/14. */
-#define SPHE_FRONT_PANEL_GPIO_SETUP_A_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_SETUP_A_BASE, SPHE_GPIO_BANK_4)
-#define SPHE_FRONT_PANEL_GPIO_SETUP_B_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_SETUP_B_BASE, SPHE_GPIO_BANK_4)
-#define SPHE_FRONT_PANEL_GPIO_OUTPUT_ENABLE_CANDIDATE_REG \
-    SPHE_GPIO_BANK_REG( \
-        SPHE_GPIO_OUTPUT_ENABLE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_GPIO_CONTROL_A_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_CONTROL_A_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_GPIO_CONTROL_B_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_CONTROL_B_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_GPIO_OUTPUT_ENABLE_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_ENABLE_BASE, SPHE_GPIO_BANK_4)
 #define SPHE_FRONT_PANEL_KEY_STATUS_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_INPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_INPUT_VALUE_BASE, SPHE_GPIO_BANK_4)
 
 #define SPHE_FRONT_PANEL_SOURCE_KEY_LEVEL_BIT    0x00002000U
 #define SPHE_FRONT_PANEL_SPATIAL_KEY_LEVEL_BIT   0x00004000U
 
-/*
- * CONFIRMED external-input mode output patterns.
- * Family-D's exact vendor name is still LIKELY output-value, not confirmed.
- */
+/* CONFIRMED external-input source-selection GPIO output patterns. */
 #define SPHE_EXTERNAL_INPUT_MODE_GPIO_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_0)
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_BASE, SPHE_GPIO_BANK_0)
 #define SPHE_EXTERNAL_INPUT_MODE_FLAG_A_GPIO_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_BASE, SPHE_GPIO_BANK_4)
 #define SPHE_EXTERNAL_INPUT_MODE_FLAG_B_GPIO_REG \
-    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_5)
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_BASE, SPHE_GPIO_BANK_5)
 
 #define SPHE_EXTERNAL_INPUT_MODE_GPIO_MASK       0x00000007U
 #define SPHE_EXTERNAL_INPUT_MODE_FLAG_A_BIT      0x00008000U
@@ -122,6 +123,13 @@ enum sphe_external_input_mode_gpio_bits {
     SPHE_EXTERNAL_INPUT_GPIO_MODE_2 = 0x6,
     SPHE_EXTERNAL_INPUT_GPIO_MODE_3 = 0x7,
 };
+
+/*
+ * CONFIRMED generic GPIO input sampling helper used as family-role evidence.
+ * It computes bank/bit from runtime pin IDs, sets CONTROL_A/CONTROL_B, clears
+ * OE, reads INPUT_VALUE, then restores the prior register state.
+ */
+#define SPHE_ADDR_SAMPLE_RUNTIME_GPIO_PAIR       0x80682700U
 
 /*
  * LIKELY synchronous-audio route/clock/pad companion registers.
