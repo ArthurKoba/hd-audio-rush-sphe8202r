@@ -11,6 +11,13 @@
 #define SPHE_ADDR_BUSY_WAIT_OUTER_ITERATIONS 0x880120DCU
 #define SPHE_ADDR_GET_DECODER_INPUT_RING_QUEUED_BYTES 0x88001D00U
 
+/*
+ * CONFIRMED raw body: sets GPIO bank-4 bit3 and bank-5 bit6 across
+ * register families A-D before core-module initialization continues.
+ * Historical Analysis name InitializeSerialAudioRuntimeFlags is WITHDRAWN.
+ */
+#define SPHE_ADDR_INITIALIZE_GPIO_MATRIX_STARTUP_FLAGS 0x88000EF4U
+
 #define SPHE_RUNTIME_MODULE_OFFSET_TABLE      0x88014260U
 #define SPHE_RUNTIME_PACKED_MODULE_DATA_BASE 0x880142CCU
 #define SPHE_BUSY_WAIT_INNER_COUNT          0x6976U

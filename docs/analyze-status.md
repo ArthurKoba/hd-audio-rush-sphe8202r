@@ -135,12 +135,13 @@ JieLi firmware/control 1/5 currently has only software-family/runtime evidence f
 
 This checkpoint was requested explicitly so ongoing register recovery does not leave semantic state only in chat. Evidence states are mandatory here: **CONFIRMED**, **LIKELY**, **UNKNOWN**, or **WITHDRAWN**. Stable constants are mirrored in `sphe_soc_contract.h` / `sphe_audio_contract.h`; uncertain items use conservative candidate names instead of pretending vendor semantics are known.
 
-#### External synchronous-input action ledger
+#### External-input GPIO / route action ledger
 
 | Action / sequence | Evidence state | Current behavior contract | Materialization state |
 |---|---|---|---|
-| `ApplyExternalInputHardwareMode` | **CONFIRMED** | Reads external mode `0..3` and programs the six-register hardware block at system offset `0x09C0`. Exact `CONTROL[2:0]` values are `0->0x3`, `1->0x5`, `2->0x6`, `3->0x7`. | Saved semantic action already exists; constants mirrored in source. |
-| ROM-called AP1 entry at `0x806D23BC` | **CONFIRMED action boundary and native sequence** | Initializes three structurally matching peer blocks plus the mode-controlled `0x09C0` block, then configures companion system registers. | Source name `SPHE_ADDR_INITIALIZE_EXTERNAL_SYNC_HARDWARE`; semantic Analysis rename/comment is pending worker availability. |
+| `ApplyExternalInputHardwareMode` | **CONFIRMED** | Reads external mode `0..3` and programs GPIO output/value candidate family D: bank0 low bits plus bank4 bit15 and bank5 bit0. Exact bank0 values are `0->0x3`, `1->0x5`, `2->0x6`, `3->0x7`. | Saved semantic action already exists; GPIO constants mirrored in source. |
+| Analysis action currently named `InitializeSerialAudioRuntimeFlags @ 0x88000EF4` | **CONFIRMED body / WITHDRAWN semantic name and old plate comment** | Early ROM startup sets bank4 bit3 and bank5 bit6 across GPIO families A-D, then returns. The body contains no dedicated serial-audio receiver operation. | Source name is now `SPHE_ADDR_INITIALIZE_GPIO_MATRIX_STARTUP_FLAGS`; Analysis rename/comment repair is pending worker availability. |
+| ROM-called AP1 entry at `0x806D23BC` | **CONFIRMED action boundary and native sequence** | Initializes the external-input GPIO/pad matrix, applies source-mode GPIO defaults, and programs the separate `0x18xx` route/clock/pad candidate cluster. | Source name `SPHE_ADDR_INITIALIZE_EXTERNAL_INPUT_GPIO_AND_ROUTE_HARDWARE`; semantic Analysis rename/comment is pending worker availability. |
 | `ReadFrontPanelSourceKeyLevel` | **CONFIRMED** | Configures the relevant shared setup bits, then returns status bit 13 from `s6+0x09F0`. Input is active-low at the higher key-state layer. | Saved semantic action + source constants. |
 | `ReadFrontPanelSpatialKeyLevel` | **CONFIRMED** | Same pattern for status bit 14. | Saved semantic action + source constants. |
 | dual-key chord sequence inside the higher source handler | **CONFIRMED behavior, not a separate proved action boundary** | When both SOURCE and SPATIAL readers report asserted/low, sets the front-panel inhibit state and clears external-sync `CONTROL[2:0]`. | Keep as an inline behavior contract until a native action boundary is proved. |
@@ -149,6 +150,8 @@ This checkpoint was requested explicitly so ongoing register recovery does not l
 #### GPIO/pad + synchronous-input register ledger
 
 A raw cross-family audit changed the register model materially. The old four-peer / dedicated-RX interpretation is withdrawn. The addresses instead form a GPIO/pad matrix with repeated six-bank register families. This is stronger because the SOURCE/SPATIAL readers configure the same bit across three families and then sample it from a fourth family.
+
+The saved runtime Analysis action at `0x88000EF4` still carries the stale name/comment from the withdrawn model (`InitializeSerialAudioRuntimeFlags`, “four serial-audio blocks”, “AUX receiver at 0x09C0”). This is tracked as explicit semantic debt, not accepted target truth. Raw ROM bytes prove the corrected GPIO-matrix behavior above; the saved Analysis metadata must be repaired when the congested worker becomes available.
 
 | Semantic name | Address / layout | Evidence state | Proven behavior | Still unknown |
 |---|---|---|---|---|
@@ -161,7 +164,7 @@ A raw cross-family audit changed the register model materially. The old four-pee
 
 External mode GPIO patterns are **CONFIRMED**: mode `0` -> bank0 low bits `0x3`, mode `1` -> `0x5`, mode `2` -> `0x6`, mode `3/AUX` -> `0x7`. Bank4 bit15 is set for modes `0/1` and clear for `2/3`; bank5 bit0 is clear for `0/3` and set for `1/2`. This corrects the older transient note that had mode 1 and mode 3 values swapped.
 
-The ROM-called initializer at `0x806D23BC` also configures `s6+0x184C`, `+0x186C`, `+0x1870`, `+0x187C` and shared `+0x1848`. These remain **LIKELY synchronous-audio pad/mux candidates**, not GPIO19/20/21 proof. Exact boot writes are named in `sphe_soc_contract.h`: `0x184C[7:3] -> 0x40`, `0x186C[2:0] -> 0x3`, `0x1870` clears bit-set `0xDEF8`, `0x187C` clears bit-set `0x038F`; under the observed boot condition `0x1848` field `0x1800 -> 0x1000` and bit `0x80` is cleared later.
+The ROM-called initializer at `0x806D23BC` also configures `s6+0x184C`, `+0x186C`, `+0x1870`, `+0x187C` and shared `+0x1848`. These remain **LIKELY synchronous-audio route/clock/pad candidates**, not GPIO19/20/21 proof. Exact boot writes are named in `sphe_soc_contract.h`: `0x184C[7:3] -> 0x40`, `0x186C[2:0] -> 0x3`, `0x1870` clears bit-set `0xDEF8`, `0x187C` clears bit-set `0x038F`; under the observed boot condition `0x1848` field `0x1800 -> 0x1000` and bit `0x80` is cleared later.
 
 No `drv_other`, WMA, or CDROM access to these GPIO/pad candidate registers was found in the current raw MIPS scan. Ownership is therefore AP1-only at implementation-proof level, while physical GPIO19/20/21 and DATA/BCLK/LRCLK assignment remain **UNKNOWN**.
 
