@@ -8,6 +8,7 @@ Mandatory local map for this behavior-analysis repository.
 2. `docs/analyze-status.md`
 3. `docs/hardware.md` or `docs/firmware.md` for the active task
 4. the universal hardware-analysis skill from `ArthurKoba/ai-agent-workflow`
+5. `ArthurKoba/ai-agent-workflow/docs/REPORTING_PROTOCOL.md` — mandatory reporting authority for long-running work and every user-facing progress/report request
 
 ## Project objective
 
@@ -133,4 +134,5 @@ Project state and open-program state are different:
 - do not abandon the active behavior route merely because a program handle was released. Recover the handle and continue from the saved project state.
 
 Worker pool capacity is shared infrastructure, not permanent project ownership. A project normally stays sticky to one worker while its session is active, but an idle-released project may later reopen on another eligible worker. Do not assume worker index is part of the project's identity.
+
 
