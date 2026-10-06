@@ -66,6 +66,37 @@ RAM_EXEC_VA = 0x80019000
 IMAGE_SIZE_ADDRESS = 0x0001DFFC
 IMAGE_ADDRESS = 0x0001E000
 RAM_EXEC_MAX_SIZE = IMAGE_SIZE_ADDRESS - RAM_STUB_ADDRESS
+UINT32_MASK = 0xFFFFFFFF
+
+ROM_LOADER_UART_AUX_ADDRESS = 0x1FFE8918
+ROM_LOADER_UART_DIVISOR_ADDRESS = 0x1FFE8914
+
+TARGET_SYSTEM_INIT_WRITES = (
+    (0x1FFE8070, 0x581F),
+    (0x1FFE8010, 0xFFFF),
+    (0x1FFE8014, 0x0010),
+    (0x1FFE8018, 0x0006),
+    (0x1FFE8300, 0x013D),
+    (0x1FFE8304, 0x19A7),
+    (0x1FFE8308, 0x0033),
+    (0x1FFE8310, 0x0001),
+    (0x1FFE8330, 0x34C3),
+    (0x1FFE8314, 0x0541),
+    (0x1FFE830C, 0x0001),
+    (0x1FFE834C, 0x1AB7),
+)
+
+RAM_STUB_CONTROL_CLEAR_ADDRESSES = (0x18FFC, 0x18FF8, 0x18FF4, 0x18FF0)
+RAM_STUB_FLASH_MODE_ADDRESS = 0x18FEC
+RAM_STUB_COMMAND_ADDRESS = 0x18FE8
+RAM_STUB_COMMAND_VALUE = 0xE100
+
+RAM_START_VECTOR_ADDRESS = 0x00000000
+RAM_START_VECTOR_JUMP_WORD = 0x08006400
+RAM_START_CLEAR_ADDRESSES = (0x00000004, 0x00000008)
+SYSTEM_SWITCH_REGISTER = 0x1FFE8048
+SYSTEM_SWITCH_VALUE = 0x0000203F
+SYSTEM_RUN_CONTROL_REGISTER = 0x1FFE8008
 
 
 class ProtocolError(RuntimeError):
@@ -322,7 +353,7 @@ def u32le(data: bytes) -> int:
 
 
 def p32(value: int) -> bytes:
-    return struct.pack("<I", value & 0xFFFFFFFF)
+    return struct.pack("<I", value & UINT32_MASK)
 
 
 def pe_va_to_file_offset(exe: bytes, va: int) -> int:
@@ -595,36 +626,24 @@ class RomLoader:
         self.exchange_byte(ord("A"), ord("A"))
 
     def configure_baud_divisor(self) -> None:
-        self.write32(0x1FFE8918, 0)
-        self.write32(0x1FFE8914, BAUD_DIVISOR[self.baud])
+        self.write32(ROM_LOADER_UART_AUX_ADDRESS, 0)
+        self.write32(
+            ROM_LOADER_UART_DIVISOR_ADDRESS, BAUD_DIVISOR[self.baud]
+        )
 
     def configure_target_system(self) -> None:
         """8202 Non Share Mode + 16-bit, recovered from STK."""
-        writes = (
-            (0x1FFE8070, 0x581F),
-            (0x1FFE8010, 0xFFFF),
-            (0x1FFE8014, 0x0010),
-            (0x1FFE8018, 0x0006),
-            (0x1FFE8300, 0x013D),
-            (0x1FFE8304, 0x19A7),
-            (0x1FFE8308, 0x0033),
-            (0x1FFE8310, 0x0001),
-            (0x1FFE8330, 0x34C3),
-            (0x1FFE8314, 0x0541),
-            (0x1FFE830C, 0x0001),
-            (0x1FFE834C, 0x1AB7),
-        )
-        for address, value in writes:
+        for address, value in TARGET_SYSTEM_INIT_WRITES:
             self.write32(address, value)
 
     def prepare_stub_upload(self) -> None:
         self.exchange_byte(ord("C"), ord("C"))
-        for address in (0x18FFC, 0x18FF8, 0x18FF4, 0x18FF0):
+        for address in RAM_STUB_CONTROL_CLEAR_ADDRESSES:
             self.write32(address, 0)
         # Physical target uses SPI NOR. STK profile 7 selects helper mode 2;
         # profile 2 selects the separate 29/39-series parallel-NOR path.
-        self.write32(0x18FEC, TARGET_FLASH_MODE)
-        self.write32(0x18FE8, 0xE100)
+        self.write32(RAM_STUB_FLASH_MODE_ADDRESS, TARGET_FLASH_MODE)
+        self.write32(RAM_STUB_COMMAND_ADDRESS, RAM_STUB_COMMAND_VALUE)
 
     def stream_words(self, data: bytes, start_offset: int = 4) -> None:
         padded = data + b"\x00" * ((-len(data)) & 3)
@@ -668,18 +687,22 @@ class RomLoader:
         self.exchange_byte(ord("S"), ord("S"))
 
         # First control write has a three-byte response; STK checks byte 2.
-        self.write_exact(b"W" + p32(0x00000000) + p32(0x08006400))
+        self.write_exact(
+            b"W"
+            + p32(RAM_START_VECTOR_ADDRESS)
+            + p32(RAM_START_VECTOR_JUMP_WORD)
+        )
         _, reply = self.read_exact(3)
         if reply[2:3] != b"W":
             raise ProtocolError(
                 f"start control ACK mismatch: {reply!r}"
             )
 
-        self.write32(0x00000004, 0)
-        self.write32(0x00000008, 0)
-        _ = self.read32(0x1FFE8048)
-        self.write32(0x1FFE8048, 0x0000203F)
-        self.write32(0x1FFE8008, 0)
+        for address in RAM_START_CLEAR_ADDRESSES:
+            self.write32(address, 0)
+        _ = self.read32(SYSTEM_SWITCH_REGISTER)
+        self.write32(SYSTEM_SWITCH_REGISTER, SYSTEM_SWITCH_VALUE)
+        self.write32(SYSTEM_RUN_CONTROL_REGISTER, 0)
 
     def cancel_transfer(self) -> None:
         """Mirror the factory UI cancellation action."""
@@ -1076,7 +1099,7 @@ def main() -> int:
         if args.command == "write32":
             rl.write32(args.address, args.value)
             print(
-                f"wrote 0x{args.value & 0xffffffff:08x} "
+                f"wrote 0x{args.value & UINT32_MASK:08x} "
                 f"to 0x{args.address:08x}"
             )
             return 0
