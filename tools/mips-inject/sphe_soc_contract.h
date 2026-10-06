@@ -36,6 +36,14 @@ enum sphe_uart_baud_divisor {
 #define SPHE_UART_STATUS_TX_READY                0x00000001U
 #define SPHE_UART_STATUS_RX_READY                0x00000002U
 
+/*
+ * Front-panel SOURCE / SPATIAL key input. Both keys are active-low in the
+ * shared status register: a cleared bit means the corresponding key is down.
+ */
+#define SPHE_FRONT_PANEL_KEY_STATUS_REG          SPHE_SYSTEM_REG(0x09F0U)
+#define SPHE_FRONT_PANEL_SOURCE_KEY_LEVEL_BIT    0x00002000U
+#define SPHE_FRONT_PANEL_SPATIAL_KEY_LEVEL_BIT   0x00004000U
+
 enum sphe_usb_standard_request {
     SPHE_USB_REQUEST_GET_STATUS        = 2,
     SPHE_USB_REQUEST_SET_ADDRESS       = 5,

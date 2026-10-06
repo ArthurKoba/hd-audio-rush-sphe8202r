@@ -13,7 +13,7 @@ bool sphe_control_set_external_mode(enum sphe_external_mode_code mode)
     const uint8_t next = (uint8_t)mode;
     const uint8_t previous = REG8(SPHE_STATE_PREVIOUS_EXTERNAL_INPUT_MODE_CODE);
 
-    if (next > (uint8_t)SPHE_EXTERNAL_MODE_AUX) {
+    if (next >= (uint8_t)SPHE_EXTERNAL_MODE_COUNT) {
         return false;
     }
 
