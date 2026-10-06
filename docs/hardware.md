@@ -222,6 +222,10 @@ However, this continuity observation aligns with independent runtime/static evid
 
 The leading integration hypothesis is therefore a permanently connected **three-wire synchronous stereo audio transport** from JieLi to SPHE, consistent with a `DATA + bit clock + frame/LR clock` topology. Exact signal-to-pin assignment is **not yet proven**.
 
+A later raw-AP1 register-matrix audit corrected one important intermediate interpretation. The `s6+0x09C0..0x09D4` range is **not** treated as a dedicated serial-audio receiver block anymore. SOURCE/SPATIAL key setup proves a repeated GPIO/pad matrix: setup families at `0x14C0` and `0x0980`, an output-enable candidate at `0x09A0`, an output/value candidate at `0x09C0`, and an input/status candidate at `0x09E0`. External input mode `0..3` writes exact bit patterns into the `0x09C0` family, so those writes are now treated as GPIO/source-selection state rather than receiver-format programming.
+
+The remaining firmware-side synchronous-audio candidate is the companion `0x18xx` pad/mux cluster configured by the ROM-called AP1 hardware initializer: `0x184C`, `0x186C`, `0x1870`, `0x187C`, plus shared `0x1848`. Their writes are instruction-proven, but mapping them to GPIO19/20/21 or DATA/BCLK/LRCLK remains **UNKNOWN**.
+
 Do not promote this to board proof until:
 1. the three JieLi -> SPHE nets are individually recorded with exact package positions at both ends; and
 2. at least one runtime electrical observation distinguishes a frame-rate line, a bit-clock line and a data line (logic analyzer/scope), or an SPHE register contract proves the receiver mapping.

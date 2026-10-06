@@ -37,12 +37,113 @@ enum sphe_uart_baud_divisor {
 #define SPHE_UART_STATUS_RX_READY                0x00000002U
 
 /*
- * Front-panel SOURCE / SPATIAL key input. Both keys are active-low in the
- * shared status register: a cleared bit means the corresponding key is down.
+ * GPIO/pad register matrix used by external-input mode and front-panel keys.
+ *
+ * CONFIRMED native structure:
+ * - five register families use the same six-bank layout (bank stride = 4);
+ * - SOURCE/SPATIAL setup uses the same bit across family A, family B and
+ *   family C, then reads that bit from family E;
+ * - ApplyExternalInputHardwareMode writes family D banks 0/4/5 only;
+ * - exact mode values below are instruction-proven from raw AP1 bytes.
+ *
+ * LIKELY behavioral roles:
+ * - family C behaves as output-enable because key setup clears the selected
+ *   bit before sampling it;
+ * - family D behaves as output/value state because source-mode selection
+ *   writes exact persistent bit patterns there;
+ * - family E behaves as input-value/status because the key readers sample it;
+ * - family A/B are mux/ownership setup layers, but exact vendor names remain
+ *   UNKNOWN.
+ *
+ * WITHDRAWN:
+ * - the earlier interpretation of 0x09C0..0x09D4 as a dedicated serial-audio
+ *   RX peripheral block. Raw cross-family key setup proves this address range
+ *   belongs to the wider GPIO/pad register matrix. The synchronous-audio
+ *   receiver/pad contract therefore remains open below the 0x18xx layer.
  */
-#define SPHE_FRONT_PANEL_KEY_STATUS_REG          SPHE_SYSTEM_REG(0x09F0U)
+#define SPHE_GPIO_BANK_COUNT                    6U
+#define SPHE_GPIO_BANK_STRIDE                   4U
+#define SPHE_GPIO_BANK_REG(family_base, bank) \
+    SPHE_SYSTEM_REG((family_base) + ((bank) * SPHE_GPIO_BANK_STRIDE))
+
+enum sphe_gpio_register_family_base {
+    SPHE_GPIO_SETUP_A_BASE              = 0x14C0,
+    SPHE_GPIO_SETUP_B_BASE              = 0x0980,
+    SPHE_GPIO_OUTPUT_ENABLE_CANDIDATE_BASE = 0x09A0,
+    SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE  = 0x09C0,
+    SPHE_GPIO_INPUT_VALUE_CANDIDATE_BASE   = 0x09E0,
+};
+
+enum sphe_gpio_bank_index {
+    SPHE_GPIO_BANK_0 = 0,
+    SPHE_GPIO_BANK_1 = 1,
+    SPHE_GPIO_BANK_2 = 2,
+    SPHE_GPIO_BANK_3 = 3,
+    SPHE_GPIO_BANK_4 = 4,
+    SPHE_GPIO_BANK_5 = 5,
+};
+
+/* Front-panel keys are sampled from bank 4, bits 13/14. */
+#define SPHE_FRONT_PANEL_GPIO_SETUP_A_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_SETUP_A_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_GPIO_SETUP_B_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_SETUP_B_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_GPIO_OUTPUT_ENABLE_CANDIDATE_REG \
+    SPHE_GPIO_BANK_REG( \
+        SPHE_GPIO_OUTPUT_ENABLE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_FRONT_PANEL_KEY_STATUS_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_INPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+
 #define SPHE_FRONT_PANEL_SOURCE_KEY_LEVEL_BIT    0x00002000U
 #define SPHE_FRONT_PANEL_SPATIAL_KEY_LEVEL_BIT   0x00004000U
+
+/*
+ * CONFIRMED external-input mode output patterns.
+ * Family-D's exact vendor name is still LIKELY output-value, not confirmed.
+ */
+#define SPHE_EXTERNAL_INPUT_MODE_GPIO_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_0)
+#define SPHE_EXTERNAL_INPUT_MODE_FLAG_A_GPIO_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_4)
+#define SPHE_EXTERNAL_INPUT_MODE_FLAG_B_GPIO_REG \
+    SPHE_GPIO_BANK_REG(SPHE_GPIO_OUTPUT_VALUE_CANDIDATE_BASE, SPHE_GPIO_BANK_5)
+
+#define SPHE_EXTERNAL_INPUT_MODE_GPIO_MASK       0x00000007U
+#define SPHE_EXTERNAL_INPUT_MODE_FLAG_A_BIT      0x00008000U
+#define SPHE_EXTERNAL_INPUT_MODE_FLAG_B_BIT      0x00000001U
+
+enum sphe_external_input_mode_gpio_bits {
+    SPHE_EXTERNAL_INPUT_GPIO_MODE_0 = 0x3,
+    SPHE_EXTERNAL_INPUT_GPIO_MODE_1 = 0x5,
+    SPHE_EXTERNAL_INPUT_GPIO_MODE_2 = 0x6,
+    SPHE_EXTERNAL_INPUT_GPIO_MODE_3 = 0x7,
+};
+
+/*
+ * LIKELY synchronous-audio pad/mux companion registers.
+ * 0x184C/0x186C/0x1870/0x187C are configured in the ROM-called external-sync
+ * hardware initializer, are absent from drv_other/WMA/CDROM, and have no AP1
+ * use outside that initializer. Exact vendor field names and GPIO19/20/21
+ * ownership remain UNKNOWN.
+ */
+#define SPHE_EXTERNAL_SYNC_PADMUX_CANDIDATE_A_REG SPHE_SYSTEM_REG(0x184CU)
+#define SPHE_EXTERNAL_SYNC_PADMUX_CANDIDATE_B_REG SPHE_SYSTEM_REG(0x186CU)
+#define SPHE_EXTERNAL_SYNC_PADMUX_CANDIDATE_C_REG SPHE_SYSTEM_REG(0x1870U)
+#define SPHE_EXTERNAL_SYNC_PADMUX_CANDIDATE_D_REG SPHE_SYSTEM_REG(0x187CU)
+
+/* CONFIRMED boot programming of the candidate companion fields. */
+#define SPHE_EXTERNAL_SYNC_PADMUX_A_FIELD_MASK       0x000000F8U
+#define SPHE_EXTERNAL_SYNC_PADMUX_A_BOOT_VALUE       0x00000040U
+#define SPHE_EXTERNAL_SYNC_PADMUX_B_FIELD_MASK       0x00000007U
+#define SPHE_EXTERNAL_SYNC_PADMUX_B_BOOT_VALUE       0x00000003U
+#define SPHE_EXTERNAL_SYNC_PADMUX_C_BOOT_CLEAR_BITS  0x0000DEF8U
+#define SPHE_EXTERNAL_SYNC_PADMUX_D_BOOT_CLEAR_BITS  0x0000038FU
+
+/* LIKELY shared companion mux register; AP1 also touches it outside boot init. */
+#define SPHE_EXTERNAL_SYNC_SHARED_MUX_CANDIDATE_REG SPHE_SYSTEM_REG(0x1848U)
+#define SPHE_EXTERNAL_SYNC_SHARED_MUX_FIELD_MASK     0x00001800U
+#define SPHE_EXTERNAL_SYNC_SHARED_MUX_BOOT_VALUE     0x00001000U
+#define SPHE_EXTERNAL_SYNC_SHARED_MUX_LATE_CLEAR_BIT 0x00000080U
 
 enum sphe_usb_standard_request {
     SPHE_USB_REQUEST_GET_STATUS        = 2,

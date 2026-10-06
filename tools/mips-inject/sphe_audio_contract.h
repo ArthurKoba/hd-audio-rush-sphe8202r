@@ -540,6 +540,28 @@ enum sphe_resident_mailbox_command {
     SPHE_RESIDENT_GET_AUDIO_INPUT_BLOCK  = 0x63,
 };
 
+/*
+ * CONFIRMED shared resident-DM handshake across AUX/PCM/AC-3/DTS/fallback.
+ * Vendor field names are unknown; names describe instruction-proven behavior.
+ */
+enum sphe_resident_shared_dm_word {
+    SPHE_RESIDENT_DM_READY_FLAG          = 0x3F25,
+    SPHE_RESIDENT_DM_REQUEST_PENDING     = 0x3F26,
+    SPHE_RESIDENT_DM_REQUEST_VALUE       = 0x3F27,
+};
+
+/*
+ * CONFIRMED PCM setup reads from shared/resident PM outside the PCM image.
+ * Exact coefficient/table identities remain UNKNOWN; indexed names preserve
+ * the proven setup order without inventing vendor semantics.
+ */
+enum sphe_resident_pcm_setup_pm_word {
+    SPHE_RESIDENT_PM_PCM_SETUP_SOURCE_0 = 0x3F1A,
+    SPHE_RESIDENT_PM_PCM_SETUP_SOURCE_1 = 0x3F4C,
+    SPHE_RESIDENT_PM_PCM_SETUP_SOURCE_2 = 0x3F4D,
+    SPHE_RESIDENT_PM_PCM_SETUP_SOURCE_3 = 0x3DB3,
+};
+
 enum sphe_resident_route_source_slot {
     SPHE_RESIDENT_SOURCE_TARGET_A = 0,
     SPHE_RESIDENT_SOURCE_TARGET_B = 1,
@@ -593,6 +615,8 @@ enum sphe_audio_preset_table_layout {
 #define SPHE_ADDR_APPLY_SPEAKER_CONFIGURATION        0x8070106CU
 #define SPHE_ADDR_APPLY_EXTERNAL_INPUT_SOURCE_TRANSITION 0x806FED0CU
 #define SPHE_ADDR_APPLY_EXTERNAL_INPUT_HARDWARE_MODE  0x806FED88U
+/* CONFIRMED ROM-called AP1 entry; raw body is the external-sync HW init. */
+#define SPHE_ADDR_INITIALIZE_EXTERNAL_SYNC_HARDWARE 0x806D23BCU
 #define SPHE_ADDR_WRITE_EXTERNAL_INPUT_MODE_CODE   0x8071DB1CU
 #define SPHE_ADDR_PREPARE_EXTERNAL_INPUT_TRANSITION 0x806FABA0U
 #define SPHE_ADDR_READ_FRONT_PANEL_SOURCE_KEY_LEVEL   0x806FE920U

@@ -701,7 +701,7 @@ The core startup action `InitializeRuntimeAndLoadCoreModules @ 0x88000890` reach
 |---|---|---|
 | `0x806D5A68` | none | system/hardware initialization; configures several service/MMIO state fields |
 | `0x806D4F54` | `a0=-1` | system configuration state + dependent initialization |
-| `0x806D23BC` | none | direct hardware register initialization |
+| `0x806D23BC` | none | confirmed external-input GPIO/pad register initialization; also programs the still-LIKELY `0x18xx` synchronous-audio pad/mux candidate cluster |
 | `0x8070E408` | `a0=0` | tiny runtime-state byte setter |
 | `0x8070BAFC` | `a0=4,a1=0,a2=0,a3=1` | higher system/media initialization route |
 | `0x806EF410` | none | runtime-state reset + callback/state initialization |

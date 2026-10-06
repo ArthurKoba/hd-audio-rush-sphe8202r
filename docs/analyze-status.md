@@ -131,6 +131,53 @@ SPHE <-> JieLi boundary 2/4 has JieLi-side ALINK/runtime activity and the SPHE-s
 
 JieLi firmware/control 1/5 currently has only software-family/runtime evidence from UART. Open: exact chip/flash geometry, verified raw firmware dump, pi32v2 static analysis, and the required control/Bluetooth/audio responsibility map.
 
+### Explicit register/action materialization checkpoint — 2026-10-06
+
+This checkpoint was requested explicitly so ongoing register recovery does not leave semantic state only in chat. Evidence states are mandatory here: **CONFIRMED**, **LIKELY**, **UNKNOWN**, or **WITHDRAWN**. Stable constants are mirrored in `sphe_soc_contract.h` / `sphe_audio_contract.h`; uncertain items use conservative candidate names instead of pretending vendor semantics are known.
+
+#### External synchronous-input action ledger
+
+| Action / sequence | Evidence state | Current behavior contract | Materialization state |
+|---|---|---|---|
+| `ApplyExternalInputHardwareMode` | **CONFIRMED** | Reads external mode `0..3` and programs the six-register hardware block at system offset `0x09C0`. Exact `CONTROL[2:0]` values are `0->0x3`, `1->0x5`, `2->0x6`, `3->0x7`. | Saved semantic action already exists; constants mirrored in source. |
+| ROM-called AP1 entry at `0x806D23BC` | **CONFIRMED action boundary and native sequence** | Initializes three structurally matching peer blocks plus the mode-controlled `0x09C0` block, then configures companion system registers. | Source name `SPHE_ADDR_INITIALIZE_EXTERNAL_SYNC_HARDWARE`; semantic Analysis rename/comment is pending worker availability. |
+| `ReadFrontPanelSourceKeyLevel` | **CONFIRMED** | Configures the relevant shared setup bits, then returns status bit 13 from `s6+0x09F0`. Input is active-low at the higher key-state layer. | Saved semantic action + source constants. |
+| `ReadFrontPanelSpatialKeyLevel` | **CONFIRMED** | Same pattern for status bit 14. | Saved semantic action + source constants. |
+| dual-key chord sequence inside the higher source handler | **CONFIRMED behavior, not a separate proved action boundary** | When both SOURCE and SPATIAL readers report asserted/low, sets the front-panel inhibit state and clears external-sync `CONTROL[2:0]`. | Keep as an inline behavior contract until a native action boundary is proved. |
+| old interpretation “no audio signal -> disable RX” | **WITHDRAWN** | Raw AP1 proves this path is driven by simultaneous SOURCE+SPATIAL key state, not audio-signal loss. | Must not be reused by later analysis. |
+
+#### GPIO/pad + synchronous-input register ledger
+
+A raw cross-family audit changed the register model materially. The old four-peer / dedicated-RX interpretation is withdrawn. The addresses instead form a GPIO/pad matrix with repeated six-bank register families. This is stronger because the SOURCE/SPATIAL readers configure the same bit across three families and then sample it from a fourth family.
+
+| Semantic name | Address / layout | Evidence state | Proven behavior | Still unknown |
+|---|---|---|---|---|
+| GPIO setup family A | `s6+0x14C0 + bank*4` | **CONFIRMED family layout / UNKNOWN vendor role** | Key readers set their selected bank-4 bit here before sampling. Boot configures all six banks in parallel with the other families. | Exact mux/ownership name. |
+| GPIO setup family B | `s6+0x0980 + bank*4` | **CONFIRMED family layout / UNKNOWN vendor role** | Same selected-bit setup pattern as family A. | Exact mux/ownership name. |
+| GPIO output-enable candidate | `s6+0x09A0 + bank*4` | **LIKELY output-enable** | SOURCE/SPATIAL setup clears the selected bit before reading input status, which is the expected input-direction behavior. | Vendor register name and polarity semantics beyond observed input setup. |
+| GPIO output/value candidate | `s6+0x09C0 + bank*4` | **LIKELY output/value** | `ApplyExternalInputHardwareMode` writes bank 0 low bits plus bank 4 bit15 and bank 5 bit0 as persistent mode patterns. | Whether every bit is direct pad output versus another GPIO state plane. |
+| GPIO input-value/status candidate | `s6+0x09E0 + bank*4` | **LIKELY input-value; bank-4 reads CONFIRMED** | SOURCE/SPATIAL readers sample bank 4 (`s6+0x09F0`) bits 13/14 after setup. No writes to this family were found in primary MIPS modules. | Vendor register name. |
+| old “serial RX block at `0x09C0..0x09D4`” | same family-D bank range | **WITHDRAWN** | Cross-family key setup proves these addresses are part of the wider GPIO/pad matrix, not a standalone six-register receiver peripheral. | Actual receiver core register block remains open. |
+
+External mode GPIO patterns are **CONFIRMED**: mode `0` -> bank0 low bits `0x3`, mode `1` -> `0x5`, mode `2` -> `0x6`, mode `3/AUX` -> `0x7`. Bank4 bit15 is set for modes `0/1` and clear for `2/3`; bank5 bit0 is clear for `0/3` and set for `1/2`. This corrects the older transient note that had mode 1 and mode 3 values swapped.
+
+The ROM-called initializer at `0x806D23BC` also configures `s6+0x184C`, `+0x186C`, `+0x1870`, `+0x187C` and shared `+0x1848`. These remain **LIKELY synchronous-audio pad/mux candidates**, not GPIO19/20/21 proof. Exact boot writes are named in `sphe_soc_contract.h`: `0x184C[7:3] -> 0x40`, `0x186C[2:0] -> 0x3`, `0x1870` clears bit-set `0xDEF8`, `0x187C` clears bit-set `0x038F`; under the observed boot condition `0x1848` field `0x1800 -> 0x1000` and bit `0x80` is cleared later.
+
+No `drv_other`, WMA, or CDROM access to these GPIO/pad candidate registers was found in the current raw MIPS scan. Ownership is therefore AP1-only at implementation-proof level, while physical GPIO19/20/21 and DATA/BCLK/LRCLK assignment remain **UNKNOWN**.
+
+#### Shared DSP resident-state materialization
+
+| Semantic item | Evidence state | Proven behavior |
+|---|---|---|
+| `SPHE_RESIDENT_DM_READY_FLAG` (`DM:3F25`) | **CONFIRMED** | Repeated codec-profile paths read it, compute `value-1`, and loop while nonzero; accepted ready/completion value is `1`. |
+| `SPHE_RESIDENT_DM_REQUEST_PENDING` (`DM:3F26`) | **CONFIRMED** | Common helper writes `1`; poll paths test the value against zero and wait until it is cleared. |
+| `SPHE_RESIDENT_DM_REQUEST_VALUE` (`DM:3F27`) | **CONFIRMED** | Common helper writes the caller value before asserting `DM:3F26=1`. Identical four-instruction helper exists in AUX/PCM/AC-3/DTS/fallback. |
+| PCM shared PM setup sources `3F1A/3F4C/3F4D/3DB3` | **CONFIRMED reads / UNKNOWN table identity** | PCM loads these addresses through `I4`, performs PM reads, and copies results into local setup DM. They prove resident/shared PM occupancy outside the PCM profile image. |
+| common direct high-DM footprint | **CONFIRMED lower-bound occupancy** | Five decoded profiles share 79 direct-access addresses in `DM:3C00..3FFF`; 85 direct DM addresses are common overall. |
+| “unreferenced PM/DM is free” | **UNKNOWN / prohibited inference** | Resident/shared content exists outside individual profile images, so free space cannot be computed as `window size - profile size`. |
+
+The reproducible offline scan artifacts are retained in the durable `audio-profile-evidence-20261002` workspace (`scan_profile_occupancy.py`, `occupancy-lower-bound.json`, `scan_resident_shared_state.py`, `resident-shared-state.json`). They are supporting evidence, not a second semantic authority.
+
 Closed domains stay closed unless a real contradiction appears. Do not reopen them merely to increase naming coverage.
 
 ### Refactor authority and paused side investigation### Refactor authority and paused side investigation — 2026-10-05
