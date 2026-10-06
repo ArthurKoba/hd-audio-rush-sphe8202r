@@ -38,6 +38,30 @@ PAYLOAD_START = HEADER_LEN + TABLE_BYTES
 STK_VISIBLE_COUNT = 17
 SPECIAL_RAW_SLOT = 0x0C
 
+TARGET_VERSION_OFFSET = 0x18
+TARGET_VERSION = b"02R-D-02"
+OUTER_CHECKSUM_OFFSET = 0x20
+INNER_CHECKSUM_OFFSET = 0x40
+CHECKSUM_DATA_OFFSET = 0x50
+MODE2_MARKER_OFFSET = 0x68
+TRANSFORM_MODE_MARKER_OFFSET = 0x70
+MODE2_MARKER = 0xA5A5A5A5
+MODE3_MARKER = 0xF5F5F5F5
+MODE4_MARKER = 0xB1B1B1B1
+TRANSFORM_PRESERVED_PREFIX_BYTES = 0x28
+MODE2_TRANSFORM_BLOCK_BYTES = 0x20
+MODE2_TRANSFORM_HALF_BYTES = 0x10
+MODE2_TRANSFORM_GROUP_BYTES = 8
+MODE2_TRANSFORM_GROUP_HALF_BYTES = 4
+MODE2_TRANSFORM_XOR_BYTE = 0xA5
+CONTAINER_ALIGNMENT_BYTES = 0x400
+LOGICAL_TRANSFORM_ALIGNMENT_BYTES = 0x20
+RAW_DEFLATE_WBITS = -15
+RAW_DEFLATE_LEVEL = 9
+RAW_DEFLATE_MEM_LEVEL = 8
+UINT32_MASK = 0xFFFFFFFF
+EMPTY_PACKED_MODULE = b"\x03\x00" + b"\x00" * 8
+
 VISIBLE_MODULES = (
     "dvd",
     "mpeg",
@@ -139,7 +163,7 @@ def u32le(buf: bytes | bytearray, off: int) -> int:
 
 
 def put_u32le(buf: bytearray, off: int, value: int) -> None:
-    struct.pack_into("<I", buf, off, value & 0xFFFFFFFF)
+    struct.pack_into("<I", buf, off, value & UINT32_MASK)
 
 
 def align_up(value: int, alignment: int) -> int:
@@ -150,52 +174,57 @@ def sum16le(buf: bytes | bytearray, start: int, end: int) -> int:
     end = min(end, len(buf))
     total = 0
     for off in range(start, end - 1, 2):
-        total = (total + buf[off] + (buf[off + 1] << 8)) & 0xFFFFFFFF
+        total = (total + buf[off] + (buf[off + 1] << 8)) & UINT32_MASK
     return total
 
 
 def detect_mode(raw: bytes) -> int:
-    if len(raw) <= 0x70 + 4:
+    if len(raw) <= TRANSFORM_MODE_MARKER_OFFSET + 4:
         raise ContainerError("image too short")
-    if u32le(raw, 0x68) == 0xA5A5A5A5:
+    if u32le(raw, MODE2_MARKER_OFFSET) == MODE2_MARKER:
         return 2
-    marker = u32le(raw, 0x70)
-    if marker == 0xF5F5F5F5:
+    marker = u32le(raw, TRANSFORM_MODE_MARKER_OFFSET)
+    if marker == MODE3_MARKER:
         return 3
-    if marker == 0xB1B1B1B1:
+    if marker == MODE4_MARKER:
         return 4
     if marker == 0:
         return 1
     raise ContainerError(
-        f"unsupported rev-8203R transform markers: +0x68=0x{u32le(raw,0x68):08x}, "
-        f"+0x70=0x{marker:08x}"
+        f"unsupported rev-8203R transform markers: "
+        f"+0x{MODE2_MARKER_OFFSET:x}=0x{u32le(raw, MODE2_MARKER_OFFSET):08x}, "
+        f"+0x{TRANSFORM_MODE_MARKER_OFFSET:x}=0x{marker:08x}"
     )
 
 
 def transform_mode2(buf: bytearray, extent: int) -> None:
     # STK 8203R FUN_00401E8C.  The operation is involutive.
-    for base in range(0x40, extent, 0x20):
-        if base + 0x20 > len(buf):
+    for base in range(INNER_CHECKSUM_OFFSET, extent, MODE2_TRANSFORM_BLOCK_BYTES):
+        if base + MODE2_TRANSFORM_BLOCK_BYTES > len(buf):
             raise ContainerError("mode-2 transform overruns buffer")
-        for i in range(0x20):
-            buf[base + i] ^= 0xA5
-        for sub in range(0, 0x20, 8):
-            a = bytes(buf[base + sub : base + sub + 4])
-            buf[base + sub : base + sub + 4] = buf[base + sub + 4 : base + sub + 8]
-            buf[base + sub + 4 : base + sub + 8] = a
-        a = bytes(buf[base : base + 0x10])
-        buf[base : base + 0x10] = buf[base + 0x10 : base + 0x20]
-        buf[base + 0x10 : base + 0x20] = a
+        for i in range(MODE2_TRANSFORM_BLOCK_BYTES):
+            buf[base + i] ^= MODE2_TRANSFORM_XOR_BYTE
+        for sub in range(0, MODE2_TRANSFORM_BLOCK_BYTES, MODE2_TRANSFORM_GROUP_BYTES):
+            half = MODE2_TRANSFORM_GROUP_HALF_BYTES
+            group = MODE2_TRANSFORM_GROUP_BYTES
+            a = bytes(buf[base + sub : base + sub + half])
+            buf[base + sub : base + sub + half] = buf[base + sub + half : base + sub + group]
+            buf[base + sub + half : base + sub + group] = a
+        half = MODE2_TRANSFORM_HALF_BYTES
+        block = MODE2_TRANSFORM_BLOCK_BYTES
+        a = bytes(buf[base : base + half])
+        buf[base : base + half] = buf[base + half : base + block]
+        buf[base + half : base + block] = a
 
 
 def xor_transform(buf: bytearray, extent: int, key: bytes) -> None:
-    prefix = bytes(buf[:0x28])
+    prefix = bytes(buf[:TRANSFORM_PRESERVED_PREFIX_BYTES])
     block = len(key)
     for base in range(0, extent, block):
         limit = min(block, len(buf) - base)
         for i in range(limit):
             buf[base + i] ^= key[i]
-    buf[:0x28] = prefix
+    buf[:TRANSFORM_PRESERVED_PREFIX_BYTES] = prefix
 
 
 def transform(buf: bytearray, extent: int, mode: int) -> None:
@@ -214,13 +243,16 @@ def transform(buf: bytearray, extent: int, mode: int) -> None:
 
 
 def find_encoded_extent(raw: bytes) -> int:
-    expected = u32le(raw, 0x20)
+    expected = u32le(raw, OUTER_CHECKSUM_OFFSET)
     pos = len(raw) - 1
-    while pos > 0x3FF and raw[pos] == 0xFF:
+    while pos >= CONTAINER_ALIGNMENT_BYTES and raw[pos] == 0xFF:
         pos -= 1
-    rounded = min((pos & ~0x3FF) + 0x400, len(raw))
+    alignment_mask = CONTAINER_ALIGNMENT_BYTES - 1
+    rounded = min(
+        (pos & ~alignment_mask) + CONTAINER_ALIGNMENT_BYTES, len(raw)
+    )
 
-    total = sum16le(raw, 0x50, rounded)
+    total = sum16le(raw, CHECKSUM_DATA_OFFSET, rounded)
     word = rounded // 2
     while True:
         word -= 1
@@ -231,7 +263,7 @@ def find_encoded_extent(raw: bytes) -> int:
         off = word * 2
         total = (
             total - (raw[off] | (raw[off + 1] << 8))
-        ) & 0xFFFFFFFF
+        ) & UINT32_MASK
 
     if total == expected:
         return word * 2 + 2
@@ -239,8 +271,8 @@ def find_encoded_extent(raw: bytes) -> int:
 
 
 def find_logical_extent(decoded: bytes, encoded_extent: int) -> int:
-    expected = u32le(decoded, 0x40)
-    total = sum16le(decoded, 0x50, encoded_extent)
+    expected = u32le(decoded, INNER_CHECKSUM_OFFSET)
+    total = sum16le(decoded, CHECKSUM_DATA_OFFSET, encoded_extent)
     words = encoded_extent // 2
     word = words
     lower = words - 0x201
@@ -254,7 +286,7 @@ def find_logical_extent(decoded: bytes, encoded_extent: int) -> int:
         off = word * 2
         total = (
             total - (decoded[off] | (decoded[off + 1] << 8))
-        ) & 0xFFFFFFFF
+        ) & UINT32_MASK
 
     if total == expected:
         return word * 2 + 2
@@ -305,12 +337,16 @@ def open_image(raw: bytes) -> ImageState:
     decoded = bytes(decoded_work)
 
     logical_extent = find_logical_extent(decoded, encoded_extent)
-    if sum16le(decoded, 0x50, logical_extent) != u32le(decoded, 0x40):
-        raise ContainerError("decoded +0x40 checksum does not match")
-
-    if decoded[0x18:0x20] != b"02R-D-02":
+    if sum16le(decoded, CHECKSUM_DATA_OFFSET, logical_extent) != u32le(decoded, INNER_CHECKSUM_OFFSET):
         raise ContainerError(
-            f"unexpected target version field: {decoded[0x18:0x20]!r}"
+            f"decoded +0x{INNER_CHECKSUM_OFFSET:x} checksum does not match"
+        )
+
+    version_end = TARGET_VERSION_OFFSET + len(TARGET_VERSION)
+    if decoded[TARGET_VERSION_OFFSET:version_end] != TARGET_VERSION:
+        raise ContainerError(
+            "unexpected target version field: "
+            f"{decoded[TARGET_VERSION_OFFSET:version_end]!r}"
         )
 
     offsets = parse_offsets(decoded, logical_extent)
@@ -328,7 +364,7 @@ def open_image(raw: bytes) -> ImageState:
 
 
 def unpack_packed_segment(segment: bytes) -> Unpacked:
-    dec = zlib.decompressobj(wbits=-15)
+    dec = zlib.decompressobj(wbits=RAW_DEFLATE_WBITS)
     data = dec.decompress(segment)
     data += dec.flush()
     if not dec.eof:
@@ -358,10 +394,10 @@ def pack_packed_segment(data: bytes) -> bytes:
         return b"\\x03\\x00" + b"\\x00" * 8
 
     obj = zlib.compressobj(
-        level=9,
+        level=RAW_DEFLATE_LEVEL,
         method=zlib.DEFLATED,
-        wbits=-15,
-        memLevel=8,
+        wbits=RAW_DEFLATE_WBITS,
+        memLevel=RAW_DEFLATE_MEM_LEVEL,
         strategy=zlib.Z_FIXED,
     )
     return obj.compress(data) + obj.flush(zlib.Z_FINISH)
@@ -395,7 +431,11 @@ def build_decoded(
     if len(decoded) & 1:
         decoded.append(0)
 
-    put_u32le(decoded, 0x40, sum16le(decoded, 0x50, len(decoded)))
+    put_u32le(
+        decoded,
+        INNER_CHECKSUM_OFFSET,
+        sum16le(decoded, CHECKSUM_DATA_OFFSET, len(decoded)),
+    )
     return bytes(decoded), tuple(offsets)
 
 
@@ -433,8 +473,8 @@ def build_decoded_fixed_slots(
 
     put_u32le(
         decoded,
-        0x40,
-        sum16le(decoded, 0x50, state.logical_extent),
+        INNER_CHECKSUM_OFFSET,
+        sum16le(decoded, CHECKSUM_DATA_OFFSET, state.logical_extent),
     )
     return bytes(decoded), state.offsets
 
@@ -448,7 +488,10 @@ def encode_preserving_stock_suffix(
         )
 
     logical_extent = len(decoded)
-    encoded_extent = align_up(align_up(logical_extent, 0x20), 0x400)
+    encoded_extent = align_up(
+        align_up(logical_extent, LOGICAL_TRANSFORM_ALIGNMENT_BYTES),
+        CONTAINER_ALIGNMENT_BYTES,
+    )
     if encoded_extent > state.encoded_extent:
         raise ContainerError(
             f"repacked container needs 0x{encoded_extent:x} bytes, "
@@ -460,13 +503,17 @@ def encode_preserving_stock_suffix(
     # prefix is re-encoded; bytes after it remain opaque stock padding/tail.
     full = bytearray(state.raw)
     for off in range(logical_extent):
-        if off < 0x28:
+        if off < TRANSFORM_PRESERVED_PREFIX_BYTES:
             full[off] = decoded[off]
         else:
-            full[off] = decoded[off] ^ MODE4_KEY[off & 0x1FF]
+            full[off] = decoded[off] ^ MODE4_KEY[off % len(MODE4_KEY)]
 
-    # +0x20 is one of the untransformed first 0x28 bytes.
-    put_u32le(full, 0x20, sum16le(full, 0x50, encoded_extent))
+    # The outer checksum field is inside the preserved untransformed prefix.
+    put_u32le(
+        full,
+        OUTER_CHECKSUM_OFFSET,
+        sum16le(full, CHECKSUM_DATA_OFFSET, encoded_extent),
+    )
     return bytes(full), encoded_extent
 
 
@@ -645,7 +692,7 @@ def command_inspect(path: pathlib.Path) -> int:
     print(f"payload_start=0x{PAYLOAD_START:x}")
     print(
         f"rom12_header_size=0x{HEADER_LEN:x} "
-        f"version={state.decoded[0x18:0x20].decode('ascii', 'replace')}"
+        f"version={state.decoded[TARGET_VERSION_OFFSET:TARGET_VERSION_OFFSET + len(TARGET_VERSION)].decode('ascii', 'replace')}"
     )
 
     for i, seg in enumerate(state.segments):
@@ -660,7 +707,7 @@ def command_inspect(path: pathlib.Path) -> int:
         print(
             f"slot[{i:02d}] {name:12s} packed=0x{len(seg):x} "
             f"unpacked=0x{len(u.data):x} "
-            f"crc32(calc)=0x{zlib.crc32(u.data) & 0xffffffff:08x} "
+            f"crc32(calc)=0x{zlib.crc32(u.data) & UINT32_MASK:08x} "
             f"extra={len(u.extra)}"
         )
     return 0
