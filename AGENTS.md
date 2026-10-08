@@ -7,7 +7,7 @@
 1. AGENTS.md — данная карта.
 2. [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md) — цель аудиопроцессора, границы анализа и определение 100%.
 3. [GitHub Issue #43](https://github.com/ArthurKoba/hd-audio-rush-sphe8202r/issues/43) — **единственная актуальная задача, таблица процентов и чек-листы**. Читать при каждом продолжении и изменении прогресса.
-4. Для нового рабочего контекста: [ArthurKoba/ai-agent-workflow](https://github.com/ArthurKoba/ai-agent-workflow) (корневые AGENTS.md и README.md), затем **самостоятельный** `skills/program-analysis/README.md` (терминология, доказательства, трассировка и восстановление поведения программ, жизненный цикл Analysis, Java/GhidraScript, задания и постоянное хранение скриптов); `docs/REPORTING_PROTOCOL.md` при отчёте, Git/Writer/Reviewer при одобренной публикации.
+4. Для нового рабочего контекста: [ArthurKoba/ai-agent-workflow](https://github.com/ArthurKoba/ai-agent-workflow) (корневые AGENTS.md и README.md), затем **самостоятельный** `skills/reverse-analysis.md` (терминология, доказательства, трассировка и восстановление поведения программ, жизненный цикл Analysis, Java/GhidraScript, задания и постоянное хранение скриптов); `docs/REPORTING_PROTOCOL.md` при отчёте, Git/Writer/Reviewer при одобренной публикации.
 
 Не читать весь набор исторической документации ради обновления контекста.
 
