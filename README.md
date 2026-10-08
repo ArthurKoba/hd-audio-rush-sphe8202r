@@ -1,103 +1,22 @@
 # HD Audio Rush 5.1 / SPHE8202R
 
-**Действующая цель — обновлено 2026-10-08:** исследование и полное обратное восстановление **всех аппаратных контрактов, наблюдаемых в штатной прошивке**, до 100% от исходного аппаратного поведения. Будущий продукт — **собственная прошивка аудиопроцессора**. Анализируем систему/такты, RAM, DMA, IRQ, GPIO, SPI, I²C, I²S, USB, UART, S/PDIF, ADC/DAC, DSP/IOP, возможные связи с JieLi и дополнительные аппаратные модули, которые пригодятся для управления или звука. Высокоуровневые UI/видео/DVD/CD-функции не восстанавливаем ради них самих. Реализация, сборка и проверка на плате — **следующий этап, не часть процентов восстановления**.
+**Проект:** анализ сохранённой штатной прошивки для будущего собственного **аудиопроцессора**.
 
-**Текущие документы:** [AGENTS.md](AGENTS.md) — обязательная карта; [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md) — цель/границы/100%; [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md) — чек-лист, направления и предварительные оценки. Старые оценки 90–95% для узкого CPU-аудиоконтракта и утверждения о готовности начинать писать замену — **исторические, не действующая цель или разрешение**. Коммиты только по отдельному прямому распоряжению пользователя.
+**Цель и границы:** [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md).
+**Актуальный прогресс, задачи и чек-листы:** **[GitHub Issue #43](https://github.com/ArthurKoba/hd-audio-rush-sphe8202r/issues/43)**.
+**Обязательный контекст:** [AGENTS.md](AGENTS.md).
 
-Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SPDIF_V02`.
+**Сейчас исключительно анализ всей аппаратуры, полного аудиопайплайна, USB и UART до 100% по штатному корпусу.** Выбирать сначала слабо изученные аппаратные блоки и неизвестные регистры. **JieLi — закрытая микросхема:** её прошивку не исследуем; потенциальные аппаратные взаимодействия, найденные в SPHE, исследуем полностью. UI, видео, графика и DVD/CD-приложения не являются целевыми подсистемами (кроме краткой трассы до аппаратного контракта).
 
-The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
+**Источник технической истины — канонический Analysis sphe8202r_decoder_p25d80.** Репозиторий задаёт процессы и базовые компоненты, Issue показывает текущие проценты. Разработка, сборка и испытания прошивки на плате — следующий этап. Обычные Git-коммиты запрещены до конкретного прямого разрешения пользователя.
 
-## Исторический срез аудиоанализа — 2026-10-02 (не текущая цель)
+## Общие аппаратные домены
 
-The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current continuation authority is this README together with `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md`; older handoffs are historical where they conflict with these files.
-
-### DSP processor/tooling
-
-- The reusable Sunplus audio-DSP processor is implemented in `ArthurKoba/ghidra-mcp` as `SunplusSPHEAudioDSP:BE:16:default` and is deployed from `ghidra-mcp/main` commit `5570d8c`.
-- `srvdsp.bin` remains closed at implementation-proof level after post-deploy revalidation: 117/117 local executable words, 9/9 local action nodes, 9/9 high-level behavior views, and 21/21 named, typed and documented DM state/config slots.
-- Codec-profile support is no longer blocked on missing instruction forms. Vector-seeded reachable-code acceptance is zero-gap for the current extracted profiles: AUX 5451/5451, PCM 7787/7787, AC-3 10339/10339 and DTS 9651/9651 reached words decoded.
-- Wrapper-only resident handoffs and the recovered `DO ... UNTIL CE` specialization are context-scoped to canonical `srvdsp`; generic codec profiles keep ordinary local flow semantics. RTI remains distinct from RTS through an explicit status-restoration side effect.
-- This is target-corpus instruction coverage, not proof of the full ADSP-218x ISA, Sunplus DSP clock/resource budget or physical output routing.
-
-### Current AP1 / runtime audio contract
-
-- Current live AP1 snapshot: **3853 action nodes**, **147 non-generic/semantic names by the current naming rule (~3.82%)**, and **62 forwarders**. This is a naming metric only.
-- Saved semantic names now include `SelectDecoderProfileByStateMask` and `LoadDecoderDspProfile`. Profile selection uses the least-significant decoder-state bit and the descriptor table rooted at `0x80002264`.
-- Decoder profile descriptor layout is packed-source pointer `+0`, A `+4/+5`, B `+6/+7`, C `+8/+9`; the load route derives page selectors `0xF8`, `0xF8+A`, `0xF8+A+C`, initializes runtime service state, validates input-ring compatibility and transfers the packed profile.
-- Real runtime targets are `0x88001584` for service initialization and `0x88001AF8` for packed-profile transfer. Older high-level views showing `+0x800` displaced targets are stale metadata; raw MIPS transitions are authoritative.
-- `ValidateDecoderProfileInputRingCapacity` now has a corrected instruction-backed contract: decoder states `0x8000`/`0x40000` add 3 to the descriptor capacity unit before scaling/comparison. The old high-level extra-call interpretation is withdrawn.
-- The decoder window is a CPU-fed input ring, not a free-DSP-memory measurement. Runtime 24-bit parameter read/write, service-condition polling and input-ring free/queued-byte helpers remain saved in `/runtime/rom12-runtime.bin`.
-- Master-volume action 2 maps level through runtime gain table `0x88012CA0`, stages `0x1100|gainByte`, and keeps mute as separate state. `drv_other:0x8077C554` is a constant-zero stub in this firmware.
-- Speaker state is instruction-backed: FRONT `gp+0x827`, CENTER `gp+0x7DC`, REAR `gp+0x80E`, SUB `gp+0x7D6`; topology is action `0x17`; SUB also uses action 6; CENTER/REAR delay formulas are confirmed through action `0x0B`.
-- External hardware mode 3 is AUX; modes 0..2 are S/PDIF-input-side patterns whose physical optical/coax meaning remains unknown. AUX uses transient state `0x0B`; S/PDIF-input uses `0x0D`; anti-pop sequencing temporarily applies master volume zero.
-- Decoder status block `0x800022E4` is 16 bytes. Hardware decoder type bits map 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can stop/reconfigure/restart the pipeline.
-- The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; canonical Analysis now saves `ApplyEchoProfileIndex @ 0x80702C8C` and `ApplyEchoHardwareProfile @ 0x80702CC8`, both on action 4 / family `0x0600`.
-
-### Историческая оценка готовности — не текущая фаза
-
-The old `97–98%` whole-audio estimate is retired. A useful current scoped estimate is that the **CPU-side audio control/loader contract is approximately 90–95% implementation-proof**. The denominator is CPU-side control behavior only.
-
-Historical feasibility: controlled patches could be designed, but **this is not authorized during the current analysis-only phase**. Replacement/custom firmware is still gated by container rebuild/repack/integrity reproduction, safe recovery/rollback, remaining resident runtime/backend ownership, DSP resource-budget evidence, physical six-channel output acceptance and at least one hardware-validated intentional modification.
-
-Provider/safety incidents are tracked in `ArthurKoba/mcp-bridge`; this repository keeps behavior evidence and recovery state, not a duplicate incident log.
-
-### Историческая граница начала реализации — сейчас отложена
-
-The historical intended product path was:
-
-1. reproduce the original useful audio behavior in maintainable Sunplus-side source/firmware;
-2. validate that replacement against the original board behavior;
-3. only then add new product features or altered behavior.
-
-Historical source feasibility was reported here; **actual source-level replacement remains prohibited until the hardware-recovery phase is closed and the user explicitly changes phase**. We are **not** yet at the point where a complete replacement image should be flashed as product firmware. Remaining hard gates are container/module rebuild and integrity reproduction, safe rollback/recovery, resident runtime/backend ownership, physical six-channel acceptance, and one hardware-validated intentional modification.
-
-Current interface boundary:
-- **SPHE UART:** ROM-loader/monitor behavior is implementation-recovered, including RAM-code loading, memory transactions, flash read and a minimal runtime TX contract. Physical RX/TX/bootstrap access on this PCB is not yet continuity/board-proven.
-- **Secondary-controller UART:** the observed header emits AC695N/BR23-family logs; TX is confirmed, but no interactive RX shell or command protocol is established.
-- **USB:** the four-pad footprint is reported on the SPHE side and firmware metadata says Host USB 2.0 supported. Device/dual-role/UAC capability is still unknown, so a computer-facing custom USB interface is not yet an accepted design assumption.
-- **Secondary controller:** its firmware has not been dumped and the SPHE↔controller transport/framing is not mapped. Current UART evidence proves its software family and runtime audio/Bluetooth activity, not the inter-chip control protocol.
-
-## Project objective — действующая граница
-
-Конечный продукт — **обслуживаемая аудиопроцессорная прошивка** для SPHE8202R и необходимого межчипового оборудования, обеспечивающая программируемый аудиотракт и будущие расширения. Сейчас решается другая, предварительная задача: **полное восстановление аппаратного слоя исходной прошивки**, без разработки замены.
-
-**100%** определяется только как изученное аппаратное поведение, алгоритмы, роли регистров, state-flow, IRQ/DMA/буферы и связи аппаратных блоков из доступного штатного корпуса. Проверка физической платы, безопасная запись и внедрение новой прошивки вынесены за этот знаменатель. См. [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md) и [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md).
-
-## Analysis toolchain decision
-
-**analysis workspace stays. SCORE7 does not belong to this project's dependency set.**
-
-- The extracted Sunplus application modules are coherent **MIPS32 little-endian**, so normal analysis workspace MIPS support is the correct path for `ap1.bin`, `drv_other.bin`, `cdrom.bin` and `wma.bin`.
-- The custom SCORE7 backend came from the early, incorrect assumption that the packed 1 MiB Sunplus container itself was SCORE7 code. Correct STK extraction disproved that assumption for the primary modules.
-- No current target binary on this board has been proven to require SCORE7. Auxiliary `iop` / `iop_rst` images remain unidentified and must not be labelled SCORE7 without evidence. The audio DSP uses the separate Sunplus-scoped model described above.
-- SCORE7 is useful general analysis workspace work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
-- The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 analysis workspace processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
-
-## Current work order — восстановление аппаратуры
-
-Приоритет: системное управление/такты/reset, автономный DMA, таймеры и WDT; параллельно — контроллер памяти/SDRAM, IRQ, GPIO, SPI/I²C/UART/USB, I²S/S/PDIF, ADC/DAC, DSP/IOP и все доступные исходной прошивке возможные межчиповые каналы. Предел анализа — аппаратная логика. Можно трассировать любую функцию, если нужно доказать, какой регистр/буфер/IRQ она обслуживает; **не** углубляться в UI, графику и видеопроцессинг как в самостоятельную цель.
-
-**Живой чек-лист и последняя контрольная точка:** [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md). Новая прошивка, flash/rollback и board validation — отдельно, после **прямого** распоряжения о смене фазы.
-
-## Hardware platform
-
-| Part | Identification | Current understanding |
-|---|---|---|
-| Main multimedia SoC | Sunplus `SPHE8202R` | Main decoder / multimedia processor |
-| External RAM | marking reported as `PMS3064 / 16BTR-60N`; transcription still needs a clean photo | External SDRAM. STK reports `32M`, 16-bit, non-shared; exact vendor/capacity is not yet proven |
-| SPI NOR | Puya `P25D80SH` | 8 Mbit / 1 MiB, contains the Sunplus firmware container |
-| Secondary controller | marking `AK24BP24230` | Runs JieLi AC695N/BR23-family firmware according to UART log; exact public SKU unresolved |
-| Analog switch | `HCF4052` / HCF4052B-family marking reported | Dual 4-channel analog multiplexer/demultiplexer; exact board routing still to be traced |
-| Logic | `74HC04D` marking reported | Hex inverter; exact role on this board still to be traced |
-| Analog output stage | `4558D`-marked 8-pin ICs near the outputs | 4558-family parts are dual op-amps; likely channel buffering/filtering/preamplification, exact topology not yet traced |
-
-Physical/interface observations:
-- the UART jumper/header used for the captured boot log routes to the secondary controller side; TX output is confirmed, an interactive RX shell is not;
-- the four-pad USB/service footprint is reported to route to the main Sunplus side; exact D+/D-/VBUS/GND pin mapping is not yet archived as continuity evidence;
-- board I/O includes optical/coaxial S/PDIF, AUX and six analog outputs (FL/FR/SL/SR/CEN/SUB).
-
-See `docs/hardware.md` for evidence levels and open measurements.
+- Основной **Sunplus SPHE8202R** — MIPS32 little-endian CPU, штатная прошивка в SPI NOR.
+- Отдельный **аудио DSP** со своей архитектурой и программными профилями.
+- Отдельный служебный **IOP** со своей архитектурой.
+- Внешний **JieLi** — закрытая микросхема, интересуют только каналы, проявляющиеся на стороне SPHE.
+- Корпус сохранён в firmware/; карта загружаемых модулей — analysis/modules.csv; штатный архив инструментария — tools/STK_0.2.3.zip.
 
 ## Repository artifacts
 
@@ -133,80 +52,5 @@ The extracted files live directly in `firmware/modules/`. The redundant `modules
 
 The remaining STK slots (`ap2`, `ap3`, `dvb`, `dvd`, `dvd_ipod`, `free`, `mp4`, `mpeg`, `rom3`) are zero-length files and are retained because they are part of the exact 18-slot extraction.
 
-## Firmware findings — preserved early checkpoint
 
-This section preserves earlier identification and address-audit evidence. Historical statements of open validation work below do not override subsequent milestones in the current checkpoint and `docs/analyze-status.md`.
-
-STK identifies the dump as:
-- version `02R-D-02`
-- ROM requirement `1M`
-- customer `SUNPLUS`
-- `SDRAM 32M`, 16-bit, non-shared
-- `Host USB 2.0 supported`
-- 18 module slots
-- password `5168`
-
-STK displays `SPHE8203R` while the physical package is marked `SPHE8202R`; this remains an explicit contradiction.
-
-The primary application modules `ap1.bin`, `cdrom.bin`, `drv_other.bin` and `wma.bin` contain coherent **MIPS32 little-endian** code. Working module map:
-- `ap1.bin` -> `0x8067B800`, corrected base applied in canonical analysis workspace; remaining action node-boundary/reference cleanup is tracked separately;
-- `wma.bin` -> `0x8073F000` established;
-- `cdrom.bin` -> `0x8074C800` established;
-- `drv_other.bin` -> `0x80775800` established.
-
-The shared MIPS small-data/global pointer is confirmed as `$gp = 0x80002B00`. In `wma.bin`, independent absolute/gp-relative pairs resolve both `0x800035D8 - 0xAD8` and `0x80003684 - 0xB84` to the same GP.
-
-A 2026-09-21 raw-instruction audit found 43 stale stored direct action links in the three non-AP1 modules. The encoded targets and stored links disagree; a repair source is saved but its application was blocked and is not claimed complete. Separately, AP1 initial-delay invokes, absolute/relative branch joins and string pointers contradict its old base. See `docs/firmware.md` before using existing action node addresses or inbound action lists.
-
-The application contains S/PDIF/AC3/DTS/PCM/USB anchors. CDROM stream initialization now has a documented classifier-result-to-mode mapping, including `0xAC3 -> 3`, and a working state type in analysis workspace. STK's additive word-sum helper is identified, but target checksum reproduction, container reconstruction and safe repack are still open in this early checkpoint.
-
-The canonical analysis project contains extracted CPU modules and the STK tool analysis. Flat imports of the 1 MiB Sunplus container remain removed; the raw dump is preserved as container evidence. No modified firmware image or hardware acceptance is claimed by this early checkpoint.
-
-## Layout
-
-```
-firmware/
-  P25D80SH@SOP8.BIN
-  modules/
-tools/
-  STK_0.2.3.zip
-  analysis workspace/RepairMipsDirectFlow.java
-evidence/
-  ac695n-boot-excerpt.log
-  ap1-music-mode-20261002.md
-analysis/
-  modules.csv
-docs/
-  hardware.md
-  firmware.md
-  analyze-status.md
-```
-
-GitHub issues are the backlog for concrete trackable work items; do not use them as a running analysis notebook and avoid extra planning documents for the same work.
-
-
-## ROM-loader host support
-
-The canonical headless client is `tools/sphe_romloader.py`. The older
-`tools/sunplus_romloader.py` duplicate was removed because it encoded an
-obsolete target/profile model.
-
-Host transport is platform-selectable:
-
-- `--transport auto` is the default;
-- on Windows, `auto` selects the recovered synchronous Win32 transport;
-- on Linux and other POSIX hosts, `auto` selects the pyserial transport and
-  accepts normal serial device paths such as `/dev/ttyUSB0`,
-  `/dev/ttyACM0`, `/dev/ttyS0`, or platform UART devices;
-- `--transport factory` forces the Windows reference transport;
-- `--transport pyserial` forces the portable transport on any supported host.
-
-The portable backend keeps the recovered protocol and exact-length wrapper
-semantics and applies the recovered size-dependent read/write timeout model as
-closely as pyserial permits. Windows COMMTIMEOUTS behavior remains the exact
-host-side timing reference.
-
-No broad unit-test suite is enabled at this stage. The intended CI smoke is
-deliberately small: Python syntax/import plus `sphe_romloader.py info`, which
-verifies the canonical STK identity, helper extraction and controlled modification guards on
-Windows and Linux. Hardware tests remain manual acceptance work.
+Предшествующие подробные технические документы сохранены временно для сверки с Analysis, но не являются действующей картой регистров и прогрессом.
