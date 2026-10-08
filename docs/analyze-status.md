@@ -1,6 +1,12 @@
 # Analysis status
 
-## Current authority — 2026-10-02 late pass
+## Действующая область восстановления — 2026-10-08
+
+**Активный этап:** только восстановление всего аппаратного слоя исходной прошивки, включая периферию, такты, IRQ, DMA, буферы, память, сигналы и межчиповые каналы. **Конечный продукт:** новая аудиопроцессорная прошивка, но её разработка пока не разрешена. Обязательная карта — [../AGENTS.md](../AGENTS.md); определение 100% и границы — [RECONSTRUCTION_SCOPE.md](RECONSTRUCTION_SCOPE.md); **актуальная задача, чек-лист и оценки по аппаратным направлениям** — [HARDWARE_RECOVERY_TASK.md](HARDWARE_RECOVERY_TASK.md).
+
+Ниже приведён **исторический детальный срез CPU-аудио от 2026-10-02**. Его проценты 90–95%, показатели переименований и готовность отдельных исходных модулей не являются процентом восстановления всей аппаратуры и **не разрешают разработку**. Старые пункты «реализация может начаться» имеют только исторический характер. Преемственная техническая семантика находится в сохранённом каноническом Analysis, а не гарантированно в этой документации.
+
+## Исторический контрольный срез — 2026-10-02
 
 This file is the current behavior-analysis status for the Sunplus audio path. Older percentages, action-count snapshots and pre-codec processor limitations are historical where they conflict with this section and `evidence/ap1-music-mode-20261002.md`.
 
@@ -224,9 +230,9 @@ Other established wrappers:
 4. Historical `ApplyRegionCodeProfile` metadata was corrected in canonical Analysis to `ApplyEchoProfileIndex`; action 4 is ECHO.
 5. Historical evidence may retain older names, but current authority and canonical Analysis use the corrected ECHO names.
 
-## Readiness for custom firmware
+## Историческая оценка готовности к замене — реализация сейчас запрещена
 
-Source-level replacement implementation can begin now for isolated, recovered CPU-side behavior. A complete replacement image is **not yet safe to flash or product-ready**.
+Source-level replacement appeared feasible at this historical checkpoint, but **its implementation is not authorized in the current hardware-recovery-only phase**. A complete replacement image is **not yet safe to flash or product-ready**.
 
 Remaining gates:
 1. reproduce container/module reconstruction, integrity/checksum and write path;
@@ -242,6 +248,6 @@ Remaining gates:
 2. Reopen saved `/runtime/rom12-runtime.bin` when a session-local runtime handle is needed and continue below the service mailbox.
 3. Connect recovered command families and codec parameters to resident high-DM/backend consumers.
 4. Close physical six-channel output ownership with board/runtime evidence.
-5. In parallel, turn the recovered behavior contracts into maintainable replacement-source modules while rebuild/repack/recovery acceptance is completed.
+5. **Historical future phase (not authorized now):** only after an explicit user instruction, convert recovered hardware contracts into replacement-source modules and perform build/repack/board acceptance.
 
 Safety/provider incident reproduction belongs to `ArthurKoba/mcp-bridge` issues and is not duplicated here.

@@ -1,6 +1,8 @@
 # Firmware
 
-## Current audio/control authority — 2026-10-02 late pass
+**Действующая фаза:** только аппаратное восстановление по исходному корпусу, **без замены прошивки, реализации кода или flash**. Для цели и критерия 100% см. [RECONSTRUCTION_SCOPE.md](RECONSTRUCTION_SCOPE.md); для текущих задач и процентов — [HARDWARE_RECOVERY_TASK.md](HARDWARE_RECOVERY_TASK.md). Раздел «Current audio/control authority — 2026-10-02» ниже — исторический подробный срез **одной части** прошивки, не новый план/процент всего проекта.
+
+## Историческая аудиоконтрольная точка — 2026-10-02
 
 This section supersedes conflicting audio interpretations in the historical investigation log below. Keep the older material for provenance only; when addresses, action names, percentages or route semantics disagree, this section plus `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md` are authoritative.
 
@@ -51,13 +53,13 @@ Control ID `0x57` is ECHO. Saved `ApplyEchoProfileIndex @ 0x80702C8C` indexes ru
 
 ### Replacement-firmware boundary
 
-The recovered contracts are sufficient to start implementing isolated replacement-source components and host-side tooling. They are not sufficient to claim a flashable full replacement. Remaining firmware gates are reproducible container/module reconstruction and integrity, target-board SPHE UART execution proof, recovery/rollback, resident backend ownership, DSP resource budget and hardware validation of the six analog channels.
+At this historical checkpoint source implementation was considered technically feasible, but **it is now prohibited until explicit user authorization after the active hardware-recovery phase**. They are not sufficient to claim a flashable full replacement. Remaining firmware gates are reproducible container/module reconstruction and integrity, target-board SPHE UART execution proof, recovery/rollback, resident backend ownership, DSP resource budget and hardware validation of the six analog channels.
 
-The ROM-loader work is therefore an active enabler for replacement firmware rather than a historical side track: RAM execution and read paths are implementation-recovered, while modified-image write remains intentionally gated on board-proven recovery.
+The ROM-loader evidence remains a future enabling contract, not permission to write replacement firmware now: RAM execution and read paths are implementation-recovered, while modified-image write remains intentionally gated on board-proven recovery.
 
 ### Readiness
 
-The former 94–98% whole-audio percentages are retired. Current scoped estimate is approximately 90–95% of the **CPU-side audio control/loader contract** at implementation-proof level. DSP reachable instruction coverage and local `srvdsp` coverage are complete for the current corpus, but custom/replacement firmware is still gated by rebuild/repack/integrity, safe recovery, runtime/backend/physical-lane ownership, DSP resource-budget evidence and hardware acceptance.
+The former 94–98% whole-audio percentages are retired. Historical scoped estimate was approximately 90–95% of the **CPU-side audio control/loader contract** only; **this is not current hardware-system recovery progress**. DSP reachable instruction coverage and local `srvdsp` coverage are complete for the current corpus, but custom/replacement firmware is still gated by rebuild/repack/integrity, safe recovery, runtime/backend/physical-lane ownership, DSP resource-budget evidence and hardware acceptance.
 
 ## Historical investigation log — preserved for provenance
 

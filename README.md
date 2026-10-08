@@ -1,10 +1,14 @@
 # HD Audio Rush 5.1 / SPHE8202R
 
+**Действующая цель — обновлено 2026-10-08:** исследование и полное обратное восстановление **всех аппаратных контрактов, наблюдаемых в штатной прошивке**, до 100% от исходного аппаратного поведения. Будущий продукт — **собственная прошивка аудиопроцессора**. Анализируем систему/такты, RAM, DMA, IRQ, GPIO, SPI, I²C, I²S, USB, UART, S/PDIF, ADC/DAC, DSP/IOP, возможные связи с JieLi и дополнительные аппаратные модули, которые пригодятся для управления или звука. Высокоуровневые UI/видео/DVD/CD-функции не восстанавливаем ради них самих. Реализация, сборка и проверка на плате — **следующий этап, не часть процентов восстановления**.
+
+**Текущие документы:** [AGENTS.md](AGENTS.md) — обязательная карта; [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md) — цель/границы/100%; [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md) — чек-лист, направления и предварительные оценки. Старые оценки 90–95% для узкого CPU-аудиоконтракта и утверждения о готовности начинать писать замену — **исторические, не действующая цель или разрешение**. Коммиты только по отдельному прямому распоряжению пользователя.
+
 Behavior analysis of the HD Audio Rush 5.1 decoder board revision `SPHE8202RD_SPDIF_V02`.
 
 The repository keeps the canonical firmware/tool artifacts, reproducible analysis helpers, one UART excerpt, and behavior-analysis notes.
 
-## Current analysis milestone — 2026-10-02 late pass
+## Исторический срез аудиоанализа — 2026-10-02 (не текущая цель)
 
 The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current continuation authority is this README together with `docs/analyze-status.md` and `evidence/ap1-music-mode-20261002.md`; older handoffs are historical where they conflict with these files.
 
@@ -30,23 +34,23 @@ The canonical Analysis project remains `sphe8202r_decoder_p25d80`. The current c
 - Decoder status block `0x800022E4` is 16 bytes. Hardware decoder type bits map 0=PCM, 1=AC-3, 2/3=DTS-family; type changes can stop/reconfigure/restart the pipeline.
 - The common dispatcher action table `0..26` is mechanically recovered. Control `0x57` is confirmed **ECHO**; canonical Analysis now saves `ApplyEchoProfileIndex @ 0x80702C8C` and `ApplyEchoHardwareProfile @ 0x80702CC8`, both on action 4 / family `0x0600`.
 
-### Readiness boundary
+### Историческая оценка готовности — не текущая фаза
 
 The old `97–98%` whole-audio estimate is retired. A useful current scoped estimate is that the **CPU-side audio control/loader contract is approximately 90–95% implementation-proof**. The denominator is CPU-side control behavior only.
 
-Controlled in-place behavior-preserving patches can already be designed. Replacement/custom firmware is still gated by container rebuild/repack/integrity reproduction, safe recovery/rollback, remaining resident runtime/backend ownership, DSP resource-budget evidence, physical six-channel output acceptance and at least one hardware-validated intentional modification.
+Historical feasibility: controlled patches could be designed, but **this is not authorized during the current analysis-only phase**. Replacement/custom firmware is still gated by container rebuild/repack/integrity reproduction, safe recovery/rollback, remaining resident runtime/backend ownership, DSP resource-budget evidence, physical six-channel output acceptance and at least one hardware-validated intentional modification.
 
 Provider/safety incidents are tracked in `ArthurKoba/mcp-bridge`; this repository keeps behavior evidence and recovery state, not a duplicate incident log.
 
-### Implementation start boundary
+### Историческая граница начала реализации — сейчас отложена
 
-The intended product path is explicit:
+The historical intended product path was:
 
 1. reproduce the original useful audio behavior in maintainable Sunplus-side source/firmware;
 2. validate that replacement against the original board behavior;
 3. only then add new product features or altered behavior.
 
-We are already far enough to design and begin source-level replacement modules for isolated CPU-side behavior. We are **not** yet at the point where a complete replacement image should be flashed as product firmware. Remaining hard gates are container/module rebuild and integrity reproduction, safe rollback/recovery, resident runtime/backend ownership, physical six-channel acceptance, and one hardware-validated intentional modification.
+Historical source feasibility was reported here; **actual source-level replacement remains prohibited until the hardware-recovery phase is closed and the user explicitly changes phase**. We are **not** yet at the point where a complete replacement image should be flashed as product firmware. Remaining hard gates are container/module rebuild and integrity reproduction, safe rollback/recovery, resident runtime/backend ownership, physical six-channel acceptance, and one hardware-validated intentional modification.
 
 Current interface boundary:
 - **SPHE UART:** ROM-loader/monitor behavior is implementation-recovered, including RAM-code loading, memory transactions, flash read and a minimal runtime TX contract. Physical RX/TX/bootstrap access on this PCB is not yet continuity/board-proven.
@@ -54,28 +58,11 @@ Current interface boundary:
 - **USB:** the four-pad footprint is reported on the SPHE side and firmware metadata says Host USB 2.0 supported. Device/dual-role/UAC capability is still unknown, so a computer-facing custom USB interface is not yet an accepted design assumption.
 - **Secondary controller:** its firmware has not been dumped and the SPHE↔controller transport/framing is not mapped. Current UART evidence proves its software family and runtime audio/Bluetooth activity, not the inter-chip control protocol.
 
-## Project objective
+## Project objective — действующая граница
 
-The primary engineering goal is to build our own maintainable Sunplus firmware that first reproduces the original board's useful audio behavior and can then be modified deliberately. Behavior analysis is the evidence path to that implementation, not the final product by itself.
+Конечный продукт — **обслуживаемая аудиопроцессорная прошивка** для SPHE8202R и необходимого межчипового оборудования, обеспечивающая программируемый аудиотракт и будущие расширения. Сейчас решается другая, предварительная задача: **полное восстановление аппаратного слоя исходной прошивки**, без разработки замены.
 
-Whole-board completion additionally requires preserving the secondary-controller firmware, explaining the relevant hardware and inter-chip contracts, rebuilding or deliberately modifying each required firmware domain through a known path, recovering after a bad experiment, flashing safely, and programmatically controlling the useful system behavior without leaving a required processor as an unexplained black box.
-
-For this project, "behavior-complete" does **not** mean every internal action node must be given a semantic name. It means the boot/update paths, hardware contracts, audio routing, control state, inter-chip protocol and firmware modification path are understood well enough to make intentional changes and validate them on hardware.
-
-Before claiming behavior-complete, all of the following must be true:
-
-- Sunplus raw dump preserved and its container/module layout understood;
-- secondary-controller firmware dumped and preserved;
-- both CPU architectures have a usable static-analysis path;
-- SPHE <-> secondary-controller data/control links are mapped;
-- S/PDIF input, AC3/DTS handling, volume/mute and six-channel output ownership are identified;
-- USB/service interfaces and their boot/update roles are identified;
-- packing/checksum/integrity requirements are reproduced;
-- at least one safe recovery method is proven for each writable firmware domain;
-- at least one intentional firmware modification is flashed and hardware-validated;
-- a documented control path exists for source/mode, volume/mute, status and any later USB/Bluetooth extensions.
-
-USB Audio Class, new Bluetooth behavior and similar additions are post-analysis features, not prerequisites for understanding the original board.
+**100%** определяется только как изученное аппаратное поведение, алгоритмы, роли регистров, state-flow, IRQ/DMA/буферы и связи аппаратных блоков из доступного штатного корпуса. Проверка физической платы, безопасная запись и внедрение новой прошивки вынесены за этот знаменатель. См. [docs/RECONSTRUCTION_SCOPE.md](docs/RECONSTRUCTION_SCOPE.md) и [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md).
 
 ## Analysis toolchain decision
 
@@ -87,17 +74,11 @@ USB Audio Class, new Bluetooth behavior and similar additions are post-analysis 
 - SCORE7 is useful general analysis workspace work and should be maintained/contributed separately from this board project rather than treated as required infrastructure here.
 - The secondary BR23 / AC695N-family side uses JieLi's **pi32v2** architecture. Once its flash is dumped, the intended static-analysis path is a pi32v2 analysis workspace processor definition, cross-checked against the JieLi toolchain/objdump and available AC695N SDK sources.
 
-## Current work order
+## Current work order — восстановление аппаратуры
 
-The active scope is the useful audio/runtime behavior of the board, not exhaustive naming of unrelated legacy media code.
+Приоритет: системное управление/такты/reset, автономный DMA, таймеры и WDT; параллельно — контроллер памяти/SDRAM, IRQ, GPIO, SPI/I²C/UART/USB, I²S/S/PDIF, ADC/DAC, DSP/IOP и все доступные исходной прошивке возможные межчиповые каналы. Предел анализа — аппаратная логика. Можно трассировать любую функцию, если нужно доказать, какой регистр/буфер/IRQ она обслуживает; **не** углубляться в UI, графику и видеопроцессинг как в самостоятельную цель.
 
-1. **Close the remaining Sunplus audio-equivalence gaps.** Finish resident backend ownership, physical six-channel output ownership and the source-state details required to reproduce original audio behavior.
-2. **Make replacement-firmware construction and recovery real.** Reproduce container/module rebuild, integrity/checksum, safe flash/readback and rollback; then hardware-validate one intentional change.
-3. **Bring up the SPHE UART on the target PCB.** The ROM-loader/diagnostic software contract is recovered; the remaining boundary is physical target-board access and execution proof.
-4. **Resolve USB architecture before designing around it.** Host support is established; device/dual-role/UAC capability is not. Do not build the replacement architecture around computer-facing USB until that is proved.
-5. **Recover the secondary-controller boundary.** Dump/preserve its firmware when practical, identify the SPHE <-> controller transport/framing, and map only the Bluetooth/control/status behavior needed by the replacement system.
-
-Legacy DVD/CD/UI behavior is analyzed only when it is on a live route required by audio, startup, diagnostics or inter-chip control.
+**Живой чек-лист и последняя контрольная точка:** [docs/HARDWARE_RECOVERY_TASK.md](docs/HARDWARE_RECOVERY_TASK.md). Новая прошивка, flash/rollback и board validation — отдельно, после **прямого** распоряжения о смене фазы.
 
 ## Hardware platform
 
