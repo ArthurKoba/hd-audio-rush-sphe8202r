@@ -1,5 +1,7 @@
 # Hardware
 
+**Действующая область:** аппаратное восстановление из штатной прошивки до 100% (без board-валидации или реализации); цель аудиопроцессора и аппаратная граница — [RECONSTRUCTION_SCOPE.md](RECONSTRUCTION_SCOPE.md); актуальный чек-лист — [HARDWARE_RECOVERY_TASK.md](HARDWARE_RECOVERY_TASK.md). Исторические имена/выводы здесь требуют сверки с каноническим Analysis перед повышением степени уверенности.
+
 ## Platform
 
 Product: **HD Audio Rush 5.1**  
