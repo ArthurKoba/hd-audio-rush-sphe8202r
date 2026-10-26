@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<compiler_spec>
+  <data_organization>
+    <pointer_size value="2"/>
+  </data_organization>
+  <global>
+    <range space="PM"/>
+    <range space="DM"/>
+  </global>
+  <!-- Ghidra requires a stack model for decompiler/stack analyzers. The DSP
+       architectural return stack remains modeled separately by PCSTACKTOP. -->
+  <stackpointer register="SP" space="DM" growth="negative"/>
+  <default_proto>
+    <prototype name="default" extrapop="0" stackshift="0">
+      <input/>
+      <output/>
+      <unaffected>
+        <register name="PC"/>
+        <register name="SP"/>
+      </unaffected>
+    </prototype>
+  </default_proto>
+  <!-- Experimental, opt-in only for native-proof-safe callees. Do NOT mark
+       general DSP calls as preserving loop state; other functions contain DO. -->
+  <prototype name="__sunplus_loop_safe" extrapop="0" stackshift="0">
+    <input/>
+    <output/>
+    <unaffected>
+      <register name="PC"/>
+      <register name="SP"/>
+      <register name="DSP_LOOP_START"/>
+      <register name="DSP_LOOP_START_SHADOW"/>
+      <register name="DSP_LOOP_COUNT_SHADOW"/>
+    </unaffected>
+  </prototype>
+
+</compiler_spec>
