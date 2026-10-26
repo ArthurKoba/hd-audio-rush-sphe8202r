@@ -1,0 +1,32 @@
+{
+  "profile": "aux",
+  "source_sha256": "47ccd79c7868e47dd55c1fdfaf1ccabc315f71c58d6e3f7e3f99c606b1aded2e",
+  "status": "READBACK_COMPLETED",
+  "function_count": 92,
+  "auto_analyzed": true,
+  "C_ok": 92,
+  "C_failed": 0,
+  "warning_lines": 0,
+  "CE_total": 82,
+  "CE_direct": 82,
+  "CE_indirect": 0,
+  "CE_unknown": 0,
+  "errors": [],
+  "worker": {
+    "reason": "requested_cleanup",
+    "exit_code": 0,
+    "peak_rss_mib": 460.8,
+    "remaining_pids": []
+  },
+  "import_result": {
+    "success": true,
+    "name": "aux-rush31-local-original-fresh-r2.bin",
+    "path": "/RUSH28-architecture-import-validation/aux-rush31-local-original-fresh-r2.bin",
+    "language": "SunplusSPHEAudioDSP:BE:16:default",
+    "analyzing": false,
+    "auto_analyzed": true
+  },
+  "C_unsupported": 0,
+  "C_unresolved_indirect": 0,
+  "warning_categories": "{}"
+}

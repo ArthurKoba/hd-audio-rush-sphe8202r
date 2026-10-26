@@ -1,0 +1,32 @@
+{
+  "profile": "ac3",
+  "source_sha256": "d0a391f61b271c3faac77101271df62729bd643862264fa435421f03365b0c3a",
+  "status": "READBACK_COMPLETED",
+  "function_count": 180,
+  "auto_analyzed": true,
+  "C_ok": 180,
+  "C_failed": 0,
+  "warning_lines": 0,
+  "CE_total": 166,
+  "CE_direct": 166,
+  "CE_indirect": 0,
+  "CE_unknown": 0,
+  "errors": [],
+  "worker": {
+    "reason": "requested_cleanup",
+    "exit_code": 0,
+    "peak_rss_mib": 495.3,
+    "remaining_pids": []
+  },
+  "import_result": {
+    "success": true,
+    "name": "ac3-rush31-local-original-fresh-r2.bin",
+    "path": "/RUSH28-architecture-import-validation/ac3-rush31-local-original-fresh-r2.bin",
+    "language": "SunplusSPHEAudioDSP:BE:16:default",
+    "analyzing": false,
+    "auto_analyzed": true
+  },
+  "C_unsupported": 0,
+  "C_unresolved_indirect": 0,
+  "warning_categories": "{}"
+}
